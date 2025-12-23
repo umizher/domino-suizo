@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dominó Suizo (Individual)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e8eefc; }
+    header { padding: 16px 18px; background: #121a2b; position: sticky; top: 0; border-bottom: 1px solid #22304f; }
+    header h1 { margin: 0; font-size: 18px; }
+    main { padding: 16px 18px; max-width: 1100px; margin: 0 auto; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1.1fr 1fr; } }
+    .card { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px; }
+    .card h2 { margin: 0 0 10px; font-size: 15px; }
+    textarea { width: 100%; min-height: 140px; background: #0b1220; color: #e8eefc; border: 1px solid #22304f; border-radius: 10px; padding: 10px; resize: vertical; }
+    input, select { background:#0b1220; color:#e8eefc; border:1px solid #22304f; border-radius:10px; padding:8px 10px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button {
+      background: #2b65ff; color: white; border: 0; border-radius: 10px;
+      padding: 10px 12px; cursor: pointer; font-weight: 650;
+    }
+    button.secondary { background:#1b2847; border:1px solid #22304f; }
+    button.danger { background:#d12b2b; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; }
+    th, td { border-bottom: 1px solid #22304f; padding: 10px; text-align: left; font-size: 13px; }
+    th { background: #0f1830; position: sticky; top: 58px; z-index: 1; }
+    .muted { color:#9fb1db; font-size: 12px; }
+    .pill { display:inline-block; padding:3px 8px; border:1px solid #22304f; border-radius:999px; font-size:12px; color:#cfe0ff; }
+    .flex-between { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .matches { display:flex; flex-direction:column; gap:10px; }
+    .match {
+      border:1px solid #22304f; border-radius:12px; padding:10px; background:#0f1830;
+      display:grid; grid-template-columns: 1fr; gap:10px;
+    }
+    @media (min-width: 700px) { .match { grid-template-columns: 1.2fr 1.2fr .8fr; } }
+    .match .names { display:flex; flex-direction:column; gap:6px; }
+    .match .names b { font-size: 14px; }
+    .match .scores { display:flex; gap:10px; align-items:center; justify-content:flex-start; flex-wrap:wrap; }
+    .match .scores label { display:flex; gap:6px; align-items:center; font-size:12px; color:#cfe0ff; }
+    .match .winner { display:flex; align-items:center; justify-content:flex-end; }
+    .match .winner .pill { font-weight: 700; }
+    .footer { margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .small { font-size: 12px; }
+    a { color:#7fb0ff; }
+  </style>
+</head>
+
+<body>
+<header class="flex-between">
+  <h1>🁫 Dominó Suizo (Individual) – Web App</h1>
+  <div class="row">
+    <span class="pill" id="roundPill">Ronda: 0</span>
+    <button class="secondary" id="btnExport">Exportar CSV</button>
+    <button class="danger" id="btnReset">Reset</button>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="card">
+    <h2>Jugadores</h2>
+    <p class="muted">Pega <b>un jugador por línea</b>. Luego: <b>Generar Ronda 1</b>.</p>
+    <textarea id="playersInput" placeholder="Ej:\nJuan\nPedro\nLuis\nAna"></textarea>
+
+    <div class="footer">
+      <button id="btnLoadPlayers">Guardar jugadores</button>
+      <button class="secondary" id="btnGenR1">Generar Ronda 1 (aleatoria)</button>
+      <button class="secondary" id="btnGenNext">Generar Siguiente Ronda (suizo)</button>
+      <span class="muted small" id="playersCount"></span>
+    </div>
+
+    <hr style="border:0;border-top:1px solid #22304f;margin:12px 0;" />
+
+    <h2>Configuración</h2>
+    <div class="row">
+      <label class="small">Puntos por partida:
+        <input id="pointsTo" type="number" value="200" min="50" step="10" style="width:90px">
+      </label>
+      <label class="small">BYE cuenta como victoria:
+        <select id="byeCounts">
+          <option value="yes" selected>Sí</option>
+          <option value="no">No</option>
+        </select>
+      </label>
+      <span class="muted small">* El ganador suma los puntos del rival (PF) para desempate.</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="flex-between">
+      <h2>Ronda actual</h2>
+      <div class="row">
+        <button class="secondary" id="btnAutoWinners">Auto-ganadores (si BYE)</button>
+        <button id="btnSaveScores">Guardar puntos</button>
+      </div>
+    </div>
+    <div class="matches" id="matches"></div>
+    <p class="muted small">Tip: escribe los puntos y dale <b>Guardar puntos</b>. La tabla se actualiza sola.</p>
+  </section>
+
+  <section class="card" style="grid-column:1/-1;">
+    <div class="flex-between">
+      <h2>Tabla (Standings)</h2>
+      <span class="muted small">Orden: PTS (G), DIF, PF</span>
+    </div>
+    <div style="overflow:auto; border-radius:12px; border:1px solid #22304f;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th><th>PTS</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+/** -------------------- Estado + Storage -------------------- */
+const STORAGE_KEY = "domino_suizo_v1";
+
+const state = {
+  players: [],
+  rounds: [], // [{round, table, A, B, ptsA, ptsB}]
+  pointsTo: 200,
+  byeCounts: true
+};
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const s = JSON.parse(raw);
+    if (s && Array.isArray(s.players) && Array.isArray(s.rounds)) {
+      state.players = s.players;
+      state.rounds = s.rounds;
+      state.pointsTo = Number(s.pointsTo || 200);
+      state.byeCounts = !!s.byeCounts;
+    }
+  } catch {}
+}
+
+function resetAll() {
+  if (!confirm("¿Seguro que quieres borrar todo el torneo?")) return;
+  state.players = [];
+  state.rounds = [];
+  saveState();
+  renderAll();
+}
+
+/** -------------------- Utilidades -------------------- */
+function uniqNonEmptyLines(text) {
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  for (const n of lines) {
+    const key = n.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); out.push(n); }
+  }
+  return out;
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i=a.length-1;i>0;i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function pairKey(a,b){
+  const A = String(a), B = String(b);
+  return (A < B) ? `${A}|${B}` : `${B}|${A}`;
+}
+
+function currentRoundNumber() {
+  return state.rounds.reduce((m,x)=>Math.max(m, x.round), 0);
+}
+
+function matchesInRound(rn) {
+  return state.rounds.filter(m => m.round === rn);
+}
+
+/** -------------------- Standings -------------------- */
+function computeStandings() {
+  const players = state.players.slice();
+  const playedPairs = new Set();
+  const hadBye = new Set();
+
+  const stats = new Map();
+  for (const p of players) {
+    stats.set(p, {player:p, PJ:0, G:0, P:0, PF:0, PC:0, DIF:0, PTS:0});
+  }
+
+  for (const m of state.rounds) {
+    if (!stats.has(m.A)) continue;
+
+    // BYE
+    if (m.B === "BYE") {
+      hadBye.add(m.A);
+      stats.get(m.A).PJ += 1;
+      if (state.byeCounts) {
+        stats.get(m.A).G += 1;
+        stats.get(m.A).PTS += 1;
+      } else {
+        stats.get(m.A).P += 1; // o podrías dejarlo neutro; aquí lo marcamos como "no victoria"
+      }
+      continue;
+    }
+
+    if (!stats.has(m.B)) continue;
+
+    stats.get(m.A).PJ += 1;
+    stats.get(m.B).PJ += 1;
+
+    playedPairs.add(pairKey(m.A, m.B));
+
+    const a = Number(m.ptsA ?? "");
+    const b = Number(m.ptsB ?? "");
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+    if (a === b) continue; // empate: no suma (puedes cambiarlo si quieres)
+    const winner = (a > b) ? m.A : m.B;
+    const loser  = (a > b) ? m.B : m.A;
+    const loserPts = (a > b) ? b : a;
+
+    stats.get(winner).G += 1;
+    stats.get(winner).PTS += 1;
+    stats.get(loser).P += 1;
+
+    // winner takes opponent points (PF)
+    stats.get(winner).PF += loserPts;
+    stats.get(loser).PC += loserPts;
+  }
+
+  for (const s of stats.values()) s.DIF = s.PF - s.PC;
+
+  const table = Array.from(stats.values()).sort((x,y)=>{
+    if (y.PTS !== x.PTS) return y.PTS - x.PTS;
+    if (y.DIF !== x.DIF) return y.DIF - x.DIF;
+    if (y.PF !== x.PF) return y.PF - x.PF;
+    return x.player.localeCompare(y.player);
+  });
+
+  return { table, playedPairs, hadBye };
+}
+
+/** -------------------- Pairing (Swiss) -------------------- */
+function canGenerateNextRound() {
+  if (state.players.length < 2) return false;
+  // Si hay ronda actual, exigir que TODOS los matches tengan puntos (salvo BYE)
+  const rn = currentRoundNumber();
+  if (rn === 0) return true;
+  const ms = matchesInRound(rn);
+  for (const m of ms) {
+    if (m.B === "BYE") continue;
+    if (m.ptsA === "" || m.ptsB === "" || m.ptsA == null || m.ptsB == null) return false;
+  }
+  return true;
+}
+
+function generateRound1() {
+  if (state.players.length < 2) return alert("Pon al menos 2 jugadores.");
+  if (currentRoundNumber() > 0) return alert("Ya hay rondas. Usa 'Generar Siguiente Ronda'.");
+  const list = shuffle(state.players);
+  addPairsAsNewRound(list, true);
+}
+
+function generateNextRoundSwiss() {
+  if (state.players.length < 2) return alert("Pon al menos 2 jugadores.");
+  if (!canGenerateNextRound()) return alert("Primero completa los puntos de la ronda actual (todos).");
+
+  const { table, playedPairs, hadBye } = computeStandings();
+  let ranked = table.map(x => x.player);
+
+  // Si es la primera ronda realmente
+  if (currentRoundNumber() === 0) {
+    ranked = shuffle(ranked);
+    addPairsAsNewRound(ranked, true);
+    return;
+  }
+
+  // BYE si impar: se lo damos al peor rank que NO haya tenido BYE
+  const pool = ranked.slice();
+  const pairs = [];
+  if (pool.length % 2 === 1) {
+    let byeIndex = -1;
+    for (let i = pool.length - 1; i >= 0; i--) {
+      if (!hadBye.has(pool[i])) { byeIndex = i; break; }
+    }
+    if (byeIndex === -1) byeIndex = pool.length - 1;
+    const byePlayer = pool.splice(byeIndex, 1)[0];
+    pairs.push([byePlayer, "BYE"]);
+  }
+
+  const used = new Set();
+
+  for (let i=0;i<pool.length;i++){
+    const p = pool[i];
+    if (used.has(p)) continue;
+
+    let best = null;
+
+    // 1) intenta NO repetido (preferencia fuerte)
+    for (let j=i+1;j<pool.length;j++){
+      const q = pool[j];
+      if (used.has(q)) continue;
+      if (!playedPairs.has(pairKey(p,q))) { best = q; break; }
+    }
+
+    // 2) si no se puede, permite repetido (torneos cortos)
+    if (!best){
+      for (let j=i+1;j<pool.length;j++){
+        const q = pool[j];
+        if (!used.has(q)) { best = q; break; }
+      }
+    }
+
+    if (!best) continue;
+    used.add(p); used.add(best);
+    pairs.push([p,best]);
+    playedPairs.add(pairKey(p,best));
+  }
+
+  const rn = currentRoundNumber() + 1;
+  let tableNo = 1;
+  for (const [A,B] of pairs) {
+    state.rounds.push({ round: rn, table: tableNo++, A, B, ptsA:"", ptsB:"" });
+  }
+  saveState();
+  renderAll();
+}
+
+function addPairsAsNewRound(list, randomize) {
+  let pool = randomize ? shuffle(list) : list.slice();
+  const rn = currentRoundNumber() + 1;
+
+  if (pool.length % 2 === 1) pool.push("BYE");
+
+  let tableNo = 1;
+  for (let i=0;i<pool.length;i+=2){
+    state.rounds.push({ round: rn, table: tableNo++, A: pool[i], B: pool[i+1], ptsA:"", ptsB:"" });
+  }
+  saveState();
+  renderAll();
+}
+
+/** -------------------- Render UI -------------------- */
+const els = {
+  playersInput: document.getElementById("playersInput"),
+  playersCount: document.getElementById("playersCount"),
+  matches: document.getElementById("matches"),
+  tableBody: document.getElementById("tableBody"),
+  roundPill: document.getElementById("roundPill"),
+  pointsTo: document.getElementById("pointsTo"),
+  byeCounts: document.getElementById("byeCounts"),
+  btnLoadPlayers: document.getElementById("btnLoadPlayers"),
+  btnGenR1: document.getElementById("btnGenR1"),
+  btnGenNext: document.getElementById("btnGenNext"),
+  btnSaveScores: document.getElementById("btnSaveScores"),
+  btnReset: document.getElementById("btnReset"),
+  btnExport: document.getElementById("btnExport"),
+  btnAutoWinners: document.getElementById("btnAutoWinners")
+};
+
+function renderPlayersBox() {
+  els.playersInput.value = state.players.join("\n");
+  els.playersCount.textContent = state.players.length
+    ? `${state.players.length} jugador(es) cargados`
+    : "Sin jugadores cargados";
+}
+
+function renderRound() {
+  const rn = currentRoundNumber();
+  els.roundPill.textContent = `Ronda: ${rn}`;
+  els.matches.innerHTML = "";
+
+  if (rn === 0) {
+    els.matches.innerHTML = `<div class="muted">Aún no hay rondas. Presiona <b>Generar Ronda 1</b>.</div>`;
+    return;
+  }
+
+  const ms = matchesInRound(rn).sort((a,b)=>a.table-b.table);
+
+  for (const m of ms) {
+    const div = document.createElement("div");
+    div.className = "match";
+
+    const names = document.createElement("div");
+    names.className = "names";
+    names.innerHTML = `<div class="muted">Mesa ${m.table}</div>
+      <b>${escapeHtml(m.A)}</b>
+      <span class="muted">vs</span>
+      <b>${escapeHtml(m.B)}</b>`;
+
+    const scores = document.createElement("div");
+    scores.className = "scores";
+
+    const inpA = document.createElement("input");
+    inpA.type = "number"; inpA.min = "0"; inpA.step = "1";
+    inpA.value = m.ptsA ?? "";
+    inpA.disabled = (m.B === "BYE");
+    inpA.style.width = "90px";
+
+    const inpB = document.createElement("input");
+    inpB.type = "number"; inpB.min = "0"; inpB.step = "1";
+    inpB.value = m.ptsB ?? "";
+    inpB.disabled = (m.B === "BYE");
+    inpB.style.width = "90px";
+
+    scores.appendChild(labelWrap(`Puntos ${m.A}`, inpA));
+    scores.appendChild(labelWrap(`Puntos ${m.B}`, inpB));
+
+    const winner = document.createElement("div");
+    winner.className = "winner";
+    const w = calcWinner(m);
+    winner.innerHTML = w ? `<span class="pill">Ganador: ${escapeHtml(w)}</span>` : `<span class="muted">—</span>`;
+
+    // bind
+    inpA.addEventListener("input", () => { m.ptsA = inpA.value; winner.innerHTML = renderWinnerPill(calcWinner(m)); });
+    inpB.addEventListener("input", () => { m.ptsB = inpB.value; winner.innerHTML = renderWinnerPill(calcWinner(m)); });
+
+    div.appendChild(names);
+    div.appendChild(scores);
+    div.appendChild(winner);
+    els.matches.appendChild(div);
+  }
+}
+
+function renderWinnerPill(w) {
+  return w ? `<span class="pill">Ganador: ${escapeHtml(w)}</span>` : `<span class="muted">—</span>`;
+}
+
+function calcWinner(m) {
+  if (m.B === "BYE") return m.A;
+  const a = Number(m.ptsA), b = Number(m.ptsB);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return "";
+  if (a === b) return "";
+  return a > b ? m.A : m.B;
+}
+
+function labelWrap(text, inputEl) {
+  const lab = document.createElement("label");
+  lab.innerHTML = `<span>${escapeHtml(text)}</span>`;
+  lab.appendChild(inputEl);
+  return lab;
+}
+
+function renderTable() {
+  const { table } = computeStandings();
+  els.tableBody.innerHTML = "";
+  let idx = 1;
+  for (const s of table) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${idx++}</td>
+      <td><b>${escapeHtml(s.player)}</b></td>
+      <td>${s.PJ}</td>
+      <td>${s.G}</td>
+      <td>${s.P}</td>
+      <td>${s.PF}</td>
+      <td>${s.PC}</td>
+      <td>${s.DIF}</td>
+      <td><b>${s.PTS}</b></td>
+    `;
+    els.tableBody.appendChild(tr);
+  }
+}
+
+function renderAll() {
+  els.pointsTo.value = state.pointsTo;
+  els.byeCounts.value = state.byeCounts ? "yes" : "no";
+
+  renderPlayersBox();
+  renderRound();
+  renderTable();
+
+  // buttons
+  els.btnGenR1.disabled = !(state.players.length >= 2) || currentRoundNumber() > 0;
+  els.btnGenNext.disabled = !(state.players.length >= 2) || !canGenerateNextRound();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+/** -------------------- Acciones UI -------------------- */
+els.btnLoadPlayers.addEventListener("click", () => {
+  state.players = uniqNonEmptyLines(els.playersInput.value);
+  if (state.players.length < 2) return alert("Pon al menos 2 jugadores.");
+  saveState();
+  renderAll();
+});
+
+els.btnGenR1.addEventListener("click", () => {
+  state.pointsTo = Number(els.pointsTo.value || 200);
+  state.byeCounts = (els.byeCounts.value === "yes");
+  saveState();
+  generateRound1();
+});
+
+els.btnGenNext.addEventListener("click", () => {
+  state.pointsTo = Number(els.pointsTo.value || 200);
+  state.byeCounts = (els.byeCounts.value === "yes");
+  saveState();
+  generateNextRoundSwiss();
+});
+
+els.btnSaveScores.addEventListener("click", () => {
+  state.pointsTo = Number(els.pointsTo.value || 200);
+  state.byeCounts = (els.byeCounts.value === "yes");
+  saveState();
+  renderAll();
+  alert("Puntos guardados ✅");
+});
+
+els.btnAutoWinners.addEventListener("click", () => {
+  const rn = currentRoundNumber();
+  if (rn === 0) return;
+  for (const m of matchesInRound(rn)) {
+    if (m.B === "BYE") { m.ptsA = ""; m.ptsB = ""; }
+  }
+  saveState(); renderAll();
+});
+
+els.btnReset.addEventListener("click", resetAll);
+
+els.btnExport.addEventListener("click", () => {
+  const lines = [];
+  lines.push(["round","table","A","B","ptsA","ptsB"].join(","));
+  for (const m of state.rounds) {
+    lines.push([m.round,m.table,quote(m.A),quote(m.B),m.ptsA ?? "", m.ptsB ?? ""].join(","));
+  }
+  lines.push("");
+  lines.push("STANDINGS,,,,,");
+  const { table } = computeStandings();
+  lines.push(["rank","player","PJ","G","P","PF","PC","DIF","PTS"].join(","));
+  table.forEach((s,i)=>{
+    lines.push([i+1,quote(s.player),s.PJ,s.G,s.P,s.PF,s.PC,s.DIF,s.PTS].join(","));
+  });
+
+  const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "domino-suizo.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+function quote(s){
+  const t = String(s ?? "");
+  if (/[,"\n]/.test(t)) return `"${t.replace(/"/g,'""')}"`;
+  return t;
+}
+
+/** -------------------- Init -------------------- */
+loadState();
+renderAll();
+</script>
+</body>
+</html>
