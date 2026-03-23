@@ -631,8 +631,15 @@ function q(s){
 
 /* =================== Init =================== */
 if(new URLSearchParams(location.search).get("reset") !== null){
-  localStorage.removeItem(STORAGE_KEY);
-  history.replaceState(null,"", location.pathname);
+  const pin = prompt("Introduce el PIN para resetear:");
+  if(pin === "5050"){
+    localStorage.removeItem(STORAGE_KEY);
+    history.replaceState(null,"", location.pathname);
+    alert("Caché borrado correctamente.");
+  } else {
+    alert("PIN incorrecto. No se borró nada.");
+    history.replaceState(null,"", location.pathname);
+  }
 }
 loadState();
 renderAll();
