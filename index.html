@@ -67,7 +67,8 @@
   const btn    = document.getElementById("lockBtn");
   const input  = document.getElementById("lockPin");
   const err    = document.getElementById("lockErr");
-  if(sessionStorage.getItem(KEY) !== "ok"){
+  const isReset = new URLSearchParams(location.search).get("reset") !== null;
+  if(!isReset && sessionStorage.getItem(KEY) !== "ok"){
     screen.style.display = "flex";
     document.body.style.overflow = "hidden";
   }
