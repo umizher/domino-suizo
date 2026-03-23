@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dominó Suizo (Parejas fijas)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e8eefc; }
+    header { padding: 16px 18px; background: #121a2b; border-bottom: 1px solid #22304f; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    .header-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    main { padding: 16px 18px; max-width: 1100px; margin: 0 auto; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1.1fr 1fr; } }
+    .card { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px; }
+    .card h2 { margin: 0 0 10px; font-size: 15px; }
+    textarea { width: 100%; min-height: 140px; background: #0b1220; color: #e8eefc; border: 1px solid #22304f; border-radius: 10px; padding: 10px; resize: vertical; box-sizing: border-box; }
+    input, select { background: #0b1220; color: #e8eefc; border: 1px solid #22304f; border-radius: 10px; padding: 8px 10px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button {
+      background: #2b65ff; color: white; border: 0; border-radius: 10px;
+      padding: 10px 12px; cursor: pointer; font-weight: 650;
+    }
+    button.secondary { background: #1b2847; border: 1px solid #22304f; }
+    button.danger { background: #d12b2b; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; }
+    th, td { border-bottom: 1px solid #22304f; padding: 10px; text-align: left; font-size: 13px; }
+    th { background: #0f1830; }
+    tr.top3 td:first-child { font-weight: bold; color: #ffd700; }
+    .muted { color: #9fb1db; font-size: 12px; }
+    .pill { display: inline-block; padding: 3px 8px; border: 1px solid #22304f; border-radius: 999px; font-size: 12px; color: #cfe0ff; }
+    .flex-between { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .matches { display: flex; flex-direction: column; gap: 10px; }
+    .match {
+      border: 1px solid #22304f; border-radius: 12px; padding: 10px; background: #0f1830;
+      display: grid; grid-template-columns: 1fr; gap: 10px;
+    }
+    @media (min-width: 750px) { .match { grid-template-columns: 1.6fr 1fr .8fr; } }
+    .names { display: flex; flex-direction: column; gap: 6px; }
+    .line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .line b { font-size: 14px; }
+    .vs { color: #9fb1db; font-size: 12px; margin: 4px 0; }
+    .scores { display: flex; gap: 10px; align-items: center; justify-content: flex-start; flex-wrap: wrap; }
+    .scores label { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #cfe0ff; }
+    .winner { display: flex; align-items: center; justify-content: flex-end; }
+    .footer { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .small { font-size: 12px; }
+    .notice { padding: 10px; border: 1px solid #22304f; border-radius: 12px; background: #0b1220; }
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
+      background: #1b2847; border: 1px solid #22304f; border-radius: 12px;
+      padding: 10px 20px; font-size: 13px; color: #e8eefc;
+      transition: transform .25s ease, opacity .25s ease; opacity: 0; z-index: 999; pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>🁫 Dominó Suizo – Parejas fijas</h1>
+  <div class="header-row">
+    <span class="pill" id="roundPill">Ronda: 0/5</span>
+    <button class="secondary" id="btnExport">Exportar CSV</button>
+    <button class="danger" id="btnReset">Reset</button>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="card">
+    <h2>Parejas</h2>
+    <p class="muted">Pega <b>una pareja por línea</b> (ej: <i>Juan &amp; Pedro</i>). Luego: <b>Guardar parejas</b> → <b>Generar Ronda 1</b>.</p>
+    <textarea id="pairsInput" placeholder="Ej:&#10;Juan &amp; Pedro&#10;Luis &amp; Ana&#10;Carlos &amp; Miguel&#10;José &amp; Raúl"></textarea>
+
+    <div class="footer">
+      <button id="btnLoadPairs">Guardar parejas</button>
+      <button class="secondary" id="btnGenR1">Generar Ronda 1 (aleatoria)</button>
+      <button class="secondary" id="btnGenNext">Generar Siguiente Ronda (suizo)</button>
+      <span class="muted small" id="pairsCount"></span>
+    </div>
+
+    <div class="notice" style="margin-top:12px;">
+      <div class="row">
+        <span class="pill">Reglas</span>
+        <span class="muted small"><b>5 rondas</b>. <b>No empates</b>. Ranking: <b>Ganadas</b> → <b>Puntos</b> → <b>DIF</b>.</span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <label class="small">Número impar de parejas:
+          <select id="byeMode">
+            <option value="bench" selected>Banco (descansa y NO suma)</option>
+            <option value="none">No permitir (solo número par)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="flex-between">
+      <h2>Ronda actual</h2>
+      <button id="btnSaveScores">Guardar puntos</button>
+    </div>
+    <div class="matches" id="matches"></div>
+    <p class="muted small">Pon puntos por pareja (ej: 200–120). <b>No se permiten empates</b>.</p>
+  </section>
+
+  <section class="card" style="grid-column:1/-1;">
+    <div class="flex-between">
+      <h2>Tabla (posiciones automáticas)</h2>
+      <span class="muted small">Orden: <b>Ganadas</b> → <b>Puntos</b> → DIF</span>
+    </div>
+    <div style="overflow:auto; border-radius:12px; border:1px solid #22304f;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Pareja</th><th>PJ</th><th>G</th><th>P</th><th>Puntos</th><th>En contra</th><th>DIF</th><th>Ganadas</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* =================== Config =================== */
+const MAX_ROUNDS = 5;
+
+/* =================== Toast =================== */
+let toastTimer = null;
+function showToast(msg, ms = 2500){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), ms);
+}
+
+/* =================== Estado + Storage =================== */
+const STORAGE_KEY = "domino_suizo_parejas_fijas_v1";
+const state = {
+  pairs: [],          // ["Juan & Pedro", "Luis & Ana", ...]
+  rounds: [],         // {round, table, pA, pB, ptsA, ptsB}
+  byeMode: "bench",
+  benchHistory: {},   // {pairName: count}
+  _lastBench: null
+};
+
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function loadState(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw) return;
+  try{
+    const s = JSON.parse(raw);
+    if(s && Array.isArray(s.pairs) && Array.isArray(s.rounds)){
+      state.pairs = s.pairs;
+      state.rounds = s.rounds;
+      state.byeMode = s.byeMode || "bench";
+      state.benchHistory = s.benchHistory || {};
+      state._lastBench = s._lastBench || null;
+    }
+  }catch{}
+}
+function resetAll(){
+  if(!confirm("¿Seguro que quieres borrar todo el torneo?")) return;
+  state.pairs = [];
+  state.rounds = [];
+  state.byeMode = "bench";
+  state.benchHistory = {};
+  state._lastBench = null;
+  saveState();
+  renderAll();
+}
+
+/* =================== Utilidades =================== */
+function uniqNonEmptyLines(text){
+  const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  for(const n of lines){
+    const k = n.toLowerCase();
+    if(!seen.has(k)){ seen.add(k); out.push(n); }
+  }
+  return out;
+}
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function vsKey(a, b){ return (a < b) ? `${a}||${b}` : `${b}||${a}`; }
+
+function currentRoundNumber(){
+  return state.rounds.reduce((m,x)=>Math.max(m,x.round),0);
+}
+function matchesInRound(rn){
+  return state.rounds.filter(m=>m.round===rn).sort((a,b)=>a.table-b.table);
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+/* =================== Standings =================== */
+function computeStandings(){
+  const stats = new Map();
+  for(const p of state.pairs){
+    stats.set(p, {pair:p, PJ:0, G:0, P:0, PF:0, PC:0, DIF:0, PTS:0});
+  }
+  const vsUsed = new Set();
+
+  for(const m of state.rounds){
+    if(!stats.has(m.pA) || !stats.has(m.pB)) continue;
+    vsUsed.add(vsKey(m.pA, m.pB));
+
+    stats.get(m.pA).PJ++;
+    stats.get(m.pB).PJ++;
+
+    const a = Number(m.ptsA);
+    const b = Number(m.ptsB);
+    if(!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    if(a === b) continue;
+
+    if(a > b){
+      stats.get(m.pA).G++;  stats.get(m.pA).PTS++;
+      stats.get(m.pB).P++;
+    } else {
+      stats.get(m.pB).G++;  stats.get(m.pB).PTS++;
+      stats.get(m.pA).P++;
+    }
+    stats.get(m.pA).PF += a;  stats.get(m.pA).PC += b;
+    stats.get(m.pB).PF += b;  stats.get(m.pB).PC += a;
+  }
+
+  for(const s of stats.values()) s.DIF = s.PF - s.PC;
+
+  const table = Array.from(stats.values()).sort((x,y)=>{
+    if(y.PTS !== x.PTS) return y.PTS - x.PTS;
+    if(y.PF  !== x.PF ) return y.PF  - x.PF;
+    if(y.DIF !== x.DIF) return y.DIF - x.DIF;
+    return x.pair.localeCompare(y.pair);
+  });
+
+  return { table, vsUsed };
+}
+
+/* =================== Validaciones =================== */
+function canGenerateNextRound(){
+  if(state.pairs.length < 2) return false;
+  const rn = currentRoundNumber();
+  if(rn === 0) return true;
+  const ms = matchesInRound(rn);
+  for(const m of ms){
+    const a = Number(m.ptsA), b = Number(m.ptsB);
+    if(!Number.isFinite(a) || !Number.isFinite(b)) return false;
+    if(a === b) return false;
+  }
+  return true;
+}
+
+/* =================== Banco rotativo =================== */
+function pickBench(pool, need){
+  const counts = state.benchHistory || {};
+  const scored = pool.map(p=>({p, c:(counts[p]||0)}));
+  scored.sort((a,b)=>a.c - b.c);
+  const bench = [];
+  let i = 0;
+  while(bench.length < need && i < scored.length){
+    const minC = scored[i].c;
+    const same = [];
+    while(i < scored.length && scored[i].c === minC){ same.push(scored[i].p); i++; }
+    for(const p of shuffle(same)){
+      if(bench.length < need) bench.push(p);
+    }
+  }
+  return bench;
+}
+function markBench(bench){
+  for(const p of bench) state.benchHistory[p] = (state.benchHistory[p]||0) + 1;
+}
+
+/* =================== Pairing suizo =================== */
+function generateRound1(){
+  if(state.pairs.length < 2) return showToast("Necesitas mínimo 2 parejas.");
+  if(currentRoundNumber() > 0) return showToast("Ya hay rondas. Usa 'Generar Siguiente Ronda'.");
+  if(state.pairs.length % 2 !== 0 && state.byeMode === "none")
+    return showToast("Número impar de parejas. Usa Banco o agrega una más.");
+  const ranked = shuffle(state.pairs.slice());
+  addNewRoundFromRanked(ranked, new Set());
+}
+
+function generateNextRound(){
+  if(currentRoundNumber() >= MAX_ROUNDS) return showToast("Ya se jugaron 5 rondas ✅");
+  if(!canGenerateNextRound()) return showToast("Completa puntos de la ronda actual (sin empates).");
+  if(state.pairs.length % 2 !== 0 && state.byeMode === "none")
+    return showToast("Número impar de parejas. Usa Banco o agrega una más.");
+  const { table, vsUsed } = computeStandings();
+  const ranked = table.map(x=>x.pair);
+  addNewRoundFromRanked(ranked, vsUsed);
+}
+
+function addNewRoundFromRanked(rankedPairs, vsUsed){
+  let pool = rankedPairs.slice();
+
+  // Banco si número impar
+  let bench = [];
+  if(pool.length % 2 !== 0){
+    if(state.byeMode === "bench"){
+      bench = pickBench(pool, 1);
+      const benchSet = new Set(bench);
+      pool = pool.filter(p=>!benchSet.has(p));
+      markBench(bench);
+    } else return;
+  }
+
+  // Emparejar parejas evitando rematches
+  const localVsUsed = new Set(vsUsed);
+  const usedIdx = new Set();
+  const matches = [];
+
+  for(let i = 0; i < pool.length; i++){
+    if(usedIdx.has(i)) continue;
+    const pA = pool[i];
+
+    // Buscar rival preferido (no rematch)
+    let bestJ = -1;
+    for(let j = i+1; j < pool.length; j++){
+      if(usedIdx.has(j)) continue;
+      const vk = vsKey(pA, pool[j]);
+      if(!localVsUsed.has(vk)){ bestJ = j; break; }
+    }
+    // Fallback: cualquier rival disponible
+    if(bestJ === -1){
+      for(let j = i+1; j < pool.length; j++){
+        if(!usedIdx.has(j)){ bestJ = j; break; }
+      }
+    }
+    if(bestJ === -1) continue;
+
+    const pB = pool[bestJ];
+    usedIdx.add(i);
+    usedIdx.add(bestJ);
+    localVsUsed.add(vsKey(pA, pB));
+    matches.push({pA, pB});
+  }
+
+  const rn = currentRoundNumber() + 1;
+  let tableNo = 1;
+  for(const m of matches){
+    state.rounds.push({ round: rn, table: tableNo++, pA: m.pA, pB: m.pB, ptsA: "", ptsB: "" });
+  }
+  state._lastBench = bench.length ? {round: rn, pairs: bench.slice()} : null;
+  saveState();
+  renderAll();
+}
+
+/* =================== UI =================== */
+const els = {
+  pairsInput:   document.getElementById("pairsInput"),
+  pairsCount:   document.getElementById("pairsCount"),
+  matches:      document.getElementById("matches"),
+  tableBody:    document.getElementById("tableBody"),
+  roundPill:    document.getElementById("roundPill"),
+  byeMode:      document.getElementById("byeMode"),
+  btnLoadPairs: document.getElementById("btnLoadPairs"),
+  btnGenR1:     document.getElementById("btnGenR1"),
+  btnGenNext:   document.getElementById("btnGenNext"),
+  btnSaveScores:document.getElementById("btnSaveScores"),
+  btnReset:     document.getElementById("btnReset"),
+  btnExport:    document.getElementById("btnExport")
+};
+
+function renderPairsBox(){
+  els.pairsInput.value = state.pairs.join("\n");
+  els.pairsCount.textContent = state.pairs.length
+    ? `${state.pairs.length} pareja(s) cargadas`
+    : "Sin parejas cargadas";
+  els.byeMode.value = state.byeMode;
+}
+
+function renderRound(){
+  const rn = currentRoundNumber();
+  els.roundPill.textContent = `Ronda: ${rn}/${MAX_ROUNDS}`;
+  els.matches.innerHTML = "";
+
+  if(rn === 0){
+    els.matches.innerHTML = `<div class="muted">Aún no hay rondas. Presiona <b>Generar Ronda 1</b>.</div>`;
+    return;
+  }
+
+  const ms = matchesInRound(rn);
+  const bench = state._lastBench && state._lastBench.round === rn ? state._lastBench.pairs : [];
+
+  if(bench && bench.length){
+    const d = document.createElement("div");
+    d.className = "muted";
+    d.style.marginBottom = "8px";
+    d.innerHTML = `<span class="pill">Banco</span> ${bench.map(escapeHtml).join(", ")} (no suma esta ronda)`;
+    els.matches.appendChild(d);
+  }
+
+  for(const m of ms){
+    const div = document.createElement("div");
+    div.className = "match";
+
+    const names = document.createElement("div");
+    names.className = "names";
+    names.innerHTML = `
+      <div class="muted">Mesa ${m.table}</div>
+      <div class="line">
+        <span class="pill">A</span> <b>${escapeHtml(m.pA)}</b>
+        <span class="vs">vs</span>
+        <span class="pill">B</span> <b>${escapeHtml(m.pB)}</b>
+      </div>
+    `;
+
+    const scores = document.createElement("div");
+    scores.className = "scores";
+
+    const inpA = document.createElement("input");
+    inpA.type="number"; inpA.min="0"; inpA.step="1"; inpA.style.width="90px";
+    inpA.setAttribute("aria-label",`Puntos pareja A (mesa ${m.table})`);
+    inpA.value = m.ptsA ?? "";
+
+    const inpB = document.createElement("input");
+    inpB.type="number"; inpB.min="0"; inpB.step="1"; inpB.style.width="90px";
+    inpB.setAttribute("aria-label",`Puntos pareja B (mesa ${m.table})`);
+    inpB.value = m.ptsB ?? "";
+
+    const labA = document.createElement("label");
+    labA.innerHTML = `<span>Pts A</span>`;
+    labA.appendChild(inpA);
+
+    const labB = document.createElement("label");
+    labB.innerHTML = `<span>Pts B</span>`;
+    labB.appendChild(inpB);
+
+    scores.appendChild(labA);
+    scores.appendChild(labB);
+
+    const winner = document.createElement("div");
+    winner.className = "winner";
+
+    function renderResult(){
+      const a = Number(m.ptsA), b = Number(m.ptsB);
+      if(!m.ptsA && !m.ptsB) return `<span class="muted">—</span>`;
+      if(!Number.isFinite(a) || !Number.isFinite(b)) return `<span class="muted">—</span>`;
+      if(a === b) return `<span class="pill" style="border-color:#d12b2b;color:#ffd0d0">⚠️ Empate no permitido</span>`;
+      const name = a > b ? escapeHtml(m.pA) : escapeHtml(m.pB);
+      return `<span class="pill">Gana: ${name}</span>`;
+    }
+    winner.innerHTML = renderResult();
+
+    inpA.addEventListener("input", ()=>{ m.ptsA = inpA.value; winner.innerHTML = renderResult(); });
+    inpB.addEventListener("input", ()=>{ m.ptsB = inpB.value; winner.innerHTML = renderResult(); });
+
+    div.appendChild(names);
+    div.appendChild(scores);
+    div.appendChild(winner);
+    els.matches.appendChild(div);
+  }
+}
+
+function renderTable(){
+  const { table } = computeStandings();
+  els.tableBody.innerHTML = "";
+  table.forEach((s,i)=>{
+    const tr = document.createElement("tr");
+    if(i < 3) tr.className = "top3";
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><b>${escapeHtml(s.pair)}</b></td>
+      <td>${s.PJ}</td>
+      <td>${s.G}</td>
+      <td>${s.P}</td>
+      <td>${s.PF}</td>
+      <td>${s.PC}</td>
+      <td>${s.DIF}</td>
+      <td><b>${s.PTS}</b></td>
+    `;
+    els.tableBody.appendChild(tr);
+  });
+}
+
+function renderAll(){
+  renderPairsBox();
+  renderRound();
+  renderTable();
+
+  els.btnGenR1.disabled   = state.pairs.length < 2 || currentRoundNumber() > 0;
+  els.btnGenNext.disabled = state.pairs.length < 2 || !canGenerateNextRound() || currentRoundNumber() >= MAX_ROUNDS;
+}
+
+/* =================== Eventos =================== */
+els.btnLoadPairs.addEventListener("click", ()=>{
+  state.pairs = uniqNonEmptyLines(els.pairsInput.value);
+  if(state.pairs.length < 2) return showToast("Necesitas mínimo 2 parejas.");
+  saveState(); renderAll();
+  showToast(`${state.pairs.length} parejas cargadas ✅`);
+});
+
+els.btnGenR1.addEventListener("click", ()=>{
+  state.byeMode = els.byeMode.value;
+  saveState();
+  generateRound1();
+});
+
+els.btnGenNext.addEventListener("click", ()=>{
+  state.byeMode = els.byeMode.value;
+  saveState();
+  generateNextRound();
+});
+
+els.btnSaveScores.addEventListener("click", ()=>{
+  const rn = currentRoundNumber();
+  if(rn > 0){
+    const ms = matchesInRound(rn);
+    for(const m of ms){
+      const a = Number(m.ptsA), b = Number(m.ptsB);
+      if(!m.ptsA && !m.ptsB) return showToast("Faltan puntos en alguna mesa.", 3000);
+      if(!Number.isFinite(a) || !Number.isFinite(b)) return showToast("Faltan puntos en alguna mesa.", 3000);
+      if(a === b) return showToast("No se permiten empates. Ajusta los puntos.", 3000);
+    }
+  }
+  state.byeMode = els.byeMode.value;
+  saveState(); renderAll();
+  showToast("Puntos guardados ✅");
+});
+
+els.btnReset.addEventListener("click", resetAll);
+
+els.btnExport.addEventListener("click", ()=>{
+  const lines = [];
+  lines.push(["round","table","parejaA","parejaB","ptsA","ptsB"].join(","));
+  for(const m of state.rounds){
+    lines.push([m.round, m.table, q(m.pA), q(m.pB), m.ptsA??"", m.ptsB??""].join(","));
+  }
+  lines.push("");
+  lines.push("STANDINGS,,,,,");
+  const { table } = computeStandings();
+  lines.push(["rank","pareja","PJ","G","P","PF","PC","DIF","PTS"].join(","));
+  table.forEach((s,i)=>{
+    lines.push([i+1,q(s.pair),s.PJ,s.G,s.P,s.PF,s.PC,s.DIF,s.PTS].join(","));
+  });
+
+  const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download="domino-suizo-parejas.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+
+function q(s){
+  const t = String(s ?? "");
+  if(/[,"\n]/.test(t)) return `"${t.replace(/"/g,'""')}"`;
+  return t;
+}
+
+/* =================== Init =================== */
+loadState();
+renderAll();
+</script>
+</body>
+</html>
