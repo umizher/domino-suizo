@@ -630,6 +630,10 @@ function q(s){
 }
 
 /* =================== Init =================== */
+if(new URLSearchParams(location.search).get("reset") !== null){
+  localStorage.removeItem(STORAGE_KEY);
+  history.replaceState(null,"", location.pathname);
+}
 loadState();
 renderAll();
 </script>
