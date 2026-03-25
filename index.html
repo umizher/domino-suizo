@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dominó Suizo – Equipos</title>
+  <title>Dominó Suizo – Individual</title>
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e8eefc; }
@@ -48,12 +48,8 @@
     .footer { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .small { font-size: 12px; }
     .notice { padding: 10px; border: 1px solid #22304f; border-radius: 12px; background: #0b1220; }
-    /* Pair builder rows */
-    .pair-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .pair-row .pair-num { color:#9fb1db; font-size:12px; min-width:60px; }
-    .pair-row input { flex:1; min-width:100px; }
-    .pair-row .sep { color:#9fb1db; font-size:13px; }
-    .pair-row button.rm { background:#1b2847; border:1px solid #22304f; padding:6px 10px; font-size:12px; color:#ffa0a0; }
+    .nav-link { color: #7ea8f8; font-size: 13px; text-decoration: none; padding: 6px 12px; border: 1px solid #22304f; border-radius: 10px; }
+    .nav-link:hover { background: #1b2847; }
     /* Toast */
     #toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
@@ -67,11 +63,11 @@
 
 <body>
 
-
 <header>
-  <h1>🁫 Dominó Suizo – Equipos (parejas fijas)</h1>
+  <h1>🁫 Dominó Suizo – Individual</h1>
   <div class="header-row">
     <span class="pill" id="roundPill">Ronda: 0/5</span>
+    <a class="nav-link" href="parejas.html">→ Modo Parejas</a>
     <button class="secondary" id="btnExport">Exportar CSV</button>
     <button class="danger" id="btnReset">Reset</button>
   </div>
@@ -79,29 +75,24 @@
 
 <main class="grid">
   <section class="card">
-    <h2>Parejas</h2>
-    <p class="muted">Define cada pareja con sus dos jugadores. Las parejas son <b>fijas</b> durante todo el torneo.</p>
-
-    <div id="pairsBuilder" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
-
+    <h2>Jugadores</h2>
+    <p class="muted">Un jugador por línea. Mínimo 4 jugadores.</p>
+    <textarea id="playersInput" placeholder="Juan&#10;Pedro&#10;Luis&#10;Ana&#10;Carlos&#10;María"></textarea>
     <div class="footer" style="margin-bottom:10px;">
-      <button class="secondary" id="btnAddPair">+ Agregar pareja</button>
-      <button id="btnLoadPairs">Guardar parejas</button>
-      <span class="muted small" id="pairsCount"></span>
+      <button id="btnLoadPlayers">Guardar jugadores</button>
+      <span class="muted small" id="playersCount"></span>
     </div>
-
     <div class="footer">
       <button class="secondary" id="btnGenR1">Generar Ronda 1 (aleatoria)</button>
       <button class="secondary" id="btnGenNext">Generar Siguiente Ronda (suizo)</button>
     </div>
-
     <div class="notice" style="margin-top:12px;">
       <div class="row">
         <span class="pill">Reglas</span>
         <span class="muted small"><b>5 rondas</b>. <b>No empates</b>. Ranking: <b>Ganadas</b> → <b>Puntos</b> → <b>DIF</b>.</span>
       </div>
       <div class="row" style="margin-top:8px;">
-        <label class="small">Número impar de parejas:
+        <label class="small">Número impar de jugadores:
           <select id="byeMode">
             <option value="bench" selected>Banco (descansa y NO suma)</option>
             <option value="none">No permitir (solo número par)</option>
@@ -117,7 +108,7 @@
       <button id="btnSaveScores">Guardar puntos</button>
     </div>
     <div class="matches" id="matches"></div>
-    <p class="muted small">Pon puntos por pareja (ej: 200–120). <b>No se permiten empates</b>.</p>
+    <p class="muted small">Pon puntos por jugador (ej: 200–120). <b>No se permiten empates</b>.</p>
   </section>
 
   <section class="card" style="grid-column:1/-1;">
@@ -129,7 +120,7 @@
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Pareja</th><th>PJ</th><th>G</th><th>P</th><th>Puntos</th><th>En contra</th><th>DIF</th><th>Ganadas</th>
+            <th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th><th>Puntos</th><th>En contra</th><th>DIF</th><th>Ganadas</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -155,14 +146,12 @@ function showToast(msg, ms = 2500){
 }
 
 /* =================== Estado + Storage =================== */
-const STORAGE_KEY = "domino_suizo_equipos_v1";
+const STORAGE_KEY = "domino_suizo_individual_v1";
 const state = {
-  // rawPairs: [{a:"Juan", b:"Pedro"}, ...] — entradas crudas del formulario
-  rawPairs: [],
-  pairs: [],          // ["Juan & Pedro", "Luis & Ana", ...]
-  rounds: [],         // {round, table, pA, pB, ptsA, ptsB}
+  players: [],
+  rounds: [],
   byeMode: "bench",
-  benchHistory: {},   // {pairName: count}
+  benchHistory: {},
   _lastBench: null
 };
 
@@ -173,19 +162,17 @@ function loadState(){
   try{
     const s = JSON.parse(raw);
     if(s && Array.isArray(s.rounds)){
-      state.rawPairs = s.rawPairs || [];
-      state.pairs    = s.pairs   || [];
-      state.rounds   = s.rounds;
-      state.byeMode  = s.byeMode || "bench";
+      state.players      = s.players     || [];
+      state.rounds       = s.rounds;
+      state.byeMode      = s.byeMode     || "bench";
       state.benchHistory = s.benchHistory || {};
-      state._lastBench = s._lastBench || null;
+      state._lastBench   = s._lastBench  || null;
     }
   }catch{}
 }
 function resetAll(){
   if(!confirm("¿Seguro que quieres borrar todo el torneo?")) return;
-  state.rawPairs = [];
-  state.pairs = [];
+  state.players = [];
   state.rounds = [];
   state.byeMode = "bench";
   state.benchHistory = {};
@@ -214,13 +201,8 @@ function shuffle(arr){
   return a;
 }
 function vsKey(a, b){ return (a < b) ? `${a}||${b}` : `${b}||${a}`; }
-
-function currentRoundNumber(){
-  return state.rounds.reduce((m,x)=>Math.max(m,x.round),0);
-}
-function matchesInRound(rn){
-  return state.rounds.filter(m=>m.round===rn).sort((a,b)=>a.table-b.table);
-}
+function currentRoundNumber(){ return state.rounds.reduce((m,x)=>Math.max(m,x.round),0); }
+function matchesInRound(rn){ return state.rounds.filter(m=>m.round===rn).sort((a,b)=>a.table-b.table); }
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
@@ -228,8 +210,8 @@ function escapeHtml(s){
 /* =================== Standings =================== */
 function computeStandings(){
   const stats = new Map();
-  for(const p of state.pairs){
-    stats.set(p, {pair:p, PJ:0, G:0, P:0, PF:0, PC:0, DIF:0, PTS:0});
+  for(const p of state.players){
+    stats.set(p, {player:p, PJ:0, G:0, P:0, PF:0, PC:0, DIF:0, PTS:0});
   }
   const vsUsed = new Set();
 
@@ -262,7 +244,7 @@ function computeStandings(){
     if(y.PTS !== x.PTS) return y.PTS - x.PTS;
     if(y.PF  !== x.PF ) return y.PF  - x.PF;
     if(y.DIF !== x.DIF) return y.DIF - x.DIF;
-    return x.pair.localeCompare(y.pair);
+    return x.player.localeCompare(y.player);
   });
 
   return { table, vsUsed };
@@ -270,7 +252,7 @@ function computeStandings(){
 
 /* =================== Validaciones =================== */
 function canGenerateNextRound(){
-  if(state.pairs.length < 2) return false;
+  if(state.players.length < 2) return false;
   const rn = currentRoundNumber();
   if(rn === 0) return true;
   const ms = matchesInRound(rn);
@@ -305,28 +287,27 @@ function markBench(bench){
 
 /* =================== Pairing suizo =================== */
 function generateRound1(){
-  if(state.pairs.length < 2) return showToast("Necesitas mínimo 2 parejas.");
+  if(state.players.length < 2) return showToast("Necesitas mínimo 2 jugadores.");
   if(currentRoundNumber() > 0) return showToast("Ya hay rondas. Usa 'Generar Siguiente Ronda'.");
-  if(state.pairs.length % 2 !== 0 && state.byeMode === "none")
-    return showToast("Número impar de parejas. Usa Banco o agrega una más.");
-  const ranked = shuffle(state.pairs.slice());
+  if(state.players.length % 2 !== 0 && state.byeMode === "none")
+    return showToast("Número impar de jugadores. Usa Banco o agrega uno más.");
+  const ranked = shuffle(state.players.slice());
   addNewRoundFromRanked(ranked, new Set());
 }
 
 function generateNextRound(){
   if(currentRoundNumber() >= MAX_ROUNDS) return showToast("Ya se jugaron 5 rondas ✅");
   if(!canGenerateNextRound()) return showToast("Completa puntos de la ronda actual (sin empates).");
-  if(state.pairs.length % 2 !== 0 && state.byeMode === "none")
-    return showToast("Número impar de parejas. Usa Banco o agrega una más.");
+  if(state.players.length % 2 !== 0 && state.byeMode === "none")
+    return showToast("Número impar de jugadores. Usa Banco o agrega uno más.");
   const { table, vsUsed } = computeStandings();
-  const ranked = table.map(x=>x.pair);
+  const ranked = table.map(x=>x.player);
   addNewRoundFromRanked(ranked, vsUsed);
 }
 
-function addNewRoundFromRanked(rankedPairs, vsUsed){
-  let pool = rankedPairs.slice();
+function addNewRoundFromRanked(rankedPlayers, vsUsed){
+  let pool = rankedPlayers.slice();
 
-  // Banco si número impar
   let bench = [];
   if(pool.length % 2 !== 0){
     if(state.byeMode === "bench"){
@@ -337,7 +318,6 @@ function addNewRoundFromRanked(rankedPairs, vsUsed){
     } else return;
   }
 
-  // Emparejar parejas evitando rematches
   const localVsUsed = new Set(vsUsed);
   const usedIdx = new Set();
   const matches = [];
@@ -346,14 +326,12 @@ function addNewRoundFromRanked(rankedPairs, vsUsed){
     if(usedIdx.has(i)) continue;
     const pA = pool[i];
 
-    // Buscar rival preferido (no rematch)
     let bestJ = -1;
     for(let j = i+1; j < pool.length; j++){
       if(usedIdx.has(j)) continue;
       const vk = vsKey(pA, pool[j]);
       if(!localVsUsed.has(vk)){ bestJ = j; break; }
     }
-    // Fallback: cualquier rival disponible
     if(bestJ === -1){
       for(let j = i+1; j < pool.length; j++){
         if(!usedIdx.has(j)){ bestJ = j; break; }
@@ -373,68 +351,31 @@ function addNewRoundFromRanked(rankedPairs, vsUsed){
   for(const m of matches){
     state.rounds.push({ round: rn, table: tableNo++, pA: m.pA, pB: m.pB, ptsA: "", ptsB: "" });
   }
-  state._lastBench = bench.length ? {round: rn, pairs: bench.slice()} : null;
+  state._lastBench = bench.length ? {round: rn, players: bench.slice()} : null;
   saveState();
   renderAll();
 }
 
 /* =================== UI =================== */
 const els = {
-  pairsCount:   document.getElementById("pairsCount"),
-  matches:      document.getElementById("matches"),
-  tableBody:    document.getElementById("tableBody"),
-  roundPill:    document.getElementById("roundPill"),
-  byeMode:      document.getElementById("byeMode"),
-  btnAddPair:   document.getElementById("btnAddPair"),
-  btnLoadPairs: document.getElementById("btnLoadPairs"),
-  btnGenR1:     document.getElementById("btnGenR1"),
-  btnGenNext:   document.getElementById("btnGenNext"),
-  btnSaveScores:document.getElementById("btnSaveScores"),
-  btnReset:     document.getElementById("btnReset"),
-  btnExport:    document.getElementById("btnExport")
+  playersInput:  document.getElementById("playersInput"),
+  playersCount:  document.getElementById("playersCount"),
+  matches:       document.getElementById("matches"),
+  tableBody:     document.getElementById("tableBody"),
+  roundPill:     document.getElementById("roundPill"),
+  byeMode:       document.getElementById("byeMode"),
+  btnLoadPlayers:document.getElementById("btnLoadPlayers"),
+  btnGenR1:      document.getElementById("btnGenR1"),
+  btnGenNext:    document.getElementById("btnGenNext"),
+  btnSaveScores: document.getElementById("btnSaveScores"),
+  btnReset:      document.getElementById("btnReset"),
+  btnExport:     document.getElementById("btnExport")
 };
 
-/* =================== Builder de parejas =================== */
-// Datos de trabajo del formulario (antes de guardar)
-let builderData = []; // [{a:"", b:""}, ...]
-
-function renderPairsBuilder(){
-  const container = document.getElementById("pairsBuilder");
-  container.innerHTML = "";
-  if(builderData.length === 0) builderData = [{a:"",b:""}];
-  builderData.forEach((item, idx) => {
-    const row = document.createElement("div");
-    row.className = "pair-row";
-    row.innerHTML = `
-      <span class="pair-num">Pareja ${idx+1}</span>
-      <input type="text" placeholder="Jugador A" value="${escapeHtml(item.a)}" data-idx="${idx}" data-field="a" />
-      <span class="sep">&amp;</span>
-      <input type="text" placeholder="Jugador B" value="${escapeHtml(item.b)}" data-idx="${idx}" data-field="b" />
-      <button class="rm secondary" data-idx="${idx}">✕</button>
-    `;
-    container.appendChild(row);
-    row.querySelectorAll("input").forEach(inp => {
-      inp.addEventListener("input", e => {
-        builderData[+e.target.dataset.idx][e.target.dataset.field] = e.target.value;
-      });
-    });
-    row.querySelector("button.rm").addEventListener("click", e => {
-      builderData.splice(+e.currentTarget.dataset.idx, 1);
-      if(builderData.length === 0) builderData = [{a:"",b:""}];
-      renderPairsBuilder();
-    });
-  });
-}
-
-function renderPairsBox(){
-  // Sync builder from saved state
-  builderData = state.rawPairs.length
-    ? state.rawPairs.map(p=>({a:p.a, b:p.b}))
-    : [{a:"",b:""}];
-  renderPairsBuilder();
-
-  const n = state.pairs.length;
-  els.pairsCount.textContent = n ? `${n} pareja(s) guardadas` : "Sin parejas guardadas";
+function renderPlayersBox(){
+  els.playersInput.value = state.players.join("\n");
+  const n = state.players.length;
+  els.playersCount.textContent = n ? `${n} jugador(es) guardados` : "Sin jugadores guardados";
   els.byeMode.value = state.byeMode;
 }
 
@@ -449,13 +390,15 @@ function renderRound(){
   }
 
   const ms = matchesInRound(rn);
-  const bench = state._lastBench && state._lastBench.round === rn ? state._lastBench.pairs : [];
+  const bench = state._lastBench && state._lastBench.round === rn
+    ? (state._lastBench.players || state._lastBench.pairs || [])
+    : [];
 
   if(bench && bench.length){
     const d = document.createElement("div");
     d.className = "muted";
     d.style.marginBottom = "8px";
-    d.innerHTML = `<span class="pill">Banco</span> ${bench.map(escapeHtml).join(", ")} (no suma esta ronda)`;
+    d.innerHTML = `<span class="pill">Banco</span> ${bench.map(escapeHtml).join(", ")} (descansa esta ronda)`;
     els.matches.appendChild(d);
   }
 
@@ -479,12 +422,12 @@ function renderRound(){
 
     const inpA = document.createElement("input");
     inpA.type="number"; inpA.min="0"; inpA.step="1"; inpA.style.width="90px";
-    inpA.setAttribute("aria-label",`Puntos pareja A (mesa ${m.table})`);
+    inpA.setAttribute("aria-label",`Puntos jugador A (mesa ${m.table})`);
     inpA.value = m.ptsA ?? "";
 
     const inpB = document.createElement("input");
     inpB.type="number"; inpB.min="0"; inpB.step="1"; inpB.style.width="90px";
-    inpB.setAttribute("aria-label",`Puntos pareja B (mesa ${m.table})`);
+    inpB.setAttribute("aria-label",`Puntos jugador B (mesa ${m.table})`);
     inpB.value = m.ptsB ?? "";
 
     const labA = document.createElement("label");
@@ -529,7 +472,7 @@ function renderTable(){
     if(i < 3) tr.className = "top3";
     tr.innerHTML = `
       <td>${i+1}</td>
-      <td><b>${escapeHtml(s.pair)}</b></td>
+      <td><b>${escapeHtml(s.player)}</b></td>
       <td>${s.PJ}</td>
       <td>${s.G}</td>
       <td>${s.P}</td>
@@ -543,34 +486,21 @@ function renderTable(){
 }
 
 function renderAll(){
-  renderPairsBox();
+  renderPlayersBox();
   renderRound();
   renderTable();
 
-  els.btnGenR1.disabled   = state.pairs.length < 2 || currentRoundNumber() > 0;
-  els.btnGenNext.disabled = state.pairs.length < 2 || !canGenerateNextRound() || currentRoundNumber() >= MAX_ROUNDS;
+  els.btnGenR1.disabled   = state.players.length < 2 || currentRoundNumber() > 0;
+  els.btnGenNext.disabled = state.players.length < 2 || !canGenerateNextRound() || currentRoundNumber() >= MAX_ROUNDS;
 }
 
 /* =================== Eventos =================== */
-els.btnAddPair.addEventListener("click", ()=>{
-  builderData.push({a:"",b:""});
-  renderPairsBuilder();
-  // focus the new row's first input
-  const inputs = document.querySelectorAll("#pairsBuilder .pair-row:last-child input");
-  if(inputs[0]) inputs[0].focus();
-});
-
-els.btnLoadPairs.addEventListener("click", ()=>{
-  const valid = builderData.filter(p => p.a.trim() && p.b.trim());
-  if(valid.length < 2) return showToast("Necesitas mínimo 2 parejas completas.");
-  // Check duplicate names
-  const allNames = valid.flatMap(p => [p.a.trim().toLowerCase(), p.b.trim().toLowerCase()]);
-  const nameSet = new Set(allNames);
-  if(nameSet.size !== allNames.length) return showToast("Hay nombres repetidos entre jugadores.");
-  state.rawPairs = valid.map(p=>({a:p.a.trim(), b:p.b.trim()}));
-  state.pairs    = state.rawPairs.map(p=>`${p.a} & ${p.b}`);
+els.btnLoadPlayers.addEventListener("click", ()=>{
+  const names = uniqNonEmptyLines(els.playersInput.value);
+  if(names.length < 2) return showToast("Necesitas mínimo 2 jugadores.");
+  state.players = names;
   saveState(); renderAll();
-  showToast(`${state.pairs.length} parejas guardadas ✅`);
+  showToast(`${names.length} jugadores guardados ✅`);
 });
 
 els.btnGenR1.addEventListener("click", ()=>{
@@ -605,22 +535,22 @@ els.btnReset.addEventListener("click", resetAll);
 
 els.btnExport.addEventListener("click", ()=>{
   const lines = [];
-  lines.push(["round","table","parejaA","parejaB","ptsA","ptsB"].join(","));
+  lines.push(["round","table","jugadorA","jugadorB","ptsA","ptsB"].join(","));
   for(const m of state.rounds){
     lines.push([m.round, m.table, q(m.pA), q(m.pB), m.ptsA??"", m.ptsB??""].join(","));
   }
   lines.push("");
   lines.push("STANDINGS,,,,,");
   const { table } = computeStandings();
-  lines.push(["rank","pareja","PJ","G","P","PF","PC","DIF","PTS"].join(","));
+  lines.push(["rank","jugador","PJ","G","P","PF","PC","DIF","PTS"].join(","));
   table.forEach((s,i)=>{
-    lines.push([i+1,q(s.pair),s.PJ,s.G,s.P,s.PF,s.PC,s.DIF,s.PTS].join(","));
+    lines.push([i+1,q(s.player),s.PJ,s.G,s.P,s.PF,s.PC,s.DIF,s.PTS].join(","));
   });
 
   const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href=url; a.download="domino-suizo-parejas.csv";
+  a.href=url; a.download="domino-suizo-individual.csv";
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 });

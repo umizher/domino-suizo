@@ -54,6 +54,8 @@
     .pair-row input { flex:1; min-width:100px; }
     .pair-row .sep { color:#9fb1db; font-size:13px; }
     .pair-row button.rm { background:#1b2847; border:1px solid #22304f; padding:6px 10px; font-size:12px; color:#ffa0a0; }
+    .nav-link { color: #7ea8f8; font-size: 13px; text-decoration: none; padding: 6px 12px; border: 1px solid #22304f; border-radius: 10px; }
+    .nav-link:hover { background: #1b2847; }
     /* Toast */
     #toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
@@ -72,6 +74,7 @@
   <h1>🁫 Dominó Suizo – Equipos (parejas fijas)</h1>
   <div class="header-row">
     <span class="pill" id="roundPill">Ronda: 0/5</span>
+    <a class="nav-link" href="index.html">→ Modo Individual</a>
     <button class="secondary" id="btnExport">Exportar CSV</button>
     <button class="danger" id="btnReset">Reset</button>
   </div>
