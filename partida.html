@@ -297,7 +297,24 @@ function notifyScore(team) {
   const lpts  = S[team === "home" ? "visitor" : "home"];
   showBanner(`🏆 ¡Gana ${name} con ${S[team]} pts! — ${loser} quedó con ${lpts} pts.`);
 }
+function playAlarm() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.3, 0.6].forEach(t => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.6, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.25);
+      o.start(ctx.currentTime + t);
+      o.stop(ctx.currentTime + t + 0.25);
+    });
+  } catch {}
+}
+
 function notifyTime() {
+  playAlarm();
   el.btnStart.disabled = false;
   el.btnPause.disabled = true;
   el.btnStart.textContent = "▶ Reiniciar tiempo";
