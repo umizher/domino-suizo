@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Partida de Dominó</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0b1220; color: #e8eefc; min-height: 100vh; }
+
+    header {
+      padding: 14px 18px; background: #121a2b;
+      border-bottom: 1px solid #22304f;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+    header h1 { margin: 0; font-size: 17px; }
+
+    /* Cronómetro */
+    #timerBox {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    #timerDisplay {
+      font-size: 28px; font-weight: bold; font-variant-numeric: tabular-nums;
+      color: #e8eefc; letter-spacing: 2px;
+    }
+    #timerDisplay.warning { color: #ffa940; }
+    #timerDisplay.danger  { color: #ff4d4d; animation: pulse .8s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+    .btn {
+      border: 0; border-radius: 10px; padding: 9px 14px;
+      cursor: pointer; font-weight: 600; font-size: 13px;
+    }
+    .btn-blue   { background: #2b65ff; color: #fff; }
+    .btn-gray   { background: #1b2847; color: #cfe0ff; border: 1px solid #22304f; }
+    .btn-green  { background: #1a7a1a; color: #fff; }
+    .btn-red    { background: #d12b2b; color: #fff; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* Marcador principal */
+    .scoreboard {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      gap: 0; max-width: 700px; margin: 20px auto 0; padding: 0 12px;
+    }
+    .team-panel {
+      background: #121a2b; border: 1px solid #22304f; border-radius: 14px;
+      padding: 16px 12px; display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .team-label {
+      font-size: 13px; color: #9fb1db; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .team-name-input {
+      background: transparent; border: none; border-bottom: 1px solid #22304f;
+      color: #e8eefc; font-size: 18px; font-weight: bold; text-align: center;
+      width: 100%; outline: none; padding: 4px 0;
+    }
+    .score-display {
+      font-size: 72px; font-weight: 900; line-height: 1;
+      color: #e8eefc; min-width: 120px; text-align: center;
+    }
+    .score-display.winning { color: #6fcf6f; }
+    .score-display.losing  { color: #9fb1db; }
+
+    .progress-bar-bg {
+      width: 100%; height: 10px; background: #0b1220;
+      border-radius: 99px; overflow: hidden; border: 1px solid #22304f;
+    }
+    .progress-bar-fill {
+      height: 100%; border-radius: 99px; background: #2b65ff;
+      transition: width .3s ease;
+    }
+    .progress-bar-fill.winning { background: #6fcf6f; }
+
+    .add-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+    .add-btn {
+      background: #1b2847; border: 1px solid #22304f; border-radius: 8px;
+      color: #cfe0ff; padding: 8px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .add-btn:active { background: #2b65ff; color: #fff; }
+    .add-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    .custom-add { display: flex; gap: 6px; align-items: center; width: 100%; }
+    .custom-add input {
+      flex: 1; background: #0b1220; color: #e8eefc;
+      border: 1px solid #22304f; border-radius: 8px;
+      padding: 7px 10px; font-size: 14px; text-align: center; min-width: 0;
+    }
+    .custom-add button { flex-shrink: 0; }
+
+    .undo-btn {
+      background: none; border: none; color: #9fb1db; cursor: pointer;
+      font-size: 12px; text-decoration: underline; padding: 0;
+    }
+    .undo-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* Separador VS */
+    .vs-col {
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 10px; font-size: 20px; font-weight: bold; color: #22304f;
+    }
+
+    /* Historial */
+    .history-section {
+      max-width: 700px; margin: 16px auto; padding: 0 12px;
+    }
+    .history-card {
+      background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px;
+    }
+    .history-card h3 { margin: 0 0 10px; font-size: 14px; color: #9fb1db; }
+    .history-list { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
+    .history-item { font-size: 12px; color: #9fb1db; display: flex; justify-content: space-between; }
+    .history-item span { color: #e8eefc; }
+
+    /* Modal fin de partida */
+    #winModal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.75); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    #winModal.show { display: flex; }
+    .modal-box {
+      background: #121a2b; border: 1px solid #22304f; border-radius: 20px;
+      padding: 32px 28px; text-align: center; max-width: 340px; width: 90%;
+    }
+    .modal-box .trophy { font-size: 56px; margin-bottom: 10px; }
+    .modal-box h2 { margin: 0 0 6px; font-size: 22px; }
+    .modal-box p  { margin: 0 0 20px; color: #9fb1db; font-size: 14px; }
+    .modal-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+    /* Config tiempo */
+    #configRow {
+      display: flex; gap: 8px; align-items: center; justify-content: center;
+      padding: 10px 18px; flex-wrap: wrap;
+    }
+    #configRow label { font-size: 13px; color: #9fb1db; }
+    #timeInput {
+      background: #0b1220; color: #e8eefc; border: 1px solid #22304f;
+      border-radius: 8px; padding: 6px 10px; font-size: 14px; width: 70px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🁫 Partida de Dominó</h1>
+  <div id="timerBox">
+    <div id="timerDisplay">00:00</div>
+    <button class="btn btn-green" id="btnStart">▶ Iniciar</button>
+    <button class="btn btn-gray"  id="btnPause" disabled>⏸ Pausa</button>
+    <button class="btn btn-red"   id="btnReset">↺ Reiniciar</button>
+  </div>
+</header>
+
+<div id="configRow">
+  <label>Tiempo límite (min):</label>
+  <input type="number" id="timeInput" value="30" min="1" max="120" />
+  <span style="font-size:12px;color:#9fb1db;">· Meta: 200 puntos</span>
+</div>
+
+<!-- Marcador -->
+<div class="scoreboard">
+
+  <!-- LOCAL -->
+  <div class="team-panel" id="panelHome">
+    <div class="team-label">Local</div>
+    <input class="team-name-input" id="nameHome" value="Local" maxlength="16" />
+    <div class="score-display" id="scoreHome">0</div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="barHome" style="width:0%"></div>
+    </div>
+    <div class="add-btns">
+      <button class="add-btn" data-team="home" data-pts="5">+5</button>
+      <button class="add-btn" data-team="home" data-pts="10">+10</button>
+      <button class="add-btn" data-team="home" data-pts="15">+15</button>
+      <button class="add-btn" data-team="home" data-pts="20">+20</button>
+      <button class="add-btn" data-team="home" data-pts="25">+25</button>
+    </div>
+    <div class="custom-add">
+      <input type="number" id="customHome" placeholder="otro" min="1" max="500" />
+      <button class="btn btn-blue" id="btnAddHome">+</button>
+    </div>
+    <button class="undo-btn" id="undoHome">↩ Deshacer último</button>
+  </div>
+
+  <div class="vs-col">VS</div>
+
+  <!-- VISITANTE -->
+  <div class="team-panel" id="panelVisitor">
+    <div class="team-label">Visitante</div>
+    <input class="team-name-input" id="nameVisitor" value="Visitante" maxlength="16" />
+    <div class="score-display" id="scoreVisitor">0</div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="barVisitor" style="width:0%"></div>
+    </div>
+    <div class="add-btns">
+      <button class="add-btn" data-team="visitor" data-pts="5">+5</button>
+      <button class="add-btn" data-team="visitor" data-pts="10">+10</button>
+      <button class="add-btn" data-team="visitor" data-pts="15">+15</button>
+      <button class="add-btn" data-team="visitor" data-pts="20">+20</button>
+      <button class="add-btn" data-team="visitor" data-pts="25">+25</button>
+    </div>
+    <div class="custom-add">
+      <input type="number" id="customVisitor" placeholder="otro" min="1" max="500" />
+      <button class="btn btn-blue" id="btnAddVisitor">+</button>
+    </div>
+    <button class="undo-btn" id="undoVisitor">↩ Deshacer último</button>
+  </div>
+
+</div>
+
+<!-- Historial -->
+<div class="history-section">
+  <div class="history-card">
+    <h3>Historial de jugadas</h3>
+    <div class="history-list" id="historyList">
+      <div style="font-size:12px;color:#9fb1db;">Sin jugadas aún.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ganador -->
+<div id="winModal">
+  <div class="modal-box">
+    <div class="trophy">🏆</div>
+    <h2 id="winnerName">¡Ganador!</h2>
+    <p id="winnerDesc"></p>
+    <div class="modal-btns">
+      <button class="btn btn-blue" id="btnNewGame">Nueva partida</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GOAL = 200;
+
+const state = {
+  home: 0, visitor: 0,
+  histHome: [], histVisitor: [],
+  running: false, finished: false,
+  elapsed: 0,    // segundos transcurridos
+  limitSecs: 30 * 60
+};
+
+let timerInterval = null;
+
+/* ---- elementos ---- */
+const el = {
+  timerDisplay: document.getElementById("timerDisplay"),
+  btnStart:     document.getElementById("btnStart"),
+  btnPause:     document.getElementById("btnPause"),
+  btnReset:     document.getElementById("btnReset"),
+  timeInput:    document.getElementById("timeInput"),
+  scoreHome:    document.getElementById("scoreHome"),
+  scoreVisitor: document.getElementById("scoreVisitor"),
+  barHome:      document.getElementById("barHome"),
+  barVisitor:   document.getElementById("barVisitor"),
+  nameHome:     document.getElementById("nameHome"),
+  nameVisitor:  document.getElementById("nameVisitor"),
+  customHome:   document.getElementById("customHome"),
+  customVisitor:document.getElementById("customVisitor"),
+  btnAddHome:   document.getElementById("btnAddHome"),
+  btnAddVisitor:document.getElementById("btnAddVisitor"),
+  undoHome:     document.getElementById("undoHome"),
+  undoVisitor:  document.getElementById("undoVisitor"),
+  historyList:  document.getElementById("historyList"),
+  winModal:     document.getElementById("winModal"),
+  winnerName:   document.getElementById("winnerName"),
+  winnerDesc:   document.getElementById("winnerDesc"),
+};
+
+/* ---- cronómetro ---- */
+function formatTime(secs) {
+  const m = Math.floor(secs / 60).toString().padStart(2, "0");
+  const s = (secs % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function updateTimerDisplay() {
+  const remaining = state.limitSecs - state.elapsed;
+  el.timerDisplay.textContent = formatTime(Math.max(0, remaining));
+  el.timerDisplay.className = "";
+  if (remaining <= 60)  el.timerDisplay.classList.add("danger");
+  else if (remaining <= 180) el.timerDisplay.classList.add("warning");
+}
+
+function startTimer() {
+  if (state.finished) return;
+  state.limitSecs = parseInt(el.timeInput.value || 30) * 60;
+  state.running = true;
+  el.btnStart.disabled = true;
+  el.btnPause.disabled = false;
+  el.timeInput.disabled = true;
+  timerInterval = setInterval(() => {
+    state.elapsed++;
+    updateTimerDisplay();
+    if (state.elapsed >= state.limitSecs) {
+      clearInterval(timerInterval);
+      state.running = false;
+      endGame("time");
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  if (!state.running) return;
+  clearInterval(timerInterval);
+  state.running = false;
+  el.btnStart.disabled = false;
+  el.btnStart.textContent = "▶ Continuar";
+  el.btnPause.disabled = true;
+}
+
+function resetGame() {
+  if (state.home > 0 || state.visitor > 0 || state.elapsed > 0) {
+    if (!confirm("¿Reiniciar la partida? Se perderán los puntos.")) return;
+  }
+  clearInterval(timerInterval);
+  state.home = 0; state.visitor = 0;
+  state.histHome = []; state.histVisitor = [];
+  state.running = false; state.finished = false;
+  state.elapsed = 0;
+  state.limitSecs = parseInt(el.timeInput.value || 30) * 60;
+  el.timeInput.disabled = false;
+  el.btnStart.disabled = false;
+  el.btnStart.textContent = "▶ Iniciar";
+  el.btnPause.disabled = true;
+  el.winModal.classList.remove("show");
+  renderAll();
+}
+
+/* ---- puntaje ---- */
+function addPoints(team, pts) {
+  if (state.finished) return;
+  if (!state.running) { alert("Presiona ▶ Iniciar para comenzar la partida."); return; }
+  pts = parseInt(pts);
+  if (!pts || pts <= 0) return;
+
+  state[team] += pts;
+  state[team === "home" ? "histHome" : "histVisitor"].push(pts);
+  logHistory(team, pts);
+  renderAll();
+
+  if (state[team] >= GOAL) {
+    clearInterval(timerInterval);
+    state.running = false;
+    endGame("score", team);
+  }
+}
+
+function undoPoints(team) {
+  if (state.finished) return;
+  const hist = team === "home" ? state.histHome : state.histVisitor;
+  if (!hist.length) return;
+  const last = hist.pop();
+  state[team] -= last;
+  if (state[team] < 0) state[team] = 0;
+  logHistory(team, -last);
+  renderAll();
+}
+
+/* ---- historial ---- */
+function logHistory(team, pts) {
+  const name = team === "home" ? el.nameHome.value : el.nameVisitor.value;
+  const sign = pts > 0 ? `+${pts}` : `${pts}`;
+  const total = state[team];
+  const item = document.createElement("div");
+  item.className = "history-item";
+  item.innerHTML = `<span>${name}</span><span>${sign} → ${total} pts</span>`;
+  el.historyList.insertBefore(item, el.historyList.firstChild);
+  // quitar mensaje vacío
+  const empty = el.historyList.querySelector("div:not(.history-item)");
+  if (empty) empty.remove();
+}
+
+/* ---- fin de partida ---- */
+function endGame(reason, winnerTeam) {
+  state.finished = true;
+  el.btnStart.disabled = true;
+  el.btnPause.disabled = true;
+
+  let winnerName, desc;
+  if (reason === "score") {
+    winnerName = winnerTeam === "home" ? el.nameHome.value : el.nameVisitor.value;
+    const loserName = winnerTeam === "home" ? el.nameVisitor.value : el.nameHome.value;
+    const winPts = state[winnerTeam];
+    const losePts = state[winnerTeam === "home" ? "visitor" : "home"];
+    desc = `¡Llegó a ${winPts} puntos! ${loserName} quedó con ${losePts} pts.`;
+  } else {
+    // tiempo agotado
+    if (state.home > state.visitor) {
+      winnerName = el.nameHome.value;
+      desc = `Tiempo agotado. ${state.home} vs ${state.visitor} puntos.`;
+    } else if (state.visitor > state.home) {
+      winnerName = el.nameVisitor.value;
+      desc = `Tiempo agotado. ${state.visitor} vs ${state.home} puntos.`;
+    } else {
+      winnerName = "¡Empate!";
+      desc = `Tiempo agotado. Ambos con ${state.home} puntos.`;
+      document.querySelector("#winModal .trophy").textContent = "🤝";
+    }
+  }
+
+  el.winnerName.textContent = winnerName;
+  el.winnerDesc.textContent = desc;
+  el.winModal.classList.add("show");
+  renderAll();
+}
+
+/* ---- render ---- */
+function renderAll() {
+  el.scoreHome.textContent    = state.home;
+  el.scoreVisitor.textContent = state.visitor;
+
+  const pctH = Math.min(100, Math.round(state.home    / GOAL * 100));
+  const pctV = Math.min(100, Math.round(state.visitor / GOAL * 100));
+  el.barHome.style.width    = pctH + "%";
+  el.barVisitor.style.width = pctV + "%";
+
+  // color ganando/perdiendo
+  el.scoreHome.className    = "score-display" + (state.home > state.visitor ? " winning" : state.home < state.visitor ? " losing" : "");
+  el.scoreVisitor.className = "score-display" + (state.visitor > state.home ? " winning" : state.visitor < state.home ? " losing" : "");
+  el.barHome.className    = "progress-bar-fill" + (state.home    >= GOAL ? " winning" : "");
+  el.barVisitor.className = "progress-bar-fill" + (state.visitor >= GOAL ? " winning" : "");
+
+  // botones deshacer
+  el.undoHome.disabled    = !state.histHome.length    || state.finished;
+  el.undoVisitor.disabled = !state.histVisitor.length || state.finished;
+
+  // deshabilitar agregar si terminó
+  const done = state.finished;
+  document.querySelectorAll(".add-btn").forEach(b => b.disabled = done);
+  el.btnAddHome.disabled    = done;
+  el.btnAddVisitor.disabled = done;
+
+  updateTimerDisplay();
+}
+
+/* ---- eventos ---- */
+el.btnStart.addEventListener("click", startTimer);
+el.btnPause.addEventListener("click", pauseTimer);
+el.btnReset.addEventListener("click", resetGame);
+document.getElementById("btnNewGame").addEventListener("click", resetGame);
+
+document.querySelectorAll(".add-btn").forEach(btn => {
+  btn.addEventListener("click", () => addPoints(btn.dataset.team, btn.dataset.pts));
+});
+
+el.btnAddHome.addEventListener("click", () => {
+  addPoints("home", el.customHome.value);
+  el.customHome.value = "";
+});
+el.btnAddVisitor.addEventListener("click", () => {
+  addPoints("visitor", el.customVisitor.value);
+  el.customVisitor.value = "";
+});
+
+el.customHome.addEventListener("keydown", e => { if (e.key === "Enter") el.btnAddHome.click(); });
+el.customVisitor.addEventListener("keydown", e => { if (e.key === "Enter") el.btnAddVisitor.click(); });
+
+el.undoHome.addEventListener("click",    () => undoPoints("home"));
+el.undoVisitor.addEventListener("click", () => undoPoints("visitor"));
+
+el.timeInput.addEventListener("change", () => {
+  if (!state.running && state.elapsed === 0) {
+    state.limitSecs = parseInt(el.timeInput.value || 30) * 60;
+    updateTimerDisplay();
+  }
+});
+
+/* ---- init ---- */
+state.limitSecs = 30 * 60;
+renderAll();
+</script>
+</body>
+</html>
