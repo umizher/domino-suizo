@@ -83,6 +83,8 @@
     .pair-sep { color: #9fb1db; }
     button.rm { background: #1b2847; border: 1px solid #22304f; padding: 6px 10px; font-size: 12px; color: #ffa0a0; }
     .badge-arbitro { background: #1a3a1a; border: 1px solid #2d6e2d; color: #6fcf6f; border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+    .round-tab { background: #1b2847; border: 1px solid #22304f; border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; color: #cfe0ff; }
+    .round-tab.active { background: #2b65ff; border-color: #2b65ff; color: white; font-weight: bold; }
     #toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
       background: #1b2847; border: 1px solid #22304f; border-radius: 12px;
@@ -151,9 +153,10 @@
 
   <section class="card">
     <div class="flex-between">
-      <h2>Ronda actual – ingresar puntos</h2>
+      <h2 id="matchesTitle">Ronda actual – ingresar puntos</h2>
       <button id="btnSaveScores">Guardar puntos</button>
     </div>
+    <div id="roundTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
     <div class="matches" id="matches">
       <div class="muted">Sin rondas aún.</div>
     </div>
@@ -268,6 +271,8 @@ function esc(s) {
 function currentRound() { return S.rounds.reduce((m, r) => Math.max(m, r.round), 0); }
 function roundMatches(rn) { return S.rounds.filter(r => r.round === rn).sort((a, b) => a.table - b.table); }
 
+let viewRound = 0;
+
 function standings() {
   const m = new Map(S.pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0 }]));
   const played = new Set();
@@ -342,6 +347,7 @@ function buildRound(ranked, played) {
   for (const m of matches)
     S.rounds.push({ round: rn, table: t++, pA: m.pA, pB: m.pB, ptsA: "", ptsB: "" });
   S.lastBench = bench ? { round: rn, pairs: [bench] } : null;
+  viewRound = rn;
   save(); renderAll();
 }
 
@@ -387,19 +393,37 @@ function renderBuilder() {
   });
 }
 
+function renderRoundTabs() {
+  const rn = currentRound();
+  const el = document.getElementById("roundTabs");
+  el.innerHTML = "";
+  if (rn === 0) return;
+  for (let i = 1; i <= rn; i++) {
+    const btn = document.createElement("button");
+    btn.className = "round-tab" + (i === viewRound ? " active" : "");
+    btn.textContent = `Ronda ${i}`;
+    btn.dataset.r = i;
+    btn.addEventListener("click", () => { viewRound = +btn.dataset.r; renderRound(); renderRoundTabs(); });
+    el.appendChild(btn);
+  }
+}
+
 function renderRound() {
   const rn = currentRound();
+  if (viewRound === 0 || viewRound > rn) viewRound = rn;
   document.getElementById("roundPill").textContent = `Ronda: ${rn}/${MAX_ROUNDS}`;
+  document.getElementById("matchesTitle").textContent =
+    viewRound === rn ? `Ronda ${rn} – ingresar puntos` : `Ronda ${viewRound} – editar puntos`;
   const el = document.getElementById("matches");
   el.innerHTML = "";
   if (rn === 0) { el.innerHTML = `<div class="muted">Sin rondas. Presiona <b>Generar Ronda 1</b>.</div>`; return; }
-  if (S.lastBench && S.lastBench.round === rn && S.lastBench.pairs.length) {
+  if (S.lastBench && S.lastBench.round === viewRound && S.lastBench.pairs.length) {
     const d = document.createElement("div");
     d.className = "muted"; d.style.marginBottom = "8px";
-    d.innerHTML = `<span class="pill">Banco</span> ${S.lastBench.pairs.map(esc).join(", ")} — descansa esta ronda`;
+    d.innerHTML = `<span class="pill">Banco</span> ${S.lastBench.pairs.map(esc).join(", ")} — descansó esta ronda`;
     el.appendChild(d);
   }
-  for (const m of roundMatches(rn)) {
+  for (const m of roundMatches(viewRound)) {
     const div = document.createElement("div");
     div.className = "match";
     const names = document.createElement("div");
@@ -458,7 +482,7 @@ function renderAll() {
   renderBuilder();
   document.getElementById("pairsCount").textContent = S.pairs.length ? `${S.pairs.length} pareja(s) guardadas` : "";
   document.getElementById("byeMode").value = S.byeMode;
-  renderRound(); renderTable();
+  renderRound(); renderRoundTabs(); renderTable();
   const rn = currentRound();
   document.getElementById("btnRound1").disabled = S.pairs.length < 2 || rn > 0;
   document.getElementById("btnNextRound").disabled = S.pairs.length < 2 || !roundComplete() || rn >= MAX_ROUNDS;
@@ -493,9 +517,8 @@ document.getElementById("btnNextRound").addEventListener("click", () => {
 });
 
 document.getElementById("btnSaveScores").addEventListener("click", () => {
-  const rn = currentRound();
-  if (rn > 0) {
-    for (const m of roundMatches(rn)) {
+  if (viewRound > 0) {
+    for (const m of roundMatches(viewRound)) {
       const a = Number(m.ptsA), b = Number(m.ptsB);
       if (!m.ptsA && !m.ptsB) return toast("Faltan puntos en alguna mesa.", 3000);
       if (!Number.isFinite(a) || !Number.isFinite(b)) return toast("Puntos inválidos.", 3000);
@@ -504,7 +527,7 @@ document.getElementById("btnSaveScores").addEventListener("click", () => {
   }
   S.byeMode = document.getElementById("byeMode").value;
   save(); renderAll();
-  toast("Puntos guardados ✅");
+  toast(`Puntos de Ronda ${viewRound} guardados ✅`);
 });
 
 document.getElementById("btnReset").addEventListener("click", () => {
