@@ -13,20 +13,9 @@
     header { padding: 16px 18px; background: #121a2b; border-bottom: 1px solid #22304f; }
     header h1 { margin: 0 0 8px; font-size: 18px; }
     .header-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    main { padding: 16px 18px; max-width: 1100px; margin: 0 auto; }
-    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
-    @media (min-width: 900px) { .grid { grid-template-columns: 1.1fr 1fr; } }
+    main { padding: 16px 18px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
     .card { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px; }
     .card h2 { margin: 0 0 10px; font-size: 15px; }
-    input, select { background: #0b1220; color: #e8eefc; border: 1px solid #22304f; border-radius: 10px; padding: 8px 10px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    button {
-      background: #2b65ff; color: white; border: 0; border-radius: 10px;
-      padding: 10px 12px; cursor: pointer; font-weight: 650;
-    }
-    button.secondary { background: #1b2847; border: 1px solid #22304f; }
-    button.danger { background: #d12b2b; }
-    button:disabled { opacity: .55; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border-bottom: 1px solid #22304f; padding: 10px; text-align: left; font-size: 13px; }
     th { background: #0f1830; }
@@ -35,173 +24,76 @@
     .pill { display: inline-block; padding: 3px 8px; border: 1px solid #22304f; border-radius: 999px; font-size: 12px; color: #cfe0ff; }
     .flex-between { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
     .matches { display: flex; flex-direction: column; gap: 10px; }
-    .match {
-      border: 1px solid #22304f; border-radius: 12px; padding: 10px; background: #0f1830;
-      display: grid; grid-template-columns: 1fr; gap: 10px;
-    }
-    @media (min-width: 750px) { .match { grid-template-columns: 1.6fr 1fr .8fr; } }
-    .names { display: flex; flex-direction: column; gap: 4px; }
-    .line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .line b { font-size: 14px; }
-    .vs { color: #9fb1db; font-size: 12px; margin: 2px 0; }
-    .scores { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .scores label { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #cfe0ff; }
-    .winner { display: flex; align-items: center; justify-content: flex-end; }
-    .footer { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .small { font-size: 12px; }
-    .notice { padding: 10px; border: 1px solid #22304f; border-radius: 12px; background: #0b1220; }
-    /* Pair builder */
-    .pair-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
-    .pair-num { color: #9fb1db; font-size: 12px; min-width: 64px; }
-    .pair-row input { flex: 1; min-width: 100px; }
-    .pair-sep { color: #9fb1db; }
-    button.rm { background: #1b2847; border: 1px solid #22304f; padding: 6px 10px; font-size: 12px; color: #ffa0a0; }
-    /* Toast */
-    #toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
-      background: #1b2847; border: 1px solid #22304f; border-radius: 12px;
-      padding: 10px 20px; font-size: 13px; color: #e8eefc;
-      transition: transform .25s ease, opacity .25s ease; opacity: 0; z-index: 999; pointer-events: none;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .match { border: 1px solid #22304f; border-radius: 12px; padding: 12px; background: #0f1830; }
+    .mesa-label { color: #9fb1db; font-size: 12px; margin-bottom: 6px; }
+    .teams { display: flex; flex-direction: column; gap: 6px; }
+    .team-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .team-name { font-size: 14px; font-weight: bold; }
+    .team-score { font-size: 20px; font-weight: bold; color: #7ea8ff; min-width: 40px; text-align: right; }
+    .team-score.winner { color: #6fcf6f; }
+    .vs-line { text-align: center; color: #9fb1db; font-size: 11px; margin: 2px 0; }
+    .pending { color: #9fb1db; font-size: 13px; font-style: italic; }
+    .refresh-note { color: #9fb1db; font-size: 11px; }
+    .no-data { text-align: center; padding: 40px 20px; color: #9fb1db; }
+    .no-data .big { font-size: 40px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>🁫 Dominó Suizo – Parejas Fijas</h1>
+  <h1>🁫 Dominó Suizo – Parejas</h1>
   <div class="header-row">
-    <span class="pill" id="roundPill">Ronda: 0/5</span>
-    <button class="secondary" id="btnExport">Exportar CSV</button>
-    <button class="danger" id="btnReset">Reset</button>
+    <span class="pill" id="roundPill">Ronda: –</span>
+    <span class="refresh-note" id="refreshNote">Actualiza cada 15s</span>
   </div>
 </header>
 
-<main class="grid">
+<main>
 
-  <!-- Panel de parejas -->
-  <section class="card">
-    <h2>Parejas</h2>
-    <p class="muted">Define cada pareja con sus dos jugadores.</p>
-    <div id="pairsBuilder"></div>
-    <div class="footer" style="margin-bottom:10px;">
-      <button class="secondary" id="btnAddPair">+ Agregar pareja</button>
-      <button id="btnSavePairs">Guardar parejas</button>
-      <span class="muted small" id="pairsCount"></span>
-    </div>
-    <div class="footer">
-      <button class="secondary" id="btnRound1">Generar Ronda 1</button>
-      <button class="secondary" id="btnNextRound">Siguiente Ronda (suizo)</button>
-    </div>
-    <div class="notice" style="margin-top:12px;">
-      <span class="muted small"><b>5 rondas</b> · <b>Sin empates</b> · Ranking: Ganadas → Puntos → DIF</span>
-      <div style="margin-top:8px;">
-        <label class="small">Número impar:
-          <select id="byeMode">
-            <option value="bench">Banco (descansa, no suma)</option>
-            <option value="none">No permitir</option>
-          </select>
-        </label>
-      </div>
-    </div>
-  </section>
-
-  <!-- Ronda actual -->
-  <section class="card">
-    <div class="flex-between">
-      <h2>Ronda actual</h2>
-      <button id="btnSaveScores">Guardar puntos</button>
+  <div class="card" id="matchesCard">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <h2 id="matchesTitle">Ronda actual</h2>
     </div>
     <div class="matches" id="matches">
-      <div class="muted">Aún no hay rondas.</div>
+      <div class="no-data"><div class="big">🁫</div>Esperando que el árbitro inicie el torneo…</div>
     </div>
-    <p class="muted small" style="margin-top:8px;">Sin empates permitidos.</p>
-  </section>
+  </div>
 
-  <!-- Tabla -->
-  <section class="card" style="grid-column:1/-1;">
-    <div class="flex-between">
+  <div class="card">
+    <div class="flex-between" style="margin-bottom:10px;">
       <h2>Posiciones</h2>
-      <span class="muted small">Ganadas → Puntos → DIF</span>
+      <span class="muted">Ganadas → Puntos → DIF</span>
     </div>
     <div style="overflow:auto; border-radius:12px; border:1px solid #22304f;">
       <table>
         <thead>
-          <tr><th>#</th><th>Pareja</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th><th>G</th></tr>
+          <tr><th>#</th><th>Pareja</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th></tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
     </div>
-  </section>
+  </div>
 
 </main>
-<div id="toast"></div>
 
 <script>
-const MAX_ROUNDS = 5;
 const STORAGE_KEY = "domino_parejas_v2";
+const MAX_ROUNDS = 5;
 
-/* ---------- toast ---------- */
-let toastTimer;
-function toast(msg, ms = 2500) {
-  const el = document.getElementById("toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), ms);
-}
-
-/* ---------- estado ---------- */
-const S = {
-  rawPairs: [],      // [{a, b}, ...]
-  pairs: [],         // ["Juan & Pedro", ...]
-  rounds: [],        // [{round, table, pA, pB, ptsA, ptsB}]
-  byeMode: "bench",
-  benchCount: {},    // {pairName: n}
-  lastBench: null    // {round, pairs:[]}
-};
-
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
-function load() {
-  try {
-    const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (d && Array.isArray(d.pairs) && Array.isArray(d.rounds)) {
-      S.rawPairs   = d.rawPairs   || [];
-      S.pairs      = d.pairs;
-      S.rounds     = d.rounds;
-      S.byeMode    = d.byeMode    || "bench";
-      S.benchCount = d.benchCount || {};
-      S.lastBench  = d.lastBench  || null;
-    }
-  } catch {}
-}
-
-/* ---------- utilidades ---------- */
-function shuffle(a) {
-  const b = a.slice();
-  for (let i = b.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [b[i], b[j]] = [b[j], b[i]];
-  }
-  return b;
-}
-function key(a, b) { return a < b ? `${a}||${b}` : `${b}||${a}`; }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
-    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 }
-function currentRound() { return S.rounds.reduce((m, r) => Math.max(m, r.round), 0); }
-function roundMatches(rn) { return S.rounds.filter(r => r.round === rn).sort((a, b) => a.table - b.table); }
 
-/* ---------- standings ---------- */
-function standings() {
-  const m = new Map(S.pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0 }]));
-  const played = new Set();
-  for (const r of S.rounds) {
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; }
+}
+
+function standings(pairs, rounds) {
+  const m = new Map(pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0 }]));
+  for (const r of rounds) {
     if (!m.has(r.pA) || !m.has(r.pB)) continue;
-    played.add(key(r.pA, r.pB));
-    m.get(r.pA).PJ++;
-    m.get(r.pB).PJ++;
+    m.get(r.pA).PJ++; m.get(r.pB).PJ++;
     const a = Number(r.ptsA), b = Number(r.ptsB);
     if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) continue;
     if (a > b) { m.get(r.pA).G++; m.get(r.pB).P++; }
@@ -209,309 +101,91 @@ function standings() {
     m.get(r.pA).PF += a; m.get(r.pA).PC += b;
     m.get(r.pB).PF += b; m.get(r.pB).PC += a;
   }
-  const rows = [...m.values()].map(r => ({ ...r, DIF: r.PF - r.PC }));
-  rows.sort((x, y) =>
-    y.G !== x.G ? y.G - x.G :
-    y.PF !== x.PF ? y.PF - x.PF :
-    y.DIF !== x.DIF ? y.DIF - x.DIF :
-    x.p.localeCompare(y.p)
-  );
-  return { rows, played };
-}
-
-/* ---------- validar ronda lista ---------- */
-function roundComplete() {
-  const rn = currentRound();
-  if (rn === 0) return true;
-  for (const r of roundMatches(rn)) {
-    const a = Number(r.ptsA), b = Number(r.ptsB);
-    if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return false;
-  }
-  return true;
-}
-
-/* ---------- banco ---------- */
-function pickBench(pool) {
-  const scored = pool.map(p => ({ p, c: S.benchCount[p] || 0 }));
-  scored.sort((a, b) => a.c - b.c);
-  const min = scored[0].c;
-  const candidates = shuffle(scored.filter(x => x.c === min).map(x => x.p));
-  return candidates[0];
-}
-
-/* ---------- generar ronda ---------- */
-function buildRound(ranked, played) {
-  let pool = ranked.slice();
-
-  // banco si impar
-  let bench = null;
-  if (pool.length % 2 !== 0) {
-    if (S.byeMode === "none") { toast("Número impar de parejas. Cambia la opción de impar."); return; }
-    bench = pickBench(pool);
-    pool = pool.filter(p => p !== bench);
-    S.benchCount[bench] = (S.benchCount[bench] || 0) + 1;
-  }
-
-  // emparejar evitando rematches
-  const used = new Set();
-  const matches = [];
-  for (let i = 0; i < pool.length; i++) {
-    if (used.has(i)) continue;
-    const pA = pool[i];
-    let best = -1;
-    // primero sin rematch
-    for (let j = i + 1; j < pool.length; j++) {
-      if (!used.has(j) && !played.has(key(pA, pool[j]))) { best = j; break; }
-    }
-    // fallback: cualquier libre
-    if (best === -1) {
-      for (let j = i + 1; j < pool.length; j++) {
-        if (!used.has(j)) { best = j; break; }
-      }
-    }
-    if (best === -1) continue;
-    used.add(i); used.add(best);
-    matches.push({ pA, pB: pool[best] });
-  }
-
-  const rn = currentRound() + 1;
-  let t = 1;
-  for (const m of matches) {
-    S.rounds.push({ round: rn, table: t++, pA: m.pA, pB: m.pB, ptsA: "", ptsB: "" });
-  }
-  S.lastBench = bench ? { round: rn, pairs: [bench] } : null;
-  save();
-  renderAll();
-}
-
-function genRound1() {
-  if (S.pairs.length < 2) return toast("Necesitas mínimo 2 parejas.");
-  if (currentRound() > 0) return toast("Ya hay rondas. Usa 'Siguiente Ronda'.");
-  buildRound(shuffle(S.pairs.slice()), new Set());
-}
-
-function genNextRound() {
-  if (currentRound() >= MAX_ROUNDS) return toast("Ya se jugaron todas las rondas ✅");
-  if (!roundComplete()) return toast("Completa los puntos de la ronda actual (sin empates).");
-  const { rows, played } = standings();
-  buildRound(rows.map(r => r.p), played);
-}
-
-/* ---------- UI: builder de parejas ---------- */
-let builder = [{ a: "", b: "" }];
-
-function renderBuilder() {
-  const el = document.getElementById("pairsBuilder");
-  el.innerHTML = "";
-  builder.forEach((item, i) => {
-    const row = document.createElement("div");
-    row.className = "pair-row";
-    row.innerHTML = `
-      <span class="pair-num">Pareja ${i + 1}</span>
-      <input type="text" placeholder="Jugador A" value="${esc(item.a)}" data-i="${i}" data-f="a" />
-      <span class="pair-sep">&amp;</span>
-      <input type="text" placeholder="Jugador B" value="${esc(item.b)}" data-i="${i}" data-f="b" />
-      <button class="rm" data-i="${i}">✕</button>
-    `;
-    row.querySelectorAll("input").forEach(inp =>
-      inp.addEventListener("input", e => {
-        builder[+e.target.dataset.i][e.target.dataset.f] = e.target.value;
-      })
+  return [...m.values()]
+    .map(r => ({ ...r, DIF: r.PF - r.PC }))
+    .sort((x, y) =>
+      y.G !== x.G ? y.G - x.G :
+      y.PF !== x.PF ? y.PF - x.PF :
+      y.DIF !== x.DIF ? y.DIF - x.DIF :
+      x.p.localeCompare(y.p)
     );
-    row.querySelector("button.rm").addEventListener("click", e => {
-      builder.splice(+e.currentTarget.dataset.i, 1);
-      if (builder.length === 0) builder = [{ a: "", b: "" }];
-      renderBuilder();
-    });
-    el.appendChild(row);
-  });
 }
 
-/* ---------- UI: ronda ---------- */
-function renderRound() {
-  const rn = currentRound();
-  document.getElementById("roundPill").textContent = `Ronda: ${rn}/${MAX_ROUNDS}`;
-  const el = document.getElementById("matches");
-  el.innerHTML = "";
+function render() {
+  const d = load();
+  const now = new Date();
+  document.getElementById("refreshNote").textContent =
+    `Actualizado: ${now.getHours()}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
 
-  if (rn === 0) {
-    el.innerHTML = `<div class="muted">Sin rondas. Presiona <b>Generar Ronda 1</b>.</div>`;
+  if (!d || !d.pairs || d.pairs.length === 0) {
+    document.getElementById("roundPill").textContent = "Ronda: –";
+    document.getElementById("matches").innerHTML =
+      `<div class="no-data"><div class="big">🁫</div>Esperando que el árbitro inicie el torneo…</div>`;
+    document.getElementById("tableBody").innerHTML = "";
     return;
   }
 
-  // banco
-  if (S.lastBench && S.lastBench.round === rn && S.lastBench.pairs.length) {
-    const d = document.createElement("div");
-    d.className = "muted";
-    d.style.marginBottom = "8px";
-    d.innerHTML = `<span class="pill">Banco</span> ${S.lastBench.pairs.map(esc).join(", ")} — descansa esta ronda`;
-    el.appendChild(d);
-  }
+  const rn = d.rounds.reduce((m, r) => Math.max(m, r.round), 0);
+  document.getElementById("roundPill").textContent = `Ronda: ${rn}/${MAX_ROUNDS}`;
+  document.getElementById("matchesTitle").textContent = rn > 0 ? `Ronda ${rn}` : "Sin rondas aún";
 
-  for (const m of roundMatches(rn)) {
-    const div = document.createElement("div");
-    div.className = "match";
+  // Mesas
+  const matchesEl = document.getElementById("matches");
+  matchesEl.innerHTML = "";
 
-    const names = document.createElement("div");
-    names.className = "names";
-    names.innerHTML = `
-      <div class="muted small">Mesa ${m.table}</div>
-      <div class="line"><span class="pill">A</span> <b>${esc(m.pA)}</b></div>
-      <div class="vs">vs</div>
-      <div class="line"><span class="pill">B</span> <b>${esc(m.pB)}</b></div>
-    `;
-
-    const scores = document.createElement("div");
-    scores.className = "scores";
-
-    const inpA = document.createElement("input");
-    inpA.type = "number"; inpA.min = "0"; inpA.style.width = "80px";
-    inpA.placeholder = "Pts A"; inpA.value = m.ptsA ?? "";
-
-    const inpB = document.createElement("input");
-    inpB.type = "number"; inpB.min = "0"; inpB.style.width = "80px";
-    inpB.placeholder = "Pts B"; inpB.value = m.ptsB ?? "";
-
-    const labA = document.createElement("label");
-    labA.innerHTML = "<span>A</span>"; labA.appendChild(inpA);
-
-    const labB = document.createElement("label");
-    labB.innerHTML = "<span>B</span>"; labB.appendChild(inpB);
-
-    scores.appendChild(labA);
-    scores.appendChild(labB);
-
-    const win = document.createElement("div");
-    win.className = "winner";
-
-    function updateWin() {
-      const a = Number(m.ptsA), b = Number(m.ptsB);
-      if (!m.ptsA && !m.ptsB) { win.innerHTML = `<span class="muted">—</span>`; return; }
-      if (!Number.isFinite(a) || !Number.isFinite(b)) { win.innerHTML = `<span class="muted">—</span>`; return; }
-      if (a === b) { win.innerHTML = `<span class="pill" style="color:#ffd0d0;border-color:#d12b2b">⚠ Empate</span>`; return; }
-      win.innerHTML = `<span class="pill">Gana: ${esc(a > b ? m.pA : m.pB)}</span>`;
+  if (rn === 0) {
+    matchesEl.innerHTML = `<div class="muted">El árbitro aún no generó la primera ronda.</div>`;
+  } else {
+    // Banco
+    if (d.lastBench && d.lastBench.round === rn && d.lastBench.pairs && d.lastBench.pairs.length) {
+      const bench = document.createElement("div");
+      bench.className = "muted"; bench.style.marginBottom = "8px";
+      bench.innerHTML = `<span class="pill">Banco</span> ${d.lastBench.pairs.map(esc).join(", ")} — descansa esta ronda`;
+      matchesEl.appendChild(bench);
     }
-    updateWin();
 
-    inpA.addEventListener("input", () => { m.ptsA = inpA.value; updateWin(); });
-    inpB.addEventListener("input", () => { m.ptsB = inpB.value; updateWin(); });
+    const ms = d.rounds.filter(r => r.round === rn).sort((a, b) => a.table - b.table);
+    for (const m of ms) {
+      const a = Number(m.ptsA), b = Number(m.ptsB);
+      const hasScores = m.ptsA !== "" && m.ptsB !== "" && Number.isFinite(a) && Number.isFinite(b);
+      const aWins = hasScores && a > b;
+      const bWins = hasScores && b > a;
 
-    div.appendChild(names); div.appendChild(scores); div.appendChild(win);
-    el.appendChild(div);
+      const div = document.createElement("div");
+      div.className = "match";
+      div.innerHTML = `
+        <div class="mesa-label">Mesa ${m.table}</div>
+        <div class="teams">
+          <div class="team-row">
+            <span class="team-name">${esc(m.pA)}</span>
+            <span class="team-score ${aWins ? 'winner' : ''}">${hasScores ? a : '—'}</span>
+          </div>
+          <div class="vs-line">vs</div>
+          <div class="team-row">
+            <span class="team-name">${esc(m.pB)}</span>
+            <span class="team-score ${bWins ? 'winner' : ''}">${hasScores ? b : '—'}</span>
+          </div>
+          ${!hasScores ? `<div class="pending">En juego…</div>` : ''}
+        </div>
+      `;
+      matchesEl.appendChild(div);
+    }
   }
-}
 
-/* ---------- UI: tabla ---------- */
-function renderTable() {
-  const { rows } = standings();
+  // Tabla
+  const rows = standings(d.pairs, d.rounds);
   const tb = document.getElementById("tableBody");
   tb.innerHTML = "";
   rows.forEach((r, i) => {
     const tr = document.createElement("tr");
     if (i < 3) tr.className = "top3";
-    tr.innerHTML = `<td>${i+1}</td><td><b>${esc(r.p)}</b></td><td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td><td><b>${r.G}</b></td>`;
+    tr.innerHTML = `<td>${i+1}</td><td><b>${esc(r.p)}</b></td><td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td>`;
     tb.appendChild(tr);
   });
 }
 
-/* ---------- render completo ---------- */
-function renderAll() {
-  // sync builder desde estado guardado
-  if (S.rawPairs.length) builder = S.rawPairs.map(p => ({ a: p.a, b: p.b }));
-  else if (builder.length === 0) builder = [{ a: "", b: "" }];
-  renderBuilder();
-
-  const n = S.pairs.length;
-  document.getElementById("pairsCount").textContent = n ? `${n} pareja(s) guardadas` : "";
-  document.getElementById("byeMode").value = S.byeMode;
-
-  renderRound();
-  renderTable();
-
-  const rn = currentRound();
-  document.getElementById("btnRound1").disabled = S.pairs.length < 2 || rn > 0;
-  document.getElementById("btnNextRound").disabled = S.pairs.length < 2 || !roundComplete() || rn >= MAX_ROUNDS;
-}
-
-/* ---------- eventos ---------- */
-document.getElementById("btnAddPair").addEventListener("click", () => {
-  builder.push({ a: "", b: "" });
-  renderBuilder();
-  const inputs = document.querySelectorAll("#pairsBuilder .pair-row:last-child input");
-  if (inputs[0]) inputs[0].focus();
-});
-
-document.getElementById("btnSavePairs").addEventListener("click", () => {
-  const valid = builder.filter(p => p.a.trim() && p.b.trim());
-  if (valid.length < 2) return toast("Necesitas mínimo 2 parejas completas.");
-  const allNames = valid.flatMap(p => [p.a.trim().toLowerCase(), p.b.trim().toLowerCase()]);
-  if (new Set(allNames).size !== allNames.length) return toast("Hay nombres repetidos.");
-  S.rawPairs = valid.map(p => ({ a: p.a.trim(), b: p.b.trim() }));
-  S.pairs    = S.rawPairs.map(p => `${p.a} & ${p.b}`);
-  save(); renderAll();
-  toast(`${S.pairs.length} parejas guardadas ✅`);
-});
-
-document.getElementById("btnRound1").addEventListener("click", () => {
-  S.byeMode = document.getElementById("byeMode").value;
-  save(); genRound1();
-});
-
-document.getElementById("btnNextRound").addEventListener("click", () => {
-  S.byeMode = document.getElementById("byeMode").value;
-  save(); genNextRound();
-});
-
-document.getElementById("btnSaveScores").addEventListener("click", () => {
-  const rn = currentRound();
-  if (rn > 0) {
-    for (const m of roundMatches(rn)) {
-      const a = Number(m.ptsA), b = Number(m.ptsB);
-      if (!m.ptsA && !m.ptsB) return toast("Faltan puntos en alguna mesa.", 3000);
-      if (!Number.isFinite(a) || !Number.isFinite(b)) return toast("Puntos inválidos.", 3000);
-      if (a === b) return toast("No se permiten empates.", 3000);
-    }
-  }
-  S.byeMode = document.getElementById("byeMode").value;
-  save(); renderAll();
-  toast("Puntos guardados ✅");
-});
-
-document.getElementById("btnReset").addEventListener("click", () => {
-  if (!confirm("¿Borrar todo el torneo?")) return;
-  S.rawPairs = []; S.pairs = []; S.rounds = [];
-  S.byeMode = "bench"; S.benchCount = {}; S.lastBench = null;
-  builder = [{ a: "", b: "" }];
-  save(); renderAll();
-});
-
-document.getElementById("btnExport").addEventListener("click", () => {
-  const q = s => /[,"\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-  const lines = [["ronda","mesa","parejaA","parejaB","ptsA","ptsB"].join(",")];
-  for (const r of S.rounds)
-    lines.push([r.round, r.table, q(r.pA), q(r.pB), r.ptsA ?? "", r.ptsB ?? ""].join(","));
-  lines.push("", "POSICIONES");
-  lines.push(["#","pareja","PJ","G","P","PF","PC","DIF"].join(","));
-  standings().rows.forEach((r, i) =>
-    lines.push([i+1, q(r.p), r.PJ, r.G, r.P, r.PF, r.PC, r.DIF].join(","))
-  );
-  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" }));
-  const a = document.createElement("a");
-  a.href = url; a.download = "parejas-suizo.csv";
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-});
-
-/* ---------- init ---------- */
-if (new URLSearchParams(location.search).has("reset")) {
-  if (confirm("¿Borrar caché del torneo de parejas?")) {
-    localStorage.removeItem(STORAGE_KEY);
-    alert("Caché borrado.");
-  }
-  history.replaceState(null, "", location.pathname);
-}
-load();
-renderAll();
+render();
+setInterval(render, 15000);
 </script>
 </body>
 </html>
