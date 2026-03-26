@@ -292,6 +292,7 @@ function showBanner(msg) {
   el.winBanner.classList.add("show");
 }
 function notifyScore(team) {
+  playAlarm();
   const name  = team === "home" ? el.nameHome.value : el.nameVisitor.value;
   const loser = team === "home" ? el.nameVisitor.value : el.nameHome.value;
   const lpts  = S[team === "home" ? "visitor" : "home"];
