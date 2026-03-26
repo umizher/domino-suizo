@@ -102,17 +102,21 @@
     .icon-btn.del { color: #ff6b6b; }
     .icon-btn.save { color: #6fcf6f; }
 
+    /* Banner ganador */
+    #winBanner {
+      display: none; padding: 14px 18px;
+      background: #1a3a1a; border-bottom: 2px solid #2d6e2d;
+      text-align: center; font-size: 15px; font-weight: bold; color: #6fcf6f;
+    }
+    #winBanner.show { display: block; }
+    #winBanner button { margin-left: 14px; background: #0b1220; border: 1px solid #2d6e2d; color: #6fcf6f; border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+
     /* Modal */
-    #winModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; align-items: center; justify-content: center; }
-    #winModal.show { display: flex; }
-    .modal-box { background: #121a2b; border: 1px solid #22304f; border-radius: 20px; padding: 32px 28px; text-align: center; max-width: 340px; width: 90%; }
-    .modal-box .trophy { font-size: 56px; margin-bottom: 10px; }
-    .modal-box h2 { margin: 0 0 6px; font-size: 22px; }
-    .modal-box p  { margin: 0 0 20px; color: #9fb1db; font-size: 14px; }
-  </style>
+    #winModal { display: none; }  </style>
 </head>
 <body>
 
+<div id="winBanner"></div>
 <header>
   <h1>🁫 Partida de Dominó</h1>
   <div id="timerBox">
@@ -181,15 +185,7 @@
   </div>
 </div>
 
-<!-- Modal -->
-<div id="winModal">
-  <div class="modal-box">
-    <div class="trophy" id="trophy">🏆</div>
-    <h2 id="winnerName">¡Ganador!</h2>
-    <p id="winnerDesc"></p>
-    <button class="btn btn-blue" id="btnNewGame">Nueva partida</button>
-  </div>
-</div>
+<div id="winModal"></div>
 
 <script>
 const GOAL = 200;
@@ -219,7 +215,7 @@ const el = {
   btnAddHome: $("btnAddHome"), btnAddVisitor: $("btnAddVisitor"),
   historyBody: $("historyBody"), manoCount: $("manoCount"),
   thHome: $("thHome"), thVisitor: $("thVisitor"),
-  winModal: $("winModal"), winnerName: $("winnerName"), winnerDesc: $("winnerDesc"), trophy: $("trophy"),
+  winBanner: $("winBanner"),
 };
 
 /* ---- timer ---- */
@@ -254,13 +250,12 @@ function resetGame() {
   Object.assign(S, { home:0, visitor:0, manos:[], finished:false, running:false, elapsed:0, limitSecs: parseInt(el.timeInput.value||30)*60 });
   editingIdx = null;
   el.timeInput.disabled = false; el.btnStart.disabled = false; el.btnStart.textContent = "▶ Iniciar";
-  el.btnPause.disabled = true; el.winModal.classList.remove("show"); el.trophy.textContent = "🏆";
+  el.btnPause.disabled = true; el.winBanner.classList.remove("show"); el.winBanner.innerHTML = "";
   render();
 }
 
 /* ---- puntos ---- */
 function addPoints(team, ptsRaw) {
-  if (S.finished) return;
   const pts = parseInt(ptsRaw);
   if (!pts || pts <= 0) return;
   S[team] += pts;
@@ -277,6 +272,7 @@ function deleteMano(idx) {
   if (S.visitor < 0) S.visitor = 0;
   S.manos.splice(idx, 1);
   editingIdx = null;
+  el.winBanner.classList.remove("show");
   render();
 }
 
@@ -288,25 +284,26 @@ function saveManoEdit(idx, newHome, newVisitor) {
   if (S.visitor < 0) S.visitor = 0;
   S.manos[idx] = { home: newHome, visitor: newVisitor };
   editingIdx = null;
+  el.winBanner.classList.remove("show");
   render();
 }
 
 /* ---- fin ---- */
 function endGame(reason, winnerTeam) {
-  S.finished = true;
   el.btnStart.disabled = true; el.btnPause.disabled = true;
-  let name, desc;
+  let msg;
   if (reason === "score") {
-    name = winnerTeam === "home" ? el.nameHome.value : el.nameVisitor.value;
+    const name = winnerTeam === "home" ? el.nameHome.value : el.nameVisitor.value;
     const loser = winnerTeam === "home" ? el.nameVisitor.value : el.nameHome.value;
-    desc = `¡Llegó a ${S[winnerTeam]} puntos! ${loser} quedó con ${S[winnerTeam==="home"?"visitor":"home"]} pts.`;
+    const lpts = S[winnerTeam === "home" ? "visitor" : "home"];
+    msg = `🏆 ¡Gana ${name} con ${S[winnerTeam]} pts! — ${loser} quedó con ${lpts} pts.`;
   } else {
-    if (S.home > S.visitor)      { name = el.nameHome.value;    desc = `Tiempo agotado. ${S.home} vs ${S.visitor} pts.`; }
-    else if (S.visitor > S.home) { name = el.nameVisitor.value; desc = `Tiempo agotado. ${S.visitor} vs ${S.home} pts.`; }
-    else { name = "¡Empate!"; desc = `Tiempo agotado. Ambos con ${S.home} pts.`; el.trophy.textContent = "🤝"; }
+    if (S.home > S.visitor)      msg = `⏱ Tiempo agotado — 🏆 Gana ${el.nameHome.value} (${S.home} vs ${S.visitor} pts)`;
+    else if (S.visitor > S.home) msg = `⏱ Tiempo agotado — 🏆 Gana ${el.nameVisitor.value} (${S.visitor} vs ${S.home} pts)`;
+    else                         msg = `⏱ Tiempo agotado — 🤝 Empate (${S.home} pts)`;
   }
-  el.winnerName.textContent = name; el.winnerDesc.textContent = desc;
-  el.winModal.classList.add("show");
+  el.winBanner.innerHTML = msg + `<button onclick="resetGame()">Nueva partida</button>`;
+  el.winBanner.classList.add("show");
   render();
 }
 
@@ -320,8 +317,8 @@ function render() {
   el.barVisitor.style.width = Math.min(100, S.visitor / GOAL * 100) + "%";
   el.barHome.className    = "progress-bar-fill" + (S.home    >= GOAL ? " winning" : "");
   el.barVisitor.className = "progress-bar-fill" + (S.visitor >= GOAL ? " winning" : "");
-  el.btnAddHome.disabled    = S.finished;
-  el.btnAddVisitor.disabled = S.finished;
+  el.btnAddHome.disabled    = false;
+  el.btnAddVisitor.disabled = false;
   updateTimer();
   renderHistory();
 }
@@ -382,7 +379,6 @@ function commitEdit(idx) {
 el.btnStart.addEventListener("click", startTimer);
 el.btnPause.addEventListener("click", pauseTimer);
 el.btnReset.addEventListener("click", resetGame);
-$("btnNewGame").addEventListener("click", resetGame);
 
 el.btnAddHome.addEventListener("click", () => { addPoints("home", el.inputHome.value); el.inputHome.value = ""; el.inputHome.focus(); });
 el.btnAddVisitor.addEventListener("click", () => { addPoints("visitor", el.inputVisitor.value); el.inputVisitor.value = ""; el.inputVisitor.focus(); });
