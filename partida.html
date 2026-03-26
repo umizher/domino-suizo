@@ -192,8 +192,7 @@ const GOAL = 200;
 
 const S = {
   home: 0, visitor: 0,
-  manos: [],           // [{home, visitor}, ...]
-  finished: false,
+  manos: [],
   running: false,
   elapsed: 0,
   limitSecs: 30 * 60
@@ -228,7 +227,6 @@ function updateTimer() {
   el.timerDisplay.className = rem <= 60 ? "danger" : rem <= 180 ? "warning" : "";
 }
 function startTimer() {
-  if (S.finished) return;
   S.limitSecs = parseInt(el.timeInput.value || 30) * 60;
   S.running = true;
   el.btnStart.disabled = true;
@@ -237,7 +235,7 @@ function startTimer() {
   ticker = setInterval(() => {
     S.elapsed++;
     updateTimer();
-    if (S.elapsed >= S.limitSecs) { clearInterval(ticker); S.running = false; endGame("time"); }
+    if (S.elapsed >= S.limitSecs) { clearInterval(ticker); S.running = false; notifyTime(); }
   }, 1000);
 }
 function pauseTimer() {
@@ -247,7 +245,7 @@ function pauseTimer() {
 function resetGame() {
   if ((S.home || S.visitor || S.elapsed) && !confirm("¿Reiniciar la partida?")) return;
   clearInterval(ticker);
-  Object.assign(S, { home:0, visitor:0, manos:[], finished:false, running:false, elapsed:0, limitSecs: parseInt(el.timeInput.value||30)*60 });
+  Object.assign(S, { home:0, visitor:0, manos:[], running:false, elapsed:0, limitSecs: parseInt(el.timeInput.value||30)*60 });
   editingIdx = null;
   el.timeInput.disabled = false; el.btnStart.disabled = false; el.btnStart.textContent = "▶ Iniciar";
   el.btnPause.disabled = true; el.winBanner.classList.remove("show"); el.winBanner.innerHTML = "";
@@ -261,7 +259,7 @@ function addPoints(team, ptsRaw) {
   S[team] += pts;
   S.manos.push({ home: team === "home" ? pts : 0, visitor: team === "visitor" ? pts : 0 });
   render();
-  if (S[team] >= GOAL) { clearInterval(ticker); S.running = false; endGame("score", team); }
+  if (S[team] >= GOAL) notifyScore(team);
 }
 
 function deleteMano(idx) {
@@ -288,23 +286,24 @@ function saveManoEdit(idx, newHome, newVisitor) {
   render();
 }
 
-/* ---- fin ---- */
-function endGame(reason, winnerTeam) {
-  el.btnStart.disabled = true; el.btnPause.disabled = true;
-  let msg;
-  if (reason === "score") {
-    const name = winnerTeam === "home" ? el.nameHome.value : el.nameVisitor.value;
-    const loser = winnerTeam === "home" ? el.nameVisitor.value : el.nameHome.value;
-    const lpts = S[winnerTeam === "home" ? "visitor" : "home"];
-    msg = `🏆 ¡Gana ${name} con ${S[winnerTeam]} pts! — ${loser} quedó con ${lpts} pts.`;
-  } else {
-    if (S.home > S.visitor)      msg = `⏱ Tiempo agotado — 🏆 Gana ${el.nameHome.value} (${S.home} vs ${S.visitor} pts)`;
-    else if (S.visitor > S.home) msg = `⏱ Tiempo agotado — 🏆 Gana ${el.nameVisitor.value} (${S.visitor} vs ${S.home} pts)`;
-    else                         msg = `⏱ Tiempo agotado — 🤝 Empate (${S.home} pts)`;
-  }
+/* ---- notificaciones (no bloquean nada) ---- */
+function showBanner(msg) {
   el.winBanner.innerHTML = msg + `<button onclick="resetGame()">Nueva partida</button>`;
   el.winBanner.classList.add("show");
-  render();
+}
+function notifyScore(team) {
+  const name  = team === "home" ? el.nameHome.value : el.nameVisitor.value;
+  const loser = team === "home" ? el.nameVisitor.value : el.nameHome.value;
+  const lpts  = S[team === "home" ? "visitor" : "home"];
+  showBanner(`🏆 ¡Gana ${name} con ${S[team]} pts! — ${loser} quedó con ${lpts} pts.`);
+}
+function notifyTime() {
+  el.btnStart.disabled = false;
+  el.btnPause.disabled = true;
+  el.btnStart.textContent = "▶ Reiniciar tiempo";
+  if (S.home > S.visitor)      showBanner(`⏱ Tiempo agotado — 🏆 Gana ${el.nameHome.value} (${S.home} vs ${S.visitor} pts)`);
+  else if (S.visitor > S.home) showBanner(`⏱ Tiempo agotado — 🏆 Gana ${el.nameVisitor.value} (${S.visitor} vs ${S.home} pts)`);
+  else                         showBanner(`⏱ Tiempo agotado — 🤝 Empate (${S.home} pts)`);
 }
 
 /* ---- render ---- */
