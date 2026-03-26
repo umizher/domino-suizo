@@ -532,6 +532,16 @@ document.getElementById("btnExport").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+// Reset cache via ?reset en URL
+if (new URLSearchParams(location.search).has("reset")) {
+  if (confirm("¿Borrar todo el caché del torneo de parejas?")) {
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem("arbitro_ok");
+    alert("Caché borrado. Ya puedes iniciar un torneo nuevo.");
+  }
+  history.replaceState(null, "", location.pathname);
+}
+
 // Si ya está autenticado, cargar datos
 if (sessionStorage.getItem("arbitro_ok") === "1") { load(); renderAll(); }
 else digits[0].focus();
