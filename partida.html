@@ -108,10 +108,17 @@
     .history-card {
       background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px;
     }
-    .history-card h3 { margin: 0 0 10px; font-size: 14px; color: #9fb1db; }
-    .history-list { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
-    .history-item { font-size: 12px; color: #9fb1db; display: flex; justify-content: space-between; }
-    .history-item span { color: #e8eefc; }
+    .history-card h3 { margin: 0 0 10px; font-size: 14px; color: #9fb1db; display: flex; justify-content: space-between; align-items: center; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .history-table th { background: #0f1830; padding: 8px 10px; text-align: center; color: #9fb1db; font-weight: 600; border-bottom: 1px solid #22304f; }
+    .history-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid #1a2540; }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table .mano-num { color: #9fb1db; }
+    .history-table .pts-winner { color: #6fcf6f; font-weight: bold; }
+    .history-table .pts-zero { color: #9fb1db; }
+    .history-table .total-col { color: #cfe0ff; }
+    .history-table tr.last-mano { background: #1a2a1a; }
+    .empty-history { font-size: 12px; color: #9fb1db; text-align: center; padding: 16px 0; }
 
     /* Modal fin de partida */
     #winModal {
@@ -181,7 +188,6 @@
       <input type="number" id="customHome" placeholder="otro" min="1" max="500" />
       <button class="btn btn-blue" id="btnAddHome">+</button>
     </div>
-    <button class="undo-btn" id="undoHome">↩ Deshacer último</button>
   </div>
 
   <div class="vs-col">VS</div>
@@ -205,7 +211,6 @@
       <input type="number" id="customVisitor" placeholder="otro" min="1" max="500" />
       <button class="btn btn-blue" id="btnAddVisitor">+</button>
     </div>
-    <button class="undo-btn" id="undoVisitor">↩ Deshacer último</button>
   </div>
 
 </div>
@@ -213,9 +218,25 @@
 <!-- Historial -->
 <div class="history-section">
   <div class="history-card">
-    <h3>Historial de jugadas</h3>
-    <div class="history-list" id="historyList">
-      <div style="font-size:12px;color:#9fb1db;">Sin jugadas aún.</div>
+    <h3>
+      <span>Historial de manos</span>
+      <button class="btn btn-gray" id="btnUndoMano" disabled style="padding:5px 10px;font-size:12px;">↩ Deshacer última mano</button>
+    </h3>
+    <div style="overflow:auto;max-height:240px;">
+      <table class="history-table" id="historyTable">
+        <thead>
+          <tr>
+            <th>Mano</th>
+            <th id="thHome">Local</th>
+            <th id="thVisitor">Visitante</th>
+            <th>Total Local</th>
+            <th>Total Visitante</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="5" class="empty-history">Sin manos jugadas aún.</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -237,9 +258,9 @@ const GOAL = 200;
 
 const state = {
   home: 0, visitor: 0,
-  histHome: [], histVisitor: [],
+  manos: [],     // [{home: pts, visitor: pts}, ...]
   running: false, finished: false,
-  elapsed: 0,    // segundos transcurridos
+  elapsed: 0,
   limitSecs: 30 * 60
 };
 
@@ -262,9 +283,10 @@ const el = {
   customVisitor:document.getElementById("customVisitor"),
   btnAddHome:   document.getElementById("btnAddHome"),
   btnAddVisitor:document.getElementById("btnAddVisitor"),
-  undoHome:     document.getElementById("undoHome"),
-  undoVisitor:  document.getElementById("undoVisitor"),
-  historyList:  document.getElementById("historyList"),
+  historyBody:  document.getElementById("historyBody"),
+  btnUndoMano:  document.getElementById("btnUndoMano"),
+  thHome:       document.getElementById("thHome"),
+  thVisitor:    document.getElementById("thVisitor"),
   winModal:     document.getElementById("winModal"),
   winnerName:   document.getElementById("winnerName"),
   winnerDesc:   document.getElementById("winnerDesc"),
@@ -318,7 +340,7 @@ function resetGame() {
   }
   clearInterval(timerInterval);
   state.home = 0; state.visitor = 0;
-  state.histHome = []; state.histVisitor = [];
+  state.manos = [];
   state.running = false; state.finished = false;
   state.elapsed = 0;
   state.limitSecs = parseInt(el.timeInput.value || 30) * 60;
@@ -338,8 +360,7 @@ function addPoints(team, pts) {
   if (!pts || pts <= 0) return;
 
   state[team] += pts;
-  state[team === "home" ? "histHome" : "histVisitor"].push(pts);
-  logHistory(team, pts);
+  state.manos.push({ home: team === "home" ? pts : 0, visitor: team === "visitor" ? pts : 0 });
   renderAll();
 
   if (state[team] >= GOAL) {
@@ -349,29 +370,41 @@ function addPoints(team, pts) {
   }
 }
 
-function undoPoints(team) {
-  if (state.finished) return;
-  const hist = team === "home" ? state.histHome : state.histVisitor;
-  if (!hist.length) return;
-  const last = hist.pop();
-  state[team] -= last;
-  if (state[team] < 0) state[team] = 0;
-  logHistory(team, -last);
+function undoLastMano() {
+  if (state.finished || !state.manos.length) return;
+  const last = state.manos.pop();
+  state.home    -= last.home;
+  state.visitor -= last.visitor;
+  if (state.home < 0)    state.home = 0;
+  if (state.visitor < 0) state.visitor = 0;
   renderAll();
 }
 
 /* ---- historial ---- */
-function logHistory(team, pts) {
-  const name = team === "home" ? el.nameHome.value : el.nameVisitor.value;
-  const sign = pts > 0 ? `+${pts}` : `${pts}`;
-  const total = state[team];
-  const item = document.createElement("div");
-  item.className = "history-item";
-  item.innerHTML = `<span>${name}</span><span>${sign} → ${total} pts</span>`;
-  el.historyList.insertBefore(item, el.historyList.firstChild);
-  // quitar mensaje vacío
-  const empty = el.historyList.querySelector("div:not(.history-item)");
-  if (empty) empty.remove();
+function renderHistory() {
+  el.thHome.textContent    = el.nameHome.value    || "Local";
+  el.thVisitor.textContent = el.nameVisitor.value || "Visitante";
+
+  if (!state.manos.length) {
+    el.historyBody.innerHTML = `<tr><td colspan="5" class="empty-history">Sin manos jugadas aún.</td></tr>`;
+    el.btnUndoMano.disabled = true;
+    return;
+  }
+  el.btnUndoMano.disabled = state.finished;
+
+  let totalH = 0, totalV = 0;
+  const rows = state.manos.map((m, i) => {
+    totalH += m.home; totalV += m.visitor;
+    const isLast = i === state.manos.length - 1;
+    return `<tr class="${isLast ? 'last-mano' : ''}">
+      <td class="mano-num">${i + 1}</td>
+      <td class="${m.home > 0 ? 'pts-winner' : 'pts-zero'}">${m.home > 0 ? '+' + m.home : '—'}</td>
+      <td class="${m.visitor > 0 ? 'pts-winner' : 'pts-zero'}">${m.visitor > 0 ? '+' + m.visitor : '—'}</td>
+      <td class="total-col">${totalH}</td>
+      <td class="total-col">${totalV}</td>
+    </tr>`;
+  });
+  el.historyBody.innerHTML = rows.reverse().join("");
 }
 
 /* ---- fin de partida ---- */
@@ -424,9 +457,7 @@ function renderAll() {
   el.barHome.className    = "progress-bar-fill" + (state.home    >= GOAL ? " winning" : "");
   el.barVisitor.className = "progress-bar-fill" + (state.visitor >= GOAL ? " winning" : "");
 
-  // botones deshacer
-  el.undoHome.disabled    = !state.histHome.length    || state.finished;
-  el.undoVisitor.disabled = !state.histVisitor.length || state.finished;
+  renderHistory();
 
   // deshabilitar agregar si terminó
   const done = state.finished;
@@ -459,8 +490,7 @@ el.btnAddVisitor.addEventListener("click", () => {
 el.customHome.addEventListener("keydown", e => { if (e.key === "Enter") el.btnAddHome.click(); });
 el.customVisitor.addEventListener("keydown", e => { if (e.key === "Enter") el.btnAddVisitor.click(); });
 
-el.undoHome.addEventListener("click",    () => undoPoints("home"));
-el.undoVisitor.addEventListener("click", () => undoPoints("visitor"));
+el.btnUndoMano.addEventListener("click", undoLastMano);
 
 el.timeInput.addEventListener("change", () => {
   if (!state.running && state.elapsed === 0) {
