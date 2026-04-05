@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Liga de Dominó – Registro de Sesiones</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: #0b1220; color: #e8eefc; }
+
+    /* ── Header ── */
+    header { padding: 14px 18px; background: #121a2b; border-bottom: 1px solid #22304f; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    .header-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab {
+      padding: 7px 14px; border-radius: 10px; cursor: pointer; font-size: 13px;
+      border: 1px solid #22304f; background: #0b1220; color: #9fb1db; font-weight: 600;
+    }
+    .tab.active { background: #2b65ff; color: #fff; border-color: #2b65ff; }
+
+    /* ── Layout ── */
+    main { padding: 16px 18px; max-width: 1100px; margin: 0 auto; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .grid2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 860px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+    .full-col { grid-column: 1 / -1; }
+
+    /* ── Cards ── */
+    .card { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 16px; }
+    .card h2 { margin: 0 0 12px; font-size: 15px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .card-header h2 { margin: 0; }
+
+    /* ── Forms ── */
+    input[type=text], input[type=number], input[type=date], select, textarea {
+      background: #0b1220; color: #e8eefc; border: 1px solid #22304f;
+      border-radius: 10px; padding: 8px 12px; font-size: 14px;
+    }
+    textarea { width: 100%; min-height: 130px; resize: vertical; }
+    input[type=number] { width: 72px; text-align: center; }
+    input[type=date] { min-width: 150px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+
+    /* ── Buttons ── */
+    button {
+      background: #2b65ff; color: #fff; border: 0; border-radius: 10px;
+      padding: 9px 14px; cursor: pointer; font-weight: 650; font-size: 13px;
+    }
+    button.secondary { background: #1b2847; border: 1px solid #22304f; color: #cfe0ff; }
+    button.danger     { background: #d12b2b; }
+    button.success    { background: #1a7a1a; }
+    button.sm         { padding: 5px 10px; font-size: 12px; }
+    button:disabled   { opacity: .5; cursor: not-allowed; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; padding: 2px 6px;
+      font-size: 14px; border-radius: 6px; color: #9fb1db;
+    }
+    .icon-btn:hover { background: #1b2847; }
+    .icon-btn.del { color: #ff6b6b; }
+
+    /* ── Tables ── */
+    .tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #22304f; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #0f1830; padding: 9px 10px; text-align: left; white-space: nowrap; }
+    td { padding: 9px 10px; border-top: 1px solid #22304f; }
+    tr:hover td { background: #0f1830; }
+    td.center, th.center { text-align: center; }
+    .rank-1 td:first-child { color: #ffd700; font-weight: bold; }
+    .rank-2 td:first-child { color: #c0c0c0; font-weight: bold; }
+    .rank-3 td:first-child { color: #cd7f32; font-weight: bold; }
+    .dimmed td { color: #9fb1db; }
+
+    /* ── Pills / Badges ── */
+    .pill { display: inline-block; padding: 2px 9px; border: 1px solid #22304f; border-radius: 999px; font-size: 12px; color: #cfe0ff; }
+    .pill.green  { border-color: #2d6e2d; color: #6fcf6f; background: #0e2410; }
+    .pill.yellow { border-color: #6b5900; color: #ffd700; background: #1a1600; }
+    .pill.red    { border-color: #5a1010; color: #ff8080; background: #1a0808; }
+
+    /* ── Muted / misc ── */
+    .muted { color: #9fb1db; font-size: 12px; }
+    .sep   { border: none; border-top: 1px solid #22304f; margin: 14px 0; }
+    .empty { color: #9fb1db; text-align: center; padding: 20px; font-size: 13px; }
+
+    /* ── Session entry grid ── */
+    .sess-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sess-table th { background: #0f1830; padding: 8px 10px; }
+    .sess-table td { padding: 6px 8px; border-top: 1px solid #22304f; }
+    .sess-table input[type=number] { width: 60px; }
+
+    /* ── Session list item ── */
+    .sess-item {
+      border: 1px solid #22304f; border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 10px; background: #0f1830;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+    .sess-item-info { display: flex; flex-direction: column; gap: 3px; }
+    .sess-item-label { font-weight: bold; font-size: 14px; }
+    .sess-item-meta  { font-size: 12px; color: #9fb1db; }
+    .sess-item-actions { display: flex; gap: 8px; }
+
+    /* ── Monthly selector ── */
+    .month-selector { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+    .month-selector select { min-width: 130px; }
+
+    /* ── Stats cards ── */
+    .stat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .stat-card { background: #0f1830; border: 1px solid #22304f; border-radius: 12px; padding: 12px 16px; flex: 1; min-width: 120px; }
+    .stat-card .val  { font-size: 26px; font-weight: 900; color: #e8eefc; }
+    .stat-card .lbl  { font-size: 11px; color: #9fb1db; margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+    /* ── Podio ── */
+    .podium { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+    .podium-card {
+      text-align: center; background: #0f1830; border: 1px solid #22304f;
+      border-radius: 14px; padding: 16px 20px; min-width: 120px;
+    }
+    .podium-card.p1 { border-color: #ffd700; }
+    .podium-card.p2 { border-color: #c0c0c0; }
+    .podium-card.p3 { border-color: #cd7f32; }
+    .podium-place { font-size: 24px; font-weight: 900; }
+    .podium-card.p1 .podium-place { color: #ffd700; }
+    .podium-card.p2 .podium-place { color: #c0c0c0; }
+    .podium-card.p3 .podium-place { color: #cd7f32; }
+    .podium-name { font-size: 14px; font-weight: bold; margin: 4px 0; }
+    .podium-rate { font-size: 20px; font-weight: 900; color: #6fcf6f; }
+    .podium-sub  { font-size: 11px; color: #9fb1db; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
+      background: #1b2847; border: 1px solid #22304f; border-radius: 12px;
+      padding: 10px 22px; font-size: 13px; color: #e8eefc;
+      transition: transform .25s, opacity .25s; opacity: 0; z-index: 999; pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      z-index: 100; align-items: flex-start; justify-content: center; padding: 30px 12px; overflow-y: auto;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #121a2b; border: 1px solid #22304f; border-radius: 16px;
+      padding: 20px; width: 100%; max-width: 680px; position: relative;
+    }
+    .modal h2 { margin: 0 0 14px; font-size: 16px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+    .modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: #9fb1db; font-size: 20px; cursor: pointer; line-height: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🁫 Liga de Dominó – Registro de Sesiones</h1>
+  <div class="header-tabs">
+    <button class="tab active" onclick="switchTab('jugadores')">Jugadores</button>
+    <button class="tab"        onclick="switchTab('sesiones')">Sesiones</button>
+    <button class="tab"        onclick="switchTab('mensual')">Ranking Mensual</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ═══ TAB: JUGADORES ═══ -->
+  <div id="view-jugadores" class="view active">
+    <div class="grid2">
+      <div class="card">
+        <h2>Jugadores de la liga</h2>
+        <p class="muted">Un jugador por línea. Sin duplicados.</p>
+        <textarea id="playersInput" placeholder="Juan&#10;Pedro&#10;Luis&#10;Ana&#10;Carlos&#10;María"></textarea>
+        <div class="row" style="margin-top:10px;">
+          <button onclick="savePlayers()">Guardar jugadores</button>
+          <span class="muted" id="playersCount"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Jugadores actuales</h2>
+        <div id="playersList"><p class="empty">Sin jugadores registrados.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: SESIONES ═══ -->
+  <div id="view-sesiones" class="view">
+    <div class="grid2">
+      <div class="card">
+        <h2>Nueva sesión</h2>
+        <div class="row">
+          <label style="font-size:13px;color:#9fb1db;">Fecha:</label>
+          <input type="date" id="sessDate" />
+          <button class="secondary sm" onclick="setNextFriday()">Próximo viernes</button>
+        </div>
+        <div class="row">
+          <label style="font-size:13px;color:#9fb1db;">Etiqueta (opcional):</label>
+          <input type="text" id="sessLabel" placeholder="Ej: Viernes Liga #12" style="flex:1;min-width:160px;" />
+        </div>
+        <button onclick="openNewSession()">Crear sesión y registrar partidas</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Sesiones registradas</h2>
+          <span class="muted" id="sessCount">0 sesiones</span>
+        </div>
+        <div id="sessionList"><p class="empty">Sin sesiones aún.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: RANKING MENSUAL ═══ -->
+  <div id="view-mensual" class="view">
+    <div class="month-selector">
+      <label style="font-size:13px;color:#9fb1db;">Mes:</label>
+      <select id="monthSel" onchange="renderMonthly()"></select>
+      <select id="yearSel"  onchange="renderMonthly()"></select>
+      <button class="secondary sm" onclick="exportMonthCSV()">Exportar CSV</button>
+    </div>
+
+    <div id="monthlyContent">
+      <p class="empty">Selecciona un mes con sesiones registradas.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══ MODAL: Registrar partidas de una sesión ═══ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modalTitle">Registrar partidas</h2>
+    <p class="muted">Ingresa partidas ganadas y perdidas por cada jugador en esta sesión.</p>
+    <div class="tbl-wrap">
+      <table class="sess-table">
+        <thead>
+          <tr>
+            <th>Jugador</th>
+            <th class="center">Ganadas (G)</th>
+            <th class="center">Perdidas (P)</th>
+            <th class="center">PJ</th>
+          </tr>
+        </thead>
+        <tbody id="sessionInputBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="secondary" onclick="closeModal()">Cancelar</button>
+      <button class="success"   onclick="saveSession()">Guardar sesión</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   ESTADO & STORAGE
+══════════════════════════════════════════════ */
+const SK = "domino_liga_v1";
+
+const state = {
+  players: [],
+  sessions: []   // { id, date, label, results: { player: {G,P} } }
+};
+
+function save() { localStorage.setItem(SK, JSON.stringify(state)); }
+function load() {
+  try {
+    const raw = localStorage.getItem(SK);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    state.players  = s.players  || [];
+    state.sessions = s.sessions || [];
+  } catch {}
+}
+
+/* ══════════════════════════════════════════════
+   UTILIDADES
+══════════════════════════════════════════════ */
+let toastTimer = null;
+function toast(msg, ms = 2500) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+function uniqLines(text) {
+  const seen = new Set();
+  return text.split(/\r?\n/).map(s => s.trim()).filter(s => {
+    if (!s) return false;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+function escH(s) {
+  return String(s ?? "").replace(/[&<>"']/g, m =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m]));
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+function fmtDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const days = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const dow = new Date(y, m - 1, d).getDay();
+  return `${days[dow]} ${d} ${MONTHS[m - 1]} ${y}`;
+}
+
+function isoToday() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function nextFriday() {
+  const d = new Date();
+  const day = d.getDay();       // 0=Sun … 5=Fri
+  const diff = (5 - day + 7) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+/* ══════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════ */
+function switchTab(name) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.getElementById("view-" + name).classList.add("active");
+  document.querySelectorAll(".tab").forEach(t => {
+    if (t.textContent.toLowerCase().startsWith(name === "mensual" ? "ranking" : name.slice(0, 4)))
+      t.classList.add("active");
+  });
+  if (name === "mensual") { buildMonthSelectors(); renderMonthly(); }
+  if (name === "sesiones") renderSessions();
+}
+
+/* ══════════════════════════════════════════════
+   JUGADORES
+══════════════════════════════════════════════ */
+function savePlayers() {
+  const names = uniqLines(document.getElementById("playersInput").value);
+  if (names.length < 2) return toast("Necesitas al menos 2 jugadores.");
+  state.players = names;
+  save();
+  renderPlayers();
+  toast(`${names.length} jugadores guardados ✅`);
+}
+
+function renderPlayers() {
+  const n = state.players.length;
+  document.getElementById("playersInput").value = state.players.join("\n");
+  document.getElementById("playersCount").textContent = n ? `${n} jugador(es)` : "";
+  const el = document.getElementById("playersList");
+  if (!n) { el.innerHTML = `<p class="empty">Sin jugadores registrados.</p>`; return; }
+  el.innerHTML = state.players.map((p, i) =>
+    `<div class="row" style="margin:4px 0;">
+       <span class="pill">${i + 1}</span>
+       <span style="font-size:14px;font-weight:600;">${escH(p)}</span>
+     </div>`
+  ).join("");
+}
+
+/* ══════════════════════════════════════════════
+   SESIONES – lista
+══════════════════════════════════════════════ */
+function renderSessions() {
+  const el = document.getElementById("sessionList");
+  const cnt = document.getElementById("sessCount");
+  const n = state.sessions.length;
+  cnt.textContent = `${n} sesión(es)`;
+
+  if (!n) { el.innerHTML = `<p class="empty">Sin sesiones aún.</p>`; return; }
+
+  // Ordenar por fecha descendente
+  const sorted = [...state.sessions].sort((a, b) => b.date.localeCompare(a.date));
+  el.innerHTML = sorted.map(s => {
+    const players = Object.keys(s.results);
+    const totalPJ = players.reduce((acc, p) => acc + (s.results[p].G + s.results[p].P), 0);
+    return `<div class="sess-item">
+      <div class="sess-item-info">
+        <div class="sess-item-label">${escH(s.label || fmtDate(s.date))}</div>
+        <div class="sess-item-meta">${fmtDate(s.date)} · ${players.length} jugadores · ${totalPJ} partidas totales</div>
+      </div>
+      <div class="sess-item-actions">
+        <button class="secondary sm" onclick="editSession('${s.id}')">✏️ Editar</button>
+        <button class="sm danger"    onclick="deleteSession('${s.id}')">Eliminar</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ══════════════════════════════════════════════
+   SESIONES – nueva / editar
+══════════════════════════════════════════════ */
+let _editingSessionId = null;
+
+function setNextFriday() {
+  document.getElementById("sessDate").value = nextFriday();
+}
+
+function openNewSession() {
+  if (!state.players.length) return toast("Primero agrega jugadores.");
+  const date = document.getElementById("sessDate").value || isoToday();
+  const label = document.getElementById("sessLabel").value.trim();
+  _editingSessionId = null;
+
+  document.getElementById("modalTitle").textContent =
+    `Nueva sesión – ${fmtDate(date)}`;
+  buildSessionInputTable({}, date, label);
+  document.getElementById("modalOverlay").classList.add("open");
+}
+
+function editSession(id) {
+  const sess = state.sessions.find(s => s.id === id);
+  if (!sess) return;
+  _editingSessionId = id;
+  document.getElementById("sessDate").value  = sess.date;
+  document.getElementById("sessLabel").value = sess.label || "";
+  document.getElementById("modalTitle").textContent =
+    `Editar sesión – ${fmtDate(sess.date)}`;
+  buildSessionInputTable(sess.results, sess.date, sess.label);
+  document.getElementById("modalOverlay").classList.add("open");
+}
+
+function buildSessionInputTable(results, date, label) {
+  const tbody = document.getElementById("sessionInputBody");
+  tbody.innerHTML = state.players.map(p => {
+    const r = results[p] || { G: 0, P: 0 };
+    return `<tr>
+      <td><b>${escH(p)}</b></td>
+      <td class="center">
+        <input type="number" min="0" max="999" step="1" value="${r.G}"
+               data-p="${escH(p)}" data-t="G" oninput="updatePJ(this)" id="g_${escH(p).replace(/ /g,'_')}" />
+      </td>
+      <td class="center">
+        <input type="number" min="0" max="999" step="1" value="${r.P}"
+               data-p="${escH(p)}" data-t="P" oninput="updatePJ(this)" id="p_${escH(p).replace(/ /g,'_')}" />
+      </td>
+      <td class="center muted" id="pj_${escH(p).replace(/ /g,'_')}">${r.G + r.P}</td>
+    </tr>`;
+  }).join("");
+}
+
+function updatePJ(inp) {
+  const key = inp.getAttribute("data-p").replace(/ /g, "_");
+  const gEl = document.getElementById(`g_${key}`);
+  const pEl = document.getElementById(`p_${key}`);
+  const pjEl = document.getElementById(`pj_${key}`);
+  if (gEl && pEl && pjEl)
+    pjEl.textContent = (parseInt(gEl.value) || 0) + (parseInt(pEl.value) || 0);
+}
+
+function saveSession() {
+  const date  = document.getElementById("sessDate").value || isoToday();
+  const label = document.getElementById("sessLabel").value.trim();
+  const results = {};
+  let anyPlayed = false;
+
+  for (const p of state.players) {
+    const key = p.replace(/ /g, "_");
+    const gEl = document.getElementById(`g_${key}`);
+    const pEl = document.getElementById(`p_${key}`);
+    const G = parseInt(gEl?.value) || 0;
+    const P = parseInt(pEl?.value) || 0;
+    results[p] = { G, P };
+    if (G + P > 0) anyPlayed = true;
+  }
+
+  if (!anyPlayed) return toast("Registra al menos una partida.", 3000);
+
+  if (_editingSessionId) {
+    const sess = state.sessions.find(s => s.id === _editingSessionId);
+    if (sess) { sess.date = date; sess.label = label; sess.results = results; }
+  } else {
+    state.sessions.push({ id: uid(), date, label, results });
+  }
+
+  save();
+  closeModal();
+  renderSessions();
+  document.getElementById("sessLabel").value = "";
+  toast("Sesión guardada ✅");
+}
+
+function deleteSession(id) {
+  if (!confirm("¿Eliminar esta sesión?")) return;
+  state.sessions = state.sessions.filter(s => s.id !== id);
+  save();
+  renderSessions();
+  toast("Sesión eliminada.");
+}
+
+function closeModal() {
+  document.getElementById("modalOverlay").classList.remove("open");
+  _editingSessionId = null;
+}
+
+// Close modal on backdrop click
+document.getElementById("modalOverlay").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+/* ══════════════════════════════════════════════
+   RANKING MENSUAL
+══════════════════════════════════════════════ */
+function buildMonthSelectors() {
+  const dates = state.sessions.map(s => s.date.slice(0, 7)).filter(Boolean);
+  const unique = [...new Set(dates)].sort().reverse();
+
+  if (!unique.length) {
+    // fallback: current month
+    const now = new Date();
+    unique.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  }
+
+  // Extract all years that appear
+  const years = [...new Set(unique.map(d => d.slice(0, 4)))].sort().reverse();
+  const months = [...new Set(unique.map(d => d.slice(5, 7)))];
+
+  const ySel = document.getElementById("yearSel");
+  const mSel = document.getElementById("monthSel");
+
+  const curY = ySel.value || unique[0].slice(0, 4);
+  const curM = mSel.value || unique[0].slice(5, 7);
+
+  ySel.innerHTML = years.map(y => `<option value="${y}" ${y === curY ? "selected" : ""}>${y}</option>`).join("");
+  mSel.innerHTML = MONTHS.map((name, i) => {
+    const mv = String(i + 1).padStart(2, "0");
+    return `<option value="${mv}" ${mv === curM ? "selected" : ""}>${name}</option>`;
+  }).join("");
+}
+
+function getMonthStats(year, month) {
+  const prefix = `${year}-${month}`;
+  const sessions = state.sessions.filter(s => s.date.startsWith(prefix));
+
+  if (!sessions.length) return null;
+
+  // Aggregate per player
+  const agg = {};
+  for (const p of state.players) agg[p] = { G: 0, P: 0, sessions: 0 };
+
+  for (const sess of sessions) {
+    for (const [p, r] of Object.entries(sess.results)) {
+      if (!agg[p]) agg[p] = { G: 0, P: 0, sessions: 0 };
+      const pj = r.G + r.P;
+      if (pj > 0) {
+        agg[p].G       += r.G;
+        agg[p].P       += r.P;
+        agg[p].sessions += 1;
+      }
+    }
+  }
+
+  // Compute PJ per player (total partidas jugadas)
+  const playerStats = state.players.map(p => {
+    const d = agg[p] || { G: 0, P: 0, sessions: 0 };
+    const PJ = d.G + d.P;
+    const rate = PJ > 0 ? d.G / PJ : 0;
+    return { player: p, G: d.G, P: d.P, PJ, sessions: d.sessions, rate };
+  }).filter(x => x.PJ > 0);   // only players who participated
+
+  // Media (average PJ) across all players who participated
+  const avgPJ = playerStats.length
+    ? playerStats.reduce((s, x) => s + x.PJ, 0) / playerStats.length
+    : 0;
+
+  // Qualify: PJ > avgPJ (strictly above average)
+  const qualified   = playerStats.filter(x => x.PJ > avgPJ)
+    .sort((a, b) => b.rate - a.rate || (b.G - b.P) - (a.G - a.P) || a.player.localeCompare(b.player));
+  const disqualified = playerStats.filter(x => x.PJ <= avgPJ)
+    .sort((a, b) => b.rate - a.rate);
+
+  return { sessions, playerStats, qualified, disqualified, avgPJ };
+}
+
+function renderMonthly() {
+  const year  = document.getElementById("yearSel").value;
+  const month = document.getElementById("monthSel").value;
+  const el    = document.getElementById("monthlyContent");
+
+  if (!year || !month) { el.innerHTML = `<p class="empty">Selecciona año y mes.</p>`; return; }
+
+  const stats = getMonthStats(year, month);
+
+  if (!stats) {
+    el.innerHTML = `<p class="empty">Sin sesiones registradas para ${MONTHS[+month - 1]} ${year}.</p>`;
+    return;
+  }
+
+  const { sessions, qualified, disqualified, avgPJ, playerStats } = stats;
+
+  /* ─ Sesiones del mes ─ */
+  const sessList = sessions
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(s => `<span class="pill">${escH(s.label || fmtDate(s.date))}</span>`)
+    .join(" ");
+
+  /* ─ Stat cards ─ */
+  const totalPJ = playerStats.reduce((s, x) => s + x.PJ, 0);
+  const statCards = `
+    <div class="stat-row">
+      <div class="stat-card"><div class="val">${sessions.length}</div><div class="lbl">Sesiones</div></div>
+      <div class="stat-card"><div class="val">${playerStats.length}</div><div class="lbl">Jugadores activos</div></div>
+      <div class="stat-card"><div class="val">${totalPJ}</div><div class="lbl">Partidas totales</div></div>
+      <div class="stat-card"><div class="val">${avgPJ.toFixed(1)}</div><div class="lbl">Media partidas (umbral)</div></div>
+      <div class="stat-card"><div class="val">${qualified.length}</div><div class="lbl">Clasificados</div></div>
+    </div>`;
+
+  /* ─ Podio (top 3) ─ */
+  const podiumClasses = ["p1", "p2", "p3"];
+  const podiumEmojis  = ["🥇", "🥈", "🥉"];
+  const podiumHTML = qualified.slice(0, 3).length
+    ? `<div class="podium">
+        ${qualified.slice(0, 3).map((p, i) => `
+          <div class="podium-card ${podiumClasses[i]}">
+            <div class="podium-place">${podiumEmojis[i]}</div>
+            <div class="podium-name">${escH(p.player)}</div>
+            <div class="podium-rate">${(p.rate * 100).toFixed(1)}%</div>
+            <div class="podium-sub">${p.G}G · ${p.P}P · ${p.PJ} PJ</div>
+          </div>`).join("")}
+       </div>`
+    : "";
+
+  /* ─ Tabla clasificados ─ */
+  const classifiedRows = qualified.map((p, i) => {
+    const cls = i === 0 ? "rank-1" : i === 1 ? "rank-2" : i === 2 ? "rank-3" : "";
+    const medal = i === 0 ? "🥇 1°" : i === 1 ? "🥈 2°" : i === 2 ? "🥉 3°" : `${i + 1}°`;
+    const net = p.G - p.P;
+    return `<tr class="${cls}">
+      <td>${medal}</td>
+      <td><b>${escH(p.player)}</b></td>
+      <td class="center">${p.G}</td>
+      <td class="center">${p.P}</td>
+      <td class="center">${p.PJ}</td>
+      <td class="center">${net >= 0 ? "+" : ""}${net}</td>
+      <td class="center"><b>${(p.rate * 100).toFixed(1)}%</b></td>
+      <td class="center">${p.sessions}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8" class="empty">Sin jugadores clasificados.</td></tr>`;
+
+  /* ─ Tabla no clasificados ─ */
+  const disqRows = disqualified.map(p => {
+    const net = p.G - p.P;
+    return `<tr class="dimmed">
+      <td>—</td>
+      <td>${escH(p.player)}</td>
+      <td class="center">${p.G}</td>
+      <td class="center">${p.P}</td>
+      <td class="center">${p.PJ}</td>
+      <td class="center">${net >= 0 ? "+" : ""}${net}</td>
+      <td class="center">${(p.rate * 100).toFixed(1)}%</td>
+      <td class="center">${p.sessions}</td>
+    </tr>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-header">
+        <h2>📅 ${MONTHS[+month - 1]} ${year}</h2>
+        <div style="font-size:12px;color:#9fb1db;">Sesiones: ${sessList}</div>
+      </div>
+      ${statCards}
+
+      <div style="font-size:12px;color:#9fb1db;margin-bottom:12px;">
+        <b>Criterio de clasificación:</b> partidas jugadas (PJ) estrictamente mayores a la media
+        (<b>${avgPJ.toFixed(1)} PJ</b>). Orden: % de victorias → diferencial (G−P).
+      </div>
+
+      ${podiumHTML}
+
+      <h3 style="margin:0 0 10px;font-size:14px;">🏆 Clasificados (PJ > ${avgPJ.toFixed(1)})</h3>
+      <div class="tbl-wrap" style="margin-bottom:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Jugador</th>
+              <th class="center">G</th><th class="center">P</th>
+              <th class="center">PJ</th><th class="center">G−P</th>
+              <th class="center">% Vic</th>
+              <th class="center">Sesiones</th>
+            </tr>
+          </thead>
+          <tbody>${classifiedRows}</tbody>
+        </table>
+      </div>
+
+      ${disqualified.length ? `
+        <details>
+          <summary style="cursor:pointer;font-size:13px;color:#9fb1db;margin-bottom:8px;">
+            No clasificados – PJ ≤ ${avgPJ.toFixed(1)} (${disqualified.length} jugador(es))
+          </summary>
+          <div class="tbl-wrap" style="margin-top:8px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Jugador</th>
+                  <th class="center">G</th><th class="center">P</th>
+                  <th class="center">PJ</th><th class="center">G−P</th>
+                  <th class="center">% Vic</th>
+                  <th class="center">Sesiones</th>
+                </tr>
+              </thead>
+              <tbody>${disqRows}</tbody>
+            </table>
+          </div>
+        </details>` : ""}
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════
+   EXPORT CSV
+══════════════════════════════════════════════ */
+function q(s) {
+  const t = String(s ?? "");
+  return /[,"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+function exportMonthCSV() {
+  const year  = document.getElementById("yearSel").value;
+  const month = document.getElementById("monthSel").value;
+  const stats = getMonthStats(year, month);
+  if (!stats) return toast("Sin datos para exportar.");
+
+  const { qualified, disqualified, avgPJ, sessions } = stats;
+  const all = [...qualified.map((p, i) => ({ ...p, rank: i + 1, cls: "Clasificado" })),
+               ...disqualified.map(p => ({ ...p, rank: "-", cls: "No clasificado" }))];
+
+  const lines = [];
+  lines.push(`Liga de Dominó – ${MONTHS[+month - 1]} ${year}`);
+  lines.push(`Sesiones:,${sessions.map(s => s.label || fmtDate(s.date)).join(" | ")}`);
+  lines.push(`Media PJ (umbral):,${avgPJ.toFixed(2)}`);
+  lines.push("");
+  lines.push(["Lugar","Jugador","G","P","PJ","G-P","% Victorias","Sesiones","Clasificación"].join(","));
+  for (const p of all) {
+    lines.push([
+      q(p.rank), q(p.player), p.G, p.P, p.PJ,
+      p.G - p.P, `${(p.rate * 100).toFixed(2)}%`, p.sessions, q(p.cls)
+    ].join(","));
+  }
+
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `liga-domino-${year}-${month}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+load();
+renderPlayers();
+renderSessions();
+
+// Set today as default date
+document.getElementById("sessDate").value = isoToday();
+</script>
+</body>
+</html>
