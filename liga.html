@@ -429,21 +429,36 @@ function renderSessions() {
   }
   el.innerHTML = sorted.map(function(sess) {
     const locked = !!state.closedMonths[ym(sess.date)];
-    const scores = sess.scores.slice().sort(function(a, b) { return b.points - a.points; });
-    const scoresHTML = scores.map(function(sc) {
+
+    // Ordenar jugadores por G desc, luego por G-P desc para el lugar en esta sesión
+    const ranked = sess.scores.map(function(sc) {
       const p = state.players.find(function(pl) { return pl.id === sc.playerId; });
-      if (!p) return "";
-      const g = sc.G !== undefined ? sc.G : (sc.winner ? 1 : 0);
+      const g  = sc.G !== undefined ? sc.G : (sc.winner ? 1 : 0);
       const pp = sc.P !== undefined ? sc.P : (!sc.winner ? 1 : 0);
-      const isWinner = g > pp;
-      return '<span class="score-chip ' + (isWinner ? 'winner' : '') + '">' +
-        (isWinner ? '&#x1F3C6; ' : '') + esc(p.name) + ': ' + g + 'G/' + pp + 'P' +
+      return { p: p, g: g, pp: pp, pj: g + pp };
+    }).filter(function(x) { return x.p && x.pj > 0; })
+      .sort(function(a, b) {
+        if (b.g !== a.g) return b.g - a.g;
+        return (b.g - b.pp) - (a.g - a.pp);
+      });
+
+    const medals = ["🥇","🥈","🥉"];
+    const scoresHTML = ranked.map(function(x, i) {
+      const medal  = medals[i] || ("#" + (i + 1));
+      const rate   = x.pj > 0 ? ((x.g / x.pj) * 100).toFixed(0) : 0;
+      const isTop  = i === 0;
+      return '<span class="score-chip ' + (isTop ? 'winner' : '') + '" style="display:inline-flex;align-items:center;gap:4px;">' +
+        '<b>' + medal + '</b>' +
+        esc(x.p.name) + ': ' + x.g + 'G/' + x.pp + 'P' +
+        '<span style="font-size:0.75rem;opacity:0.75">(' + rate + '%)</span>' +
       '</span>';
     }).join("");
+
     const actions = locked
       ? '<span class="lock-badge">&#x1F512; Cerrado</span>'
       : '<button class="btn btn-secondary btn-sm" onclick="openEditModal(\'' + sess.id + '\')">Editar</button>' +
         '<button class="btn btn-danger btn-sm" onclick="deleteSession(\'' + sess.id + '\')">&#x1F5D1;</button>';
+
     return '<div class="session-item">' +
       '<div class="session-header">' +
         '<span class="session-date">&#x1F4C5; ' + formatDate(sess.date) + '</span>' +
