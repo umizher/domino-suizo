@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liga Dominó Suizo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b1220; color: #c9d6e8; font-family: "Segoe UI", system-ui, sans-serif; min-height: 100vh; }
+  a { color: #2b65ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* HEADER */
+  header { background: #121a2b; border-bottom: 1px solid #22304f; padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+  .header-title { font-size: 1.25rem; font-weight: 700; color: #fff; }
+  .header-title span { color: #2b65ff; }
+  .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.85rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: opacity 0.15s, transform 0.1s; }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: #2b65ff; color: #fff; }
+  .btn-secondary { background: #22304f; color: #c9d6e8; }
+  .btn-danger { background: #c0392b; color: #fff; }
+  .btn-warning { background: #e67e22; color: #fff; }
+  .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.78rem; }
+  .btn-link { background: none; border: none; color: #2b65ff; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0.4rem; text-decoration: underline; }
+  .btn-link-danger { color: #e74c3c; }
+
+  /* TABS */
+  .tabs { display: flex; background: #121a2b; border-bottom: 1px solid #22304f; overflow-x: auto; }
+  .tab { padding: 0.75rem 1.25rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #8899aa; border-bottom: 3px solid transparent; white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
+  .tab:hover { color: #c9d6e8; }
+  .tab.active { color: #2b65ff; border-bottom-color: #2b65ff; }
+
+  /* CONTAINER */
+  .container { max-width: 720px; margin: 0 auto; padding: 1rem; }
+
+  /* CARDS */
+  .card { background: #121a2b; border: 1px solid #22304f; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+  .card-title { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 0.75rem; }
+
+  /* FORM */
+  .form-group { margin-bottom: 0.75rem; }
+  label { display: block; font-size: 0.82rem; color: #8899aa; margin-bottom: 0.3rem; }
+  input, select { width: 100%; background: #0b1220; border: 1px solid #22304f; border-radius: 6px; color: #c9d6e8; padding: 0.45rem 0.65rem; font-size: 0.9rem; }
+  input:focus, select:focus { outline: none; border-color: #2b65ff; }
+
+  /* PLAYER LIST */
+  .player-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-radius: 6px; background: #0b1220; margin-bottom: 0.4rem; }
+  .player-name { font-weight: 600; }
+  .player-actions { display: flex; gap: 0.4rem; }
+
+  /* SESSION LIST */
+  .session-item { background: #0b1220; border: 1px solid #22304f; border-radius: 8px; padding: 0.75rem; margin-bottom: 0.6rem; }
+  .session-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+  .session-date { font-size: 0.82rem; color: #8899aa; }
+  .session-actions { display: flex; gap: 0.4rem; }
+  .session-scores { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .score-chip { background: #22304f; border-radius: 5px; padding: 0.2rem 0.5rem; font-size: 0.82rem; }
+  .score-chip.winner { background: #1a3a1a; color: #4caf50; font-weight: 700; border: 1px solid #2e7d32; }
+  .lock-badge { font-size: 0.78rem; color: #f0b429; background: #2a1f00; border: 1px solid #f0b429; border-radius: 4px; padding: 0.15rem 0.4rem; }
+
+  /* RANKING TABLE */
+  .ranking-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .ranking-table th { text-align: left; padding: 0.5rem 0.6rem; color: #8899aa; font-size: 0.78rem; border-bottom: 1px solid #22304f; }
+  .ranking-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #1a2540; }
+  .ranking-table tr:last-child td { border-bottom: none; }
+  .rank-badge { display: inline-block; width: 1.5rem; height: 1.5rem; border-radius: 50%; text-align: center; line-height: 1.5rem; font-size: 0.78rem; font-weight: 700; background: #22304f; color: #8899aa; }
+  .rank-badge.r1 { background: #d4a017; color: #000; }
+  .rank-badge.r2 { background: #9e9e9e; color: #000; }
+  .rank-badge.r3 { background: #cd7f32; color: #000; }
+  .win-rate { font-weight: 700; color: #4caf50; }
+  .streak-fire { margin-left: 0.2rem; }
+
+  /* MONTH SELECTOR */
+  .month-selector { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .month-selector select { width: auto; flex: 1; min-width: 120px; }
+
+  /* CLOSED BANNER */
+  .closed-banner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; background: #1a1200; border: 1px solid #f0b429; border-radius: 8px; padding: 0.6rem 0.9rem; margin-bottom: 0.75rem; color: #f0b429; font-size: 0.88rem; font-weight: 600; }
+
+  /* HISTORIAL */
+  .historial-item { background: #0b1220; border: 1px solid #22304f; border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  .historial-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; cursor: pointer; }
+  .historial-header:hover { background: #121a2b; }
+  .historial-meta { font-size: 0.8rem; color: #8899aa; margin-top: 0.2rem; }
+  .historial-body { padding: 0.75rem 1rem; border-top: 1px solid #22304f; display: none; }
+  .historial-body.open { display: block; }
+
+  /* SYNC CARD */
+  .sync-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; color: #8899aa; padding: 2rem 1rem; font-size: 0.9rem; }
+
+  /* MODAL */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+  .modal { background: #121a2b; border: 1px solid #22304f; border-radius: 12px; padding: 1.5rem; max-width: 480px; width: 100%; }
+  .modal h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+  .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+  /* SCORE FORM */
+  .score-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .score-row label { width: 110px; margin: 0; font-size: 0.85rem; color: #c9d6e8; }
+  .score-row input { flex: 1; }
+  .score-row .winner-check { width: auto; margin-left: 0.3rem; }
+
+  .section-hidden { display: none; }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .tab { padding: 0.6rem 0.9rem; font-size: 0.82rem; }
+    .ranking-table th, .ranking-table td { padding: 0.4rem 0.35rem; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">Liga <span>Dominó</span> Suizo</div>
+  <div class="header-actions">
+    <button class="btn btn-secondary btn-sm" onclick="exportData()">&#x1F4E5; Exportar</button>
+    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importFileHeader').click()">&#x1F4E4; Importar</button>
+    <input type="file" id="importFileHeader" accept=".json" style="display:none" onchange="importData(this)">
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('sesiones')">Sesiones</div>
+  <div class="tab" onclick="switchTab('ranking')">Ranking Mensual</div>
+  <div class="tab" onclick="switchTab('jugadores')">Jugadores</div>
+  <div class="tab" onclick="switchTab('historial')">Historial</div>
+</div>
+
+<div id="tab-sesiones" class="container">
+  <div class="card">
+    <div class="card-title">Nueva Sesión</div>
+    <div class="form-group">
+      <label>Fecha</label>
+      <input type="date" id="newSessionDate">
+    </div>
+    <div id="newSessionScores"></div>
+    <button class="btn btn-primary" onclick="addSession()">+ Añadir sesión</button>
+  </div>
+  <div id="sessionsList"></div>
+</div>
+
+<div id="tab-ranking" class="section-hidden container">
+  <div class="card">
+    <div class="month-selector">
+      <label style="margin:0;white-space:nowrap">Mes:</label>
+      <select id="rankingMonthSel" onchange="renderRanking()"></select>
+    </div>
+  </div>
+  <div id="rankingContent"></div>
+</div>
+
+<div id="tab-jugadores" class="section-hidden container">
+  <div class="card">
+    <div class="card-title">Añadir jugador</div>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="newPlayerName" placeholder="Nombre del jugador" onkeydown="if(event.key==='Enter')addPlayer()">
+    </div>
+    <button class="btn btn-primary" onclick="addPlayer()">+ Añadir</button>
+  </div>
+  <div id="playersList"></div>
+  <div class="card" style="margin-top:0.5rem">
+    <div class="card-title">Sincronizar entre dispositivos</div>
+    <div class="sync-row">
+      <button class="btn btn-secondary" onclick="exportData()">&#x1F4E5; Exportar datos</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('importFileJugadores').click()">&#x1F4E4; Importar datos</button>
+      <input type="file" id="importFileJugadores" accept=".json" style="display:none" onchange="importData(this)">
+    </div>
+  </div>
+</div>
+
+<div id="tab-historial" class="section-hidden container">
+  <div id="historialContent"></div>
+</div>
+
+<!-- MODAL: Edit Session -->
+<div id="editModal" class="modal-backdrop section-hidden">
+  <div class="modal">
+    <h2>Editar sesión</h2>
+    <div class="form-group">
+      <label>Fecha</label>
+      <input type="date" id="editSessionDate">
+    </div>
+    <div id="editSessionScores"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditSession()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "domino_liga_v1";
+
+let state = {
+  players: [],
+  sessions: [],
+  closedMonths: {}
+};
+
+let editingSessionId = null;
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state = Object.assign({ players: [], sessions: [], closedMonths: {} }, parsed);
+      if (!state.closedMonths) state.closedMonths = {};
+    }
+  } catch(e) {}
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function ym(dateStr) {
+  return dateStr ? dateStr.slice(0, 7) : "";
+}
+
+function monthLabel(ymStr) {
+  if (!ymStr) return "";
+  const parts = ymStr.split("-");
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  return parts[2] + "/" + parts[1] + "/" + parts[0];
+}
+
+function formatISODate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function getAvailableMonths() {
+  const months = new Set();
+  state.sessions.forEach(function(s) { months.add(ym(s.date)); });
+  Object.keys(state.closedMonths).forEach(function(m) { months.add(m); });
+  return Array.from(months).sort().reverse();
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  ["sesiones", "ranking", "jugadores", "historial"].forEach(function(t) {
+    document.getElementById("tab-" + t).classList.add("section-hidden");
+  });
+  document.getElementById("tab-" + name).classList.remove("section-hidden");
+  document.querySelectorAll(".tab").forEach(function(el, i) {
+    const names = ["sesiones", "ranking", "jugadores", "historial"];
+    el.classList.toggle("active", names[i] === name);
+  });
+  if (name === "ranking") renderRanking();
+  if (name === "historial") renderHistorial();
+  if (name === "sesiones") renderSessions();
+  if (name === "jugadores") renderPlayers();
+}
+
+// ── Players ───────────────────────────────────────────────────────────────────
+function addPlayer() {
+  const inp = document.getElementById("newPlayerName");
+  const name = inp.value.trim();
+  if (!name) return;
+  if (state.players.find(function(p) { return p.name.toLowerCase() === name.toLowerCase(); })) {
+    alert("Ya existe un jugador con ese nombre.");
+    return;
+  }
+  state.players.push({ id: uid(), name: name });
+  inp.value = "";
+  saveState();
+  renderPlayers();
+  renderSessionScoreInputs("newSessionScores");
+}
+
+function deletePlayer(id) {
+  if (!confirm("¿Eliminar jugador? Se borrará de todas las sesiones.")) return;
+  state.players = state.players.filter(function(p) { return p.id !== id; });
+  state.sessions.forEach(function(s) {
+    s.scores = s.scores.filter(function(sc) { return sc.playerId !== id; });
+  });
+  saveState();
+  renderPlayers();
+  renderSessions();
+  renderSessionScoreInputs("newSessionScores");
+}
+
+function renderPlayers() {
+  const el = document.getElementById("playersList");
+  if (!state.players.length) {
+    el.innerHTML = '<div class="empty">No hay jugadores. A\u00f1ade uno arriba.</div>';
+    return;
+  }
+  el.innerHTML = state.players.map(function(p) {
+    return '<div class="player-item">' +
+      '<span class="player-name">' + esc(p.name) + '</span>' +
+      '<div class="player-actions">' +
+        '<button class="btn btn-danger btn-sm" onclick="deletePlayer(\'' + p.id + '\')">Eliminar</button>' +
+      '</div>' +
+    '</div>';
+  }).join("");
+}
+
+// ── Session score inputs ───────────────────────────────────────────────────────
+function renderSessionScoreInputs(containerId, scores) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!state.players.length) {
+    el.innerHTML = '<p style="color:#8899aa;font-size:0.85rem;margin-bottom:0.75rem">A\u00f1ade jugadores primero.</p>';
+    return;
+  }
+  el.innerHTML = state.players.map(function(p) {
+    const sc = scores ? scores.find(function(s) { return s.playerId === p.id; }) : null;
+    const pts = sc ? sc.points : "";
+    const win = sc ? sc.winner : false;
+    return '<div class="score-row">' +
+      '<label>' + esc(p.name) + '</label>' +
+      '<input type="number" id="score_' + containerId + '_' + p.id + '" placeholder="Puntos" value="' + pts + '" min="0">' +
+      '<input type="checkbox" class="winner-check" id="win_' + containerId + '_' + p.id + '" ' + (win ? 'checked' : '') + ' title="Ganador" style="width:1.2rem;height:1.2rem;accent-color:#2b65ff">' +
+      '<label for="win_' + containerId + '_' + p.id + '" style="width:auto;font-size:0.78rem;color:#8899aa">&#x1F3C6;</label>' +
+    '</div>';
+  }).join("") + '<div style="height:0.5rem"></div>';
+}
+
+function collectScores(containerId) {
+  return state.players.map(function(p) {
+    const pts = document.getElementById("score_" + containerId + "_" + p.id);
+    const win = document.getElementById("win_" + containerId + "_" + p.id);
+    return {
+      playerId: p.id,
+      points: pts ? (parseInt(pts.value) || 0) : 0,
+      winner: win ? win.checked : false
+    };
+  });
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+function addSession() {
+  const date = document.getElementById("newSessionDate").value;
+  if (!date) { alert("Selecciona una fecha."); return; }
+  if (!state.players.length) { alert("A\u00f1ade jugadores primero."); return; }
+  const monthKey = ym(date);
+  if (state.closedMonths[monthKey]) {
+    alert("Este mes est\u00e1 cerrado. Reabre el mes para a\u00f1adir sesiones.");
+    return;
+  }
+  const scores = collectScores("newSessionScores");
+  state.sessions.push({ id: uid(), date: date, scores: scores });
+  saveState();
+  renderSessions();
+  document.getElementById("newSessionDate").value = todayStr();
+  renderSessionScoreInputs("newSessionScores");
+}
+
+function deleteSession(id) {
+  const sess = state.sessions.find(function(s) { return s.id === id; });
+  if (!sess) return;
+  if (state.closedMonths[ym(sess.date)]) { alert("No puedes eliminar sesiones de un mes cerrado."); return; }
+  if (!confirm("\u00bfEliminar esta sesi\u00f3n?")) return;
+  state.sessions = state.sessions.filter(function(s) { return s.id !== id; });
+  saveState();
+  renderSessions();
+}
+
+function openEditModal(id) {
+  const sess = state.sessions.find(function(s) { return s.id === id; });
+  if (!sess) return;
+  if (state.closedMonths[ym(sess.date)]) { alert("No puedes editar sesiones de un mes cerrado."); return; }
+  editingSessionId = id;
+  document.getElementById("editSessionDate").value = sess.date;
+  renderSessionScoreInputs("editSessionScores", sess.scores);
+  document.getElementById("editModal").classList.remove("section-hidden");
+}
+
+function closeEditModal() {
+  editingSessionId = null;
+  document.getElementById("editModal").classList.add("section-hidden");
+}
+
+function saveEditSession() {
+  const sess = state.sessions.find(function(s) { return s.id === editingSessionId; });
+  if (!sess) return;
+  const newDate = document.getElementById("editSessionDate").value;
+  if (!newDate) { alert("Selecciona una fecha."); return; }
+  if (state.closedMonths[ym(newDate)]) { alert("No puedes mover una sesi\u00f3n a un mes cerrado."); return; }
+  sess.date = newDate;
+  sess.scores = collectScores("editSessionScores");
+  saveState();
+  closeEditModal();
+  renderSessions();
+}
+
+function renderSessions() {
+  const el = document.getElementById("sessionsList");
+  const sorted = state.sessions.slice().sort(function(a, b) { return b.date.localeCompare(a.date); });
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty">No hay sesiones registradas.</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(function(sess) {
+    const locked = !!state.closedMonths[ym(sess.date)];
+    const scores = sess.scores.slice().sort(function(a, b) { return b.points - a.points; });
+    const scoresHTML = scores.map(function(sc) {
+      const p = state.players.find(function(pl) { return pl.id === sc.playerId; });
+      if (!p) return "";
+      return '<span class="score-chip ' + (sc.winner ? 'winner' : '') + '">' +
+        (sc.winner ? '&#x1F3C6; ' : '') + esc(p.name) + ': ' + sc.points +
+      '</span>';
+    }).join("");
+    const actions = locked
+      ? '<span class="lock-badge">&#x1F512; Cerrado</span>'
+      : '<button class="btn btn-secondary btn-sm" onclick="openEditModal(\'' + sess.id + '\')">Editar</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteSession(\'' + sess.id + '\')">&#x1F5D1;</button>';
+    return '<div class="session-item">' +
+      '<div class="session-header">' +
+        '<span class="session-date">&#x1F4C5; ' + formatDate(sess.date) + '</span>' +
+        '<div class="session-actions">' + actions + '</div>' +
+      '</div>' +
+      '<div class="session-scores">' + scoresHTML + '</div>' +
+    '</div>';
+  }).join("");
+}
+
+// ── Stats computation ─────────────────────────────────────────────────────────
+function computeMonthStats(ymStr) {
+  const sessions = state.sessions.filter(function(s) { return ym(s.date) === ymStr; })
+    .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+  const statsMap = {};
+  state.players.forEach(function(p) {
+    statsMap[p.id] = { playerId: p.id, name: p.name, PJ: 0, G: 0, P: 0, ptsTotal: 0, racha: 0, _streak: 0 };
+  });
+
+  sessions.forEach(function(sess) {
+    sess.scores.forEach(function(sc) {
+      if (!statsMap[sc.playerId]) return;
+      const st = statsMap[sc.playerId];
+      st.PJ++;
+      st.ptsTotal += sc.points;
+      if (sc.winner) {
+        st.G++;
+        st._streak = (st._streak || 0) + 1;
+      } else {
+        st.P++;
+        st._streak = 0;
+      }
+      st.racha = st._streak;
+    });
+  });
+
+  const players = Object.values(statsMap).filter(function(st) { return st.PJ > 0; });
+  players.sort(function(a, b) {
+    const rateA = a.PJ ? a.G / a.PJ : 0;
+    const rateB = b.PJ ? b.G / b.PJ : 0;
+    if (Math.abs(rateB - rateA) > 1e-9) return rateB - rateA;
+    return b.G - a.G;
+  });
+
+  const totalPJ = players.reduce(function(s, p) { return s + p.PJ; }, 0);
+  const avgPJ = players.length ? (totalPJ / players.length).toFixed(1) : 0;
+
+  return { players: players, sessionCount: sessions.length, totalPJ: totalPJ, avgPJ: avgPJ };
+}
+
+// ── Ranking ───────────────────────────────────────────────────────────────────
+function populateMonthSelector() {
+  const sel = document.getElementById("rankingMonthSel");
+  const months = getAvailableMonths();
+  const cur = sel.value;
+  sel.innerHTML = months.map(function(m) {
+    return '<option value="' + m + '">' + monthLabel(m) + '</option>';
+  }).join("");
+  if (cur && months.indexOf(cur) !== -1) sel.value = cur;
+}
+
+function renderRanking() {
+  populateMonthSelector();
+  const ymStr = document.getElementById("rankingMonthSel").value;
+  const el = document.getElementById("rankingContent");
+  if (!ymStr) {
+    el.innerHTML = '<div class="empty">No hay sesiones registradas todav\u00eda.</div>';
+    return;
+  }
+
+  const closed = state.closedMonths[ymStr];
+  let players, sessionCount, avgPJ;
+
+  if (closed) {
+    players = closed.ranking;
+    sessionCount = closed.sessionCount;
+    avgPJ = closed.avgPJ;
+  } else {
+    const stats = computeMonthStats(ymStr);
+    players = stats.players;
+    sessionCount = stats.sessionCount;
+    avgPJ = stats.avgPJ;
+  }
+
+  const bannerHTML = closed
+    ? '<div class="closed-banner">' +
+        '<span>&#x1F4CC; Mes cerrado el ' + formatISODate(closed.closedAt) + '</span>' +
+        '<button class="btn-link btn-link-danger" onclick="reopenMonth(\'' + ymStr + '\')">Reabrir</button>' +
+      '</div>'
+    : '<div style="margin-bottom:0.75rem;text-align:right">' +
+        '<button class="btn btn-warning" onclick="closeMonth(\'' + ymStr + '\')">&#x1F512; Cerrar mes</button>' +
+      '</div>';
+
+  const rankRows = players.map(function(p, i) {
+    const rate = p.PJ ? ((p.G / p.PJ) * 100).toFixed(1) : "0.0";
+    const badgeClass = i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "";
+    const medal = i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1);
+    const fireIcon = p.racha >= 2 ? '<span class="streak-fire" title="Racha de ' + p.racha + ' victorias">&#x1F525;</span>' : "";
+    return '<tr>' +
+      '<td><span class="rank-badge ' + badgeClass + '">' + medal + '</span></td>' +
+      '<td>' + esc(p.name) + fireIcon + '</td>' +
+      '<td>' + p.PJ + '</td>' +
+      '<td>' + p.G + '</td>' +
+      '<td>' + p.P + '</td>' +
+      '<td class="win-rate">' + rate + '%</td>' +
+      '<td>' + (p.racha >= 2 ? p.racha + ' &#x1F525;' : p.racha) + '</td>' +
+    '</tr>';
+  }).join("");
+
+  el.innerHTML = bannerHTML +
+    '<div class="card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">' +
+        '<div class="card-title" style="margin:0">' + monthLabel(ymStr) + '</div>' +
+        '<div style="font-size:0.8rem;color:#8899aa">' + sessionCount + ' sesi\u00f3n(es) &middot; &Oslash; ' + avgPJ + ' PJ</div>' +
+      '</div>' +
+      (players.length
+        ? '<table class="ranking-table"><thead><tr><th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th><th>%G</th><th>Racha</th></tr></thead><tbody>' + rankRows + '</tbody></table>'
+        : '<div class="empty">Sin datos para este mes.</div>') +
+    '</div>';
+}
+
+// ── Close / Reopen Month ───────────────────────────────────────────────────────
+function closeMonth(ymStr) {
+  const label = monthLabel(ymStr);
+  if (!confirm("\u00bfCerrar " + label + "? Los puestos quedar\u00e1n fijos y las sesiones no se podr\u00e1n editar.")) return;
+  const stats = computeMonthStats(ymStr);
+  state.closedMonths[ymStr] = {
+    closedAt: new Date().toISOString(),
+    ranking: stats.players,
+    avgPJ: stats.avgPJ,
+    sessionCount: stats.sessionCount,
+    totalPJ: stats.totalPJ
+  };
+  saveState();
+  renderRanking();
+  renderSessions();
+}
+
+function reopenMonth(ymStr) {
+  if (!confirm("\u00bfReabrir " + monthLabel(ymStr) + "? Las sesiones podr\u00e1n editarse de nuevo.")) return;
+  delete state.closedMonths[ymStr];
+  saveState();
+  renderRanking();
+  renderSessions();
+}
+
+// ── Historial ─────────────────────────────────────────────────────────────────
+function renderHistorial() {
+  const el = document.getElementById("historialContent");
+  const keys = Object.keys(state.closedMonths).sort().reverse();
+  if (!keys.length) {
+    el.innerHTML = '<div class="empty">No hay meses cerrados todav\u00eda.</div>';
+    return;
+  }
+  el.innerHTML = keys.map(function(ymStr) {
+    const cm = state.closedMonths[ymStr];
+    const first = cm.ranking && cm.ranking[0];
+    const firstStr = first ? '&#x1F947; ' + esc(first.name) : '\u2014';
+    const rows = (cm.ranking || []).map(function(p, i) {
+      const rate = p.PJ ? ((p.G / p.PJ) * 100).toFixed(1) : "0.0";
+      const badgeClass = i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "";
+      const medal = i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1);
+      const fire = p.racha >= 2 ? " &#x1F525;" : "";
+      return '<tr>' +
+        '<td><span class="rank-badge ' + badgeClass + '">' + medal + '</span></td>' +
+        '<td>' + esc(p.name) + fire + '</td>' +
+        '<td>' + p.PJ + '</td><td>' + p.G + '</td><td>' + p.P + '</td>' +
+        '<td class="win-rate">' + rate + '%</td>' +
+        '<td>' + (p.racha >= 2 ? p.racha + ' &#x1F525;' : p.racha) + '</td>' +
+      '</tr>';
+    }).join("");
+    return '<div class="historial-item">' +
+      '<div class="historial-header" onclick="toggleHistorial(this)">' +
+        '<div>' +
+          '<div style="font-weight:700;color:#fff">&#x1F512; ' + monthLabel(ymStr) + '</div>' +
+          '<div class="historial-meta">' + firstStr + ' &nbsp;&middot;&nbsp; ' + cm.sessionCount + ' sesi\u00f3n(es) &nbsp;&middot;&nbsp; Cerrado: ' + formatISODate(cm.closedAt) + '</div>' +
+        '</div>' +
+        '<span style="color:#8899aa;font-size:1.1rem">&#x25BC;</span>' +
+      '</div>' +
+      '<div class="historial-body">' +
+        '<table class="ranking-table">' +
+          '<thead><tr><th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th><th>%G</th><th>Racha</th></tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+  }).join("");
+}
+
+function toggleHistorial(headerEl) {
+  const body = headerEl.nextElementSibling;
+  body.classList.toggle("open");
+  const arrow = headerEl.querySelector("span");
+  arrow.innerHTML = body.classList.contains("open") ? "&#x25B2;" : "&#x25BC;";
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+function exportData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "domino-liga-datos.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!confirm("\u00bfReemplazar todos los datos con el archivo importado?")) {
+        input.value = "";
+        return;
+      }
+      state = Object.assign({ players: [], sessions: [], closedMonths: {} }, parsed);
+      if (!state.closedMonths) state.closedMonths = {};
+      saveState();
+      renderAll();
+      alert("Datos importados correctamente.");
+    } catch(err) {
+      alert("Error al leer el archivo JSON: " + err.message);
+    }
+    input.value = "";
+  };
+  reader.readAsText(file);
+}
+
+// ── Escape HTML ───────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderPlayers();
+  renderSessions();
+  renderSessionScoreInputs("newSessionScores");
+  populateMonthSelector();
+  const active = document.querySelector(".tab.active");
+  if (active) {
+    const allTabs = Array.from(document.querySelectorAll(".tab"));
+    const idx = allTabs.indexOf(active);
+    const names = ["sesiones", "ranking", "jugadores", "historial"];
+    if (names[idx] === "ranking") renderRanking();
+    if (names[idx] === "historial") renderHistorial();
+  }
+}
+
+loadState();
+document.getElementById("newSessionDate").value = todayStr();
+renderAll();
+</script>
+</body>
+</html>
