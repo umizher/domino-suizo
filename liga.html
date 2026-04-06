@@ -127,6 +127,7 @@
     <button class="btn btn-secondary btn-sm" onclick="exportData()">&#x1F4E5; Exportar</button>
     <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importFileHeader').click()">&#x1F4E4; Importar</button>
     <input type="file" id="importFileHeader" accept=".json" style="display:none" onchange="importData(this)">
+    <button class="btn btn-sm" style="background:#7a1010;color:#fff;" onclick="resetAll()">&#x1F5D1; Reset</button>
   </div>
 </header>
 
@@ -632,6 +633,17 @@ function toggleHistorial(headerEl) {
   body.classList.toggle("open");
   const arrow = headerEl.querySelector("span");
   arrow.innerHTML = body.classList.contains("open") ? "&#x25B2;" : "&#x25BC;";
+}
+
+// ── Reset completo ────────────────────────────────────────────────────────────
+function resetAll() {
+  if (!confirm("⚠️ ¿Borrar TODOS los datos? (jugadores, sesiones, rankings, historial)")) return;
+  if (!confirm("¿Estás seguro? Esta acción no se puede deshacer.")) return;
+  state.players = [];
+  state.sessions = [];
+  state.closedMonths = {};
+  save();
+  location.reload();
 }
 
 // ── Export / Import ───────────────────────────────────────────────────────────
