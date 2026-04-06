@@ -101,6 +101,22 @@
   .modal h2 { font-size: 1.1rem; margin-bottom: 1rem; }
   .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1.25rem; }
 
+  /* CONFIRM DIALOG */
+  #confirmDialog { position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:2000;padding:1rem; }
+  #confirmDialog.open { display:flex; }
+  #confirmBox { background:#121a2b;border:1px solid #22304f;border-radius:14px;padding:1.5rem;max-width:320px;width:100%;text-align:center; }
+  #confirmMsg { font-size:0.95rem;color:#e8eefc;margin-bottom:1.2rem;line-height:1.5; }
+  #confirmBox .btn-row { display:flex;gap:0.7rem;justify-content:center; }
+
+  /* PIN */
+  #pinOverlay { position:fixed;inset:0;background:#0b1220;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px; }
+  #pinInput { text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none; }
+  #pinInput:focus { border-color:#2b65ff; }
+  #pinError { color:#ff6b6b;font-size:13px;min-height:18px; }
+
+  /* FOOTER */
+  .app-footer { text-align:center;font-size:11px;color:#2a3a55;padding:1.5rem 0 1rem; }
+
   /* SCORE FORM */
   .score-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
   .score-row label { width: 110px; margin: 0; font-size: 0.85rem; color: #c9d6e8; }
@@ -117,6 +133,27 @@
 </style>
 </head>
 <body>
+
+<!-- PIN -->
+<div id="pinOverlay">
+  <div style="font-size:40px">🁫</div>
+  <div style="font-size:20px;font-weight:800;color:#fff">Liga Dominó</div>
+  <div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div>
+  <input type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)">
+  <div id="pinError"></div>
+  <div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div id="confirmDialog">
+  <div id="confirmBox">
+    <div id="confirmMsg"></div>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="confirmYes">Sí, borrar</button>
+      <button class="btn btn-secondary" id="confirmNo">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <header>
   <div style="display:flex;align-items:center;gap:10px;">
@@ -385,11 +422,12 @@ function addSession() {
 function deleteSession(id) {
   const sess = state.sessions.find(function(s) { return s.id === id; });
   if (!sess) return;
-  if (state.closedMonths[ym(sess.date)]) { alert("No puedes eliminar sesiones de un mes cerrado."); return; }
-  if (!confirm("\u00bfEliminar esta sesi\u00f3n?")) return;
-  state.sessions = state.sessions.filter(function(s) { return s.id !== id; });
-  saveState();
-  renderSessions();
+  if (state.closedMonths[ym(sess.date)]) { showAlert("No puedes eliminar sesiones de un mes cerrado."); return; }
+  customConfirm("¿Eliminar esta sesión?", function() {
+    state.sessions = state.sessions.filter(function(s) { return s.id !== id; });
+    saveState();
+    renderSessions();
+  });
 }
 
 function openEditModal(id) {
@@ -685,15 +723,58 @@ function toggleHistorial(headerEl) {
   arrow.innerHTML = body.classList.contains("open") ? "&#x25B2;" : "&#x25BC;";
 }
 
+// ── PIN ───────────────────────────────────────────────────────────────────────
+(function() {
+  if (sessionStorage.getItem("domino_pin_ok") === "1") {
+    document.getElementById("pinOverlay").style.display = "none";
+  }
+})();
+function checkPin(inp) {
+  if (inp.value.length >= 4) {
+    if (inp.value === "5050") {
+      sessionStorage.setItem("domino_pin_ok", "1");
+      document.getElementById("pinOverlay").style.display = "none";
+    } else {
+      document.getElementById("pinError").textContent = "Clave incorrecta";
+      inp.value = "";
+      setTimeout(function() { document.getElementById("pinError").textContent = ""; }, 2000);
+    }
+  }
+}
+
+// ── Custom confirm/alert ──────────────────────────────────────────────────────
+function customConfirm(msg, onYes) {
+  const dlg = document.getElementById("confirmDialog");
+  document.getElementById("confirmMsg").textContent = msg;
+  dlg.classList.add("open");
+  document.getElementById("confirmYes").onclick = function() {
+    dlg.classList.remove("open");
+    onYes();
+  };
+  document.getElementById("confirmNo").onclick = function() {
+    dlg.classList.remove("open");
+  };
+}
+function showAlert(msg) {
+  customConfirm(msg, function() {});
+  document.getElementById("confirmYes").textContent = "OK";
+  document.getElementById("confirmNo").style.display = "none";
+  document.getElementById("confirmYes").onclick = function() {
+    document.getElementById("confirmDialog").classList.remove("open");
+    document.getElementById("confirmYes").textContent = "Sí, borrar";
+    document.getElementById("confirmNo").style.display = "";
+  };
+}
+
 // ── Reset completo ────────────────────────────────────────────────────────────
 function resetAll() {
-  if (!confirm("⚠️ ¿Borrar TODOS los datos? (jugadores, sesiones, rankings, historial)")) return;
-  if (!confirm("¿Estás seguro? Esta acción no se puede deshacer.")) return;
-  state.players = [];
-  state.sessions = [];
-  state.closedMonths = {};
-  save();
-  location.reload();
+  customConfirm("⚠️ ¿Borrar TODOS los datos? Esta acción no se puede deshacer.", function() {
+    state.players = [];
+    state.sessions = [];
+    state.closedMonths = {};
+    saveState();
+    location.reload();
+  });
 }
 
 // ── Export / Import ───────────────────────────────────────────────────────────
@@ -715,15 +796,14 @@ function importData(input) {
   reader.onload = function(e) {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (!confirm("\u00bfReemplazar todos los datos con el archivo importado?")) {
-        input.value = "";
-        return;
-      }
-      state = Object.assign({ players: [], sessions: [], closedMonths: {} }, parsed);
-      if (!state.closedMonths) state.closedMonths = {};
-      saveState();
-      renderAll();
-      alert("Datos importados correctamente.");
+      const importedState = Object.assign({ players: [], sessions: [], closedMonths: {} }, parsed);
+      if (!importedState.closedMonths) importedState.closedMonths = {};
+      customConfirm("¿Reemplazar todos los datos con el archivo importado?", function() {
+        state = importedState;
+        saveState();
+        renderAll();
+        document.getElementById("confirmMsg").textContent = "Datos importados correctamente.";
+      });
     } catch(err) {
       alert("Error al leer el archivo JSON: " + err.message);
     }
@@ -761,5 +841,7 @@ loadState();
 document.getElementById("newSessionDate").value = todayStr();
 renderAll();
 </script>
+
+<div class="app-footer">Creado por Usama Mizher · Liga Dominó Suizo</div>
 </body>
 </html>

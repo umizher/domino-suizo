@@ -92,9 +92,16 @@
       transition: transform .25s ease, opacity .25s ease; opacity: 0; z-index: 999; pointer-events: none;
     }
     #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-  </style>
+    #pinOverlay{position:fixed;inset:0;background:#0b1220;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+  #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
+  #pinInput:focus{border-color:#2b65ff}
+  #pinError{color:#ff6b6b;font-size:13px;min-height:18px}
+</style>
 </head>
 <body>
+<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Dominó</div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div><div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div></div>
+<script>(function(){if(sessionStorage.getItem("domino_pin_ok")==="1")document.getElementById("pinOverlay").style.display="none";})()
+function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionStorage.setItem("domino_pin_ok","1");document.getElementById("pinOverlay").style.display="none";}else{document.getElementById("pinError").textContent="Clave incorrecta";inp.value="";setTimeout(function(){document.getElementById("pinError").textContent="";},2000);}}}</script>
 
 <!-- ===== PANTALLA PIN ===== -->
 <div id="pinScreen">
@@ -569,5 +576,6 @@ if (new URLSearchParams(location.search).has("reset")) {
 if (sessionStorage.getItem("arbitro_ok") === "1") { load(); renderAll(); }
 else digits[0].focus();
 </script>
+<div style="text-align:center;font-size:11px;color:#2a3a55;padding:1rem 0">Creado por Usama Mizher</div>
 </body>
 </html>
