@@ -10,68 +10,107 @@
     body {
       margin: 0; min-height: 100vh;
       background: #0b1220; color: #e8eefc;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 24px 16px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 28px 16px;
     }
-    h1 { font-size: 28px; margin: 0 0 6px; text-align: center; }
-    .subtitle { color: #9fb1db; font-size: 14px; margin: 0 0 40px; text-align: center; }
+    h1 { font-size: 30px; margin: 0 0 4px; text-align: center; letter-spacing: -0.5px; }
+    .subtitle { color: #9fb1db; font-size: 14px; margin: 0 0 36px; text-align: center; }
 
-    .apps { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
-
-    .app-card {
-      background: #121a2b; border: 1px solid #22304f; border-radius: 20px;
-      padding: 32px 28px; width: 320px; text-decoration: none; color: #e8eefc;
-      display: flex; flex-direction: column; gap: 12px;
-      transition: border-color .2s, transform .15s;
-      cursor: pointer;
+    .section-label {
+      width: 100%; max-width: 760px; font-size: 11px; font-weight: 700;
+      color: #3a5080; text-transform: uppercase; letter-spacing: 1.5px;
+      margin: 20px 0 10px; padding: 0 4px;
     }
-    .app-card:hover { border-color: #2b65ff; transform: translateY(-3px); }
-    .app-card.liga:hover { border-color: #ffd700; }
 
-    .app-icon { font-size: 48px; line-height: 1; }
-    .app-name { font-size: 20px; font-weight: 800; }
-    .app-desc { font-size: 13px; color: #9fb1db; line-height: 1.5; }
+    .apps {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      justify-content: center; max-width: 760px; width: 100%;
+    }
+
+    a.app-card {
+      background: #121a2b; border: 2px solid #22304f; border-radius: 18px;
+      padding: 24px 22px; width: 218px; text-decoration: none; color: #e8eefc;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+    }
+    a.app-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+
+    a.app-card.blue:hover   { border-color: #2b65ff; }
+    a.app-card.gold:hover   { border-color: #ffd700; }
+    a.app-card.green:hover  { border-color: #3db85d; }
+    a.app-card.purple:hover { border-color: #9b59ff; }
+    a.app-card.orange:hover { border-color: #ff8c42; }
+
+    .app-icon { font-size: 40px; line-height: 1; }
+    .app-name { font-size: 17px; font-weight: 800; margin: 0; }
+    .app-desc { font-size: 12px; color: #9fb1db; line-height: 1.55; flex: 1; }
 
     .tag {
-      display: inline-block; padding: 3px 10px; border-radius: 999px;
-      font-size: 11px; font-weight: 600; width: fit-content;
+      display: inline-block; padding: 2px 9px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; width: fit-content; margin-top: 2px;
     }
-    .tag.blue   { background: #1a2e6e; color: #7eb3ff; border: 1px solid #2b65ff; }
+    .tag.blue   { background: #0f1e55; color: #7eb3ff; border: 1px solid #2b65ff; }
     .tag.gold   { background: #2a2000; color: #ffd700; border: 1px solid #6b5900; }
+    .tag.green  { background: #0b2218; color: #3db85d; border: 1px solid #1e6e3a; }
+    .tag.purple { background: #1a0e40; color: #c09fff; border: 1px solid #5a3acc; }
+    .tag.orange { background: #2a1400; color: #ffaa55; border: 1px solid #8b4800; }
 
-    footer { margin-top: 48px; font-size: 11px; color: #3a4f72; text-align: center; }
+    footer { margin-top: 48px; font-size: 11px; color: #2a3a55; text-align: center; }
   </style>
 </head>
 <body>
 
 <h1>🁫 Dominó</h1>
-<p class="subtitle">Elige la modalidad</p>
+<p class="subtitle">Selecciona una modalidad</p>
 
+<!-- TORNEOS -->
+<div class="section-label">Torneos</div>
 <div class="apps">
 
-  <a class="app-card" href="suizo.html">
+  <a class="app-card blue" href="suizo.html">
     <div class="app-icon">🏆</div>
-    <div class="app-name">Dominó Suizo</div>
-    <div class="app-desc">
-      Torneo por rondas con emparejamiento suizo.<br>
-      5 rondas · Ranking automático · Sin empates.
-    </div>
-    <span class="tag blue">Torneo</span>
+    <div class="app-name">Suizo Individual</div>
+    <div class="app-desc">Torneo con emparejamiento suizo. 5 rondas, ranking automático, sin empates.</div>
+    <span class="tag blue">Individual</span>
   </a>
 
-  <a class="app-card liga" href="liga.html">
-    <div class="app-icon">📅</div>
-    <div class="app-name">Liga Mensual</div>
-    <div class="app-desc">
-      Registro de sesiones semanales (viernes).<br>
-      Ranking mensual · Cierre de mes · Racha 🔥 · Sync entre dispositivos.
-    </div>
-    <span class="tag gold">Liga</span>
+  <a class="app-card purple" href="parejas.html">
+    <div class="app-icon">🤝</div>
+    <div class="app-name">Suizo Parejas</div>
+    <div class="app-desc">Torneo por parejas con sistema suizo. Emparejamiento automático por ronda.</div>
+    <span class="tag purple">Parejas</span>
+  </a>
+
+  <a class="app-card orange" href="partida.html">
+    <div class="app-icon">🎯</div>
+    <div class="app-name">Partida / Puntos</div>
+    <div class="app-desc">Marcador en vivo para una partida. Historial de manos y temporizador.</div>
+    <span class="tag orange">Marcador</span>
   </a>
 
 </div>
 
-<footer>Dominó – v2</footer>
+<!-- LIGA -->
+<div class="section-label">Liga</div>
+<div class="apps">
+
+  <a class="app-card gold" href="liga.html">
+    <div class="app-icon">📅</div>
+    <div class="app-name">Liga Mensual</div>
+    <div class="app-desc">Registro semanal de sesiones. Ranking mensual con cierre de mes, racha activa 🔥 y sync entre dispositivos.</div>
+    <span class="tag gold">Liga</span>
+  </a>
+
+  <a class="app-card green" href="arbitro.html">
+    <div class="app-icon">🧑‍⚖️</div>
+    <div class="app-name">Árbitro</div>
+    <div class="app-desc">Herramientas de árbitro para gestionar partidas en tiempo real.</div>
+    <span class="tag green">Árbitro</span>
+  </a>
+
+</div>
+
+<footer>Dominó v2</footer>
 
 </body>
 </html>
