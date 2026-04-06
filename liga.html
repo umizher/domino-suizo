@@ -336,27 +336,30 @@ function renderSessionScoreInputs(containerId, scores) {
     el.innerHTML = '<p style="color:#8899aa;font-size:0.85rem;margin-bottom:0.75rem">A\u00f1ade jugadores primero.</p>';
     return;
   }
-  el.innerHTML = state.players.map(function(p) {
-    const sc = scores ? scores.find(function(s) { return s.playerId === p.id; }) : null;
-    const pts = sc ? sc.points : "";
-    const win = sc ? sc.winner : false;
-    return '<div class="score-row">' +
-      '<label>' + esc(p.name) + '</label>' +
-      '<input type="number" id="score_' + containerId + '_' + p.id + '" placeholder="Puntos" value="' + pts + '" min="0">' +
-      '<input type="checkbox" class="winner-check" id="win_' + containerId + '_' + p.id + '" ' + (win ? 'checked' : '') + ' title="Ganador" style="width:1.2rem;height:1.2rem;accent-color:#2b65ff">' +
-      '<label for="win_' + containerId + '_' + p.id + '" style="width:auto;font-size:0.78rem;color:#8899aa">&#x1F3C6;</label>' +
-    '</div>';
-  }).join("") + '<div style="height:0.5rem"></div>';
+  el.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:0.4rem;font-size:0.78rem;color:#8899aa;font-weight:700;padding:0 0.25rem;margin-bottom:0.3rem">' +
+      '<span>Jugador</span><span style="text-align:center">Ganadas</span><span style="text-align:center">Perdidas</span>' +
+    '</div>' +
+    state.players.map(function(p) {
+      const sc = scores ? scores.find(function(s) { return s.playerId === p.id; }) : null;
+      const g = sc ? (sc.G !== undefined ? sc.G : (sc.winner ? 1 : 0)) : 0;
+      const pp = sc ? (sc.P !== undefined ? sc.P : (!sc.winner ? 1 : 0)) : 0;
+      return '<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:0.4rem;align-items:center;margin-bottom:0.35rem">' +
+        '<label style="margin:0;font-size:0.9rem">' + esc(p.name) + '</label>' +
+        '<input type="number" id="g_' + containerId + '_' + p.id + '" value="' + g + '" min="0" style="text-align:center;padding:0.4rem">' +
+        '<input type="number" id="p_' + containerId + '_' + p.id + '" value="' + pp + '" min="0" style="text-align:center;padding:0.4rem">' +
+      '</div>';
+    }).join("") + '<div style="height:0.5rem"></div>';
 }
 
 function collectScores(containerId) {
   return state.players.map(function(p) {
-    const pts = document.getElementById("score_" + containerId + "_" + p.id);
-    const win = document.getElementById("win_" + containerId + "_" + p.id);
+    const gEl = document.getElementById("g_" + containerId + "_" + p.id);
+    const pEl = document.getElementById("p_" + containerId + "_" + p.id);
     return {
       playerId: p.id,
-      points: pts ? (parseInt(pts.value) || 0) : 0,
-      winner: win ? win.checked : false
+      G: gEl ? (parseInt(gEl.value) || 0) : 0,
+      P: pEl ? (parseInt(pEl.value) || 0) : 0
     };
   });
 }
@@ -430,8 +433,11 @@ function renderSessions() {
     const scoresHTML = scores.map(function(sc) {
       const p = state.players.find(function(pl) { return pl.id === sc.playerId; });
       if (!p) return "";
-      return '<span class="score-chip ' + (sc.winner ? 'winner' : '') + '">' +
-        (sc.winner ? '&#x1F3C6; ' : '') + esc(p.name) + ': ' + sc.points +
+      const g = sc.G !== undefined ? sc.G : (sc.winner ? 1 : 0);
+      const pp = sc.P !== undefined ? sc.P : (!sc.winner ? 1 : 0);
+      const isWinner = g > pp;
+      return '<span class="score-chip ' + (isWinner ? 'winner' : '') + '">' +
+        (isWinner ? '&#x1F3C6; ' : '') + esc(p.name) + ': ' + g + 'G/' + pp + 'P' +
       '</span>';
     }).join("");
     const actions = locked
@@ -453,40 +459,54 @@ function computeMonthStats(ymStr) {
   const sessions = state.sessions.filter(function(s) { return ym(s.date) === ymStr; })
     .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
 
+  const sessionCount = sessions.length;
+  // Clasifican quienes asistieron a más de la mitad, mínimo 1 sesión
+  const minSessions = Math.max(1, Math.ceil(sessionCount / 2));
+
   const statsMap = {};
   state.players.forEach(function(p) {
-    statsMap[p.id] = { playerId: p.id, name: p.name, PJ: 0, G: 0, P: 0, ptsTotal: 0, racha: 0, _streak: 0 };
+    statsMap[p.id] = { playerId: p.id, name: p.name, G: 0, P: 0, sessionsAttended: 0, racha: 0, _streak: 0 };
   });
 
   sessions.forEach(function(sess) {
     sess.scores.forEach(function(sc) {
       if (!statsMap[sc.playerId]) return;
       const st = statsMap[sc.playerId];
-      st.PJ++;
-      st.ptsTotal += sc.points;
-      if (sc.winner) {
-        st.G++;
-        st._streak = (st._streak || 0) + 1;
-      } else {
-        st.P++;
-        st._streak = 0;
+      // Compatibilidad con datos viejos (points/winner) y nuevos (G/P)
+      const g = sc.G !== undefined ? sc.G : (sc.winner ? 1 : 0);
+      const p = sc.P !== undefined ? sc.P : (!sc.winner ? 1 : 0);
+      if (g + p > 0) {
+        st.G += g;
+        st.P += p;
+        st.sessionsAttended++;
+        if (g > p) {
+          st._streak++;
+        } else {
+          st._streak = 0;
+        }
+        st.racha = st._streak;
       }
-      st.racha = st._streak;
     });
   });
 
-  const players = Object.values(statsMap).filter(function(st) { return st.PJ > 0; });
+  const players = Object.values(statsMap).filter(function(st) { return st.sessionsAttended > 0; });
+
+  players.forEach(function(p) {
+    p.PJ = p.G + p.P;
+    p.rate = p.PJ > 0 ? p.G / p.PJ : 0;
+    p.qualified = p.sessionsAttended >= minSessions;
+  });
+
   players.sort(function(a, b) {
-    const rateA = a.PJ ? a.G / a.PJ : 0;
-    const rateB = b.PJ ? b.G / b.PJ : 0;
-    if (Math.abs(rateB - rateA) > 1e-9) return rateB - rateA;
-    return b.G - a.G;
+    // Clasificados primero, luego por % efectividad, luego por G-P
+    if (a.qualified !== b.qualified) return b.qualified ? 1 : -1;
+    if (Math.abs(b.rate - a.rate) > 1e-9) return b.rate - a.rate;
+    return (b.G - b.P) - (a.G - a.P);
   });
 
   const totalPJ = players.reduce(function(s, p) { return s + p.PJ; }, 0);
-  const avgPJ = players.length ? (totalPJ / players.length).toFixed(1) : 0;
 
-  return { players: players, sessionCount: sessions.length, totalPJ: totalPJ, avgPJ: avgPJ };
+  return { players: players, sessionCount: sessionCount, totalPJ: totalPJ, minSessions: minSessions };
 }
 
 // ── Ranking ───────────────────────────────────────────────────────────────────
@@ -510,18 +530,21 @@ function renderRanking() {
   }
 
   const closed = state.closedMonths[ymStr];
-  let players, sessionCount, avgPJ;
+  let players, sessionCount, minSessions;
 
   if (closed) {
     players = closed.ranking;
     sessionCount = closed.sessionCount;
-    avgPJ = closed.avgPJ;
+    minSessions = closed.minSessions || Math.max(1, Math.ceil(sessionCount / 2));
   } else {
     const stats = computeMonthStats(ymStr);
     players = stats.players;
     sessionCount = stats.sessionCount;
-    avgPJ = stats.avgPJ;
+    minSessions = stats.minSessions;
   }
+
+  const qualified   = players.filter(function(p) { return p.qualified !== false; });
+  const nonQual     = players.filter(function(p) { return p.qualified === false; });
 
   const bannerHTML = closed
     ? '<div class="closed-banner">' +
@@ -532,30 +555,42 @@ function renderRanking() {
         '<button class="btn btn-warning" onclick="closeMonth(\'' + ymStr + '\')">&#x1F512; Cerrar mes</button>' +
       '</div>';
 
-  const rankRows = players.map(function(p, i) {
+  function buildRow(p, i, showRank) {
     const rate = p.PJ ? ((p.G / p.PJ) * 100).toFixed(1) : "0.0";
-    const badgeClass = i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "";
-    const medal = i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1);
-    const fireIcon = p.racha >= 2 ? '<span class="streak-fire" title="Racha de ' + p.racha + ' victorias">&#x1F525;</span>' : "";
-    return '<tr>' +
+    const badgeClass = showRank ? (i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "") : "";
+    const medal = showRank
+      ? (i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1))
+      : "—";
+    const fireIcon = p.racha >= 2 ? ' &#x1F525;' : "";
+    return '<tr' + (!showRank ? ' style="opacity:0.55"' : '') + '>' +
       '<td><span class="rank-badge ' + badgeClass + '">' + medal + '</span></td>' +
       '<td>' + esc(p.name) + fireIcon + '</td>' +
-      '<td>' + p.PJ + '</td>' +
-      '<td>' + p.G + '</td>' +
-      '<td>' + p.P + '</td>' +
+      '<td style="text-align:center">' + p.sessionsAttended + '/' + sessionCount + '</td>' +
+      '<td style="text-align:center">' + p.G + '</td>' +
+      '<td style="text-align:center">' + p.P + '</td>' +
       '<td class="win-rate">' + rate + '%</td>' +
-      '<td>' + (p.racha >= 2 ? p.racha + ' &#x1F525;' : p.racha) + '</td>' +
+      '<td style="text-align:center">' + (p.racha >= 2 ? p.racha + ' &#x1F525;' : p.racha) + '</td>' +
     '</tr>';
-  }).join("");
+  }
+
+  const qualRows  = qualified.map(function(p, i) { return buildRow(p, i, true); }).join("");
+  const nqRows    = nonQual.map(function(p, i)   { return buildRow(p, i, false); }).join("");
+
+  const thead = '<thead><tr><th>#</th><th>Jugador</th><th style="text-align:center">Asist.</th><th style="text-align:center">G</th><th style="text-align:center">P</th><th>% Efect.</th><th style="text-align:center">Racha</th></tr></thead>';
+
+  const thresholdNote = '<div style="font-size:0.78rem;color:#8899aa;margin-bottom:0.6rem">' +
+    '&#x2139;&#xFE0F; Clasifican quienes asistieron a <b>' + minSessions + ' o m\u00e1s</b> de las ' + sessionCount + ' sesiones del mes.' +
+  '</div>';
 
   el.innerHTML = bannerHTML +
     '<div class="card">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">' +
         '<div class="card-title" style="margin:0">' + monthLabel(ymStr) + '</div>' +
-        '<div style="font-size:0.8rem;color:#8899aa">' + sessionCount + ' sesi\u00f3n(es) &middot; &Oslash; ' + avgPJ + ' PJ</div>' +
+        '<div style="font-size:0.8rem;color:#8899aa">' + sessionCount + ' sesi\u00f3n(es)</div>' +
       '</div>' +
+      thresholdNote +
       (players.length
-        ? '<table class="ranking-table"><thead><tr><th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th><th>%G</th><th>Racha</th></tr></thead><tbody>' + rankRows + '</tbody></table>'
+        ? '<table class="ranking-table">' + thead + '<tbody>' + qualRows + (nqRows ? '<tr><td colspan="7" style="font-size:0.75rem;color:#555;padding:0.4rem 0.6rem;border-top:2px dashed #22304f">No clasificados (menos de ' + minSessions + ' sesiones)</td></tr>' + nqRows : '') + '</tbody></table>'
         : '<div class="empty">Sin datos para este mes.</div>') +
     '</div>';
 }
@@ -568,7 +603,7 @@ function closeMonth(ymStr) {
   state.closedMonths[ymStr] = {
     closedAt: new Date().toISOString(),
     ranking: stats.players,
-    avgPJ: stats.avgPJ,
+    minSessions: stats.minSessions,
     sessionCount: stats.sessionCount,
     totalPJ: stats.totalPJ
   };
