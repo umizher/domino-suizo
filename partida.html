@@ -112,16 +112,10 @@
     #winBanner button { margin-left: 14px; background: #0b1220; border: 1px solid #2d6e2d; color: #6fcf6f; border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
 
     /* Modal */
-    #winModal { display: none; }    #pinOverlay{position:fixed;inset:0;background:#0b1220;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
-  #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
-  #pinInput:focus{border-color:#2b65ff}
-  #pinError{color:#ff6b6b;font-size:13px;min-height:18px}
+    #winModal { display: none; }
 </style>
 </head>
 <body>
-<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Dominó</div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div><div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div></div>
-<script>(function(){if(sessionStorage.getItem("domino_pin_ok")==="1")document.getElementById("pinOverlay").style.display="none";})()
-function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionStorage.setItem("domino_pin_ok","1");document.getElementById("pinOverlay").style.display="none";}else{document.getElementById("pinError").textContent="Clave incorrecta";inp.value="";setTimeout(function(){document.getElementById("pinError").textContent="";},2000);}}}</script>
 
 <div id="winBanner"></div>
 <header>
