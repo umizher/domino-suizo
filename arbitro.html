@@ -92,6 +92,11 @@
       transition: transform .25s ease, opacity .25s ease; opacity: 0; z-index: 999; pointer-events: none;
     }
     #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .nav-tabs { display: flex; gap: 4px; margin-top: 10px; }
+    .nav-tab { padding: 5px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid #22304f; color: #9fb1db; text-decoration: none; cursor: default; }
+    .nav-tab.active { background: #2b65ff; border-color: #2b65ff; color: #fff; }
+    a.nav-tab { cursor: pointer; }
+    a.nav-tab:hover { color: #e8eefc; }
     #pinOverlay{position:fixed;inset:0;background:#0b1220;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
   #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
   #pinInput:focus{border-color:#2b65ff}
@@ -121,12 +126,15 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
 <!-- ===== APP ===== -->
 <div id="app">
 <header>
-  <h1>🁫 Dominó Suizo – <span class="badge-arbitro">Árbitro</span></h1>
+  <h1>🁫 Dominó Suizo – Parejas</h1>
   <div class="header-row">
     <span class="pill" id="roundPill">Ronda: 0/5</span>
-    <a href="parejas.html" style="color:#9fb1db;font-size:13px;text-decoration:none;">Ver tabla pública →</a>
     <button class="secondary" id="btnExport">Exportar CSV</button>
     <button class="danger" id="btnReset">Reset torneo</button>
+  </div>
+  <div class="nav-tabs">
+    <a class="nav-tab" href="parejas.html">Vista Pública</a>
+    <span class="nav-tab active">Árbitro</span>
   </div>
 </header>
 
