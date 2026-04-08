@@ -63,6 +63,14 @@
   #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
   #pinInput:focus{border-color:#2b65ff}
   #pinError{color:#ff6b6b;font-size:13px;min-height:18px}
+  .arbitro-only { display: none; }
+  .badge-arbitro { background: #1a3a1a; border: 1px solid #2d6e2d; color: #6fcf6f; border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+  #arbitroPinModal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9000; display: none; align-items: center; justify-content: center; }
+  #arbitroPinModal.open { display: flex; }
+  #arbitroPinBox { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 1.5rem; max-width: 300px; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .arb-pin-box { display: flex; gap: 12px; justify-content: center; }
+  .arb-pin-digit { width: 52px; height: 64px; font-size: 28px; font-weight: bold; text-align: center; background: #0b1220; color: #e8eefc; border: 2px solid #22304f; border-radius: 12px; caret-color: #2b65ff; }
+  .arb-pin-digit:focus { border-color: #2b65ff; outline: none; }
 </style>
 </head>
 
@@ -76,13 +84,16 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
   <div class="header-row">
     <span class="pill" id="roundPill">Ronda: 0/5</span>
     <a href="index.html" style="text-decoration:none;"><button class="secondary" type="button">← Inicio</button></a>
-<button class="secondary" id="btnExport">Exportar CSV</button>
-    <button class="danger" id="btnReset">Reset</button>
+    <span class="badge-arbitro arbitro-only">Árbitro</span>
+    <button class="secondary arbitro-only" id="btnExport">Exportar CSV</button>
+    <button class="danger arbitro-only" id="btnReset">Reset</button>
+    <button class="secondary" id="btnArbitroPIN" style="color:#6fcf6f;border-color:#2d6e2d;">🔑 Árbitro</button>
+    <button class="secondary arbitro-only" id="btnSalirArbitro" style="color:#ffa0a0;border-color:#a03030;">Salir árbitro</button>
   </div>
 </header>
 
 <main class="grid">
-  <section class="card">
+  <section class="card arbitro-only">
     <h2>Jugadores</h2>
     <p class="muted">Un jugador por línea. Mínimo 4 jugadores.</p>
     <textarea id="playersInput" placeholder="Juan&#10;Pedro&#10;Luis&#10;Ana&#10;Carlos&#10;María"></textarea>
@@ -113,7 +124,7 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
   <section class="card">
     <div class="flex-between">
       <h2>Ronda actual</h2>
-      <button id="btnSaveScores">Guardar puntos</button>
+      <button id="btnSaveScores" class="arbitro-only">Guardar puntos</button>
     </div>
     <div class="matches" id="matches"></div>
     <p class="muted small">Pon puntos por jugador (ej: 200–120). <b>No se permiten empates</b>.</p>
@@ -138,6 +149,23 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
 </main>
 
 <div id="toast"></div>
+
+<div id="arbitroPinModal">
+  <div id="arbitroPinBox">
+    <div style="font-size:32px">🔑</div>
+    <div style="font-size:18px;font-weight:800;color:#fff">Modo Árbitro</div>
+    <div style="color:#9fb1db;font-size:13px">Ingresa la clave de árbitro</div>
+    <div class="arb-pin-box">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="ap0">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="ap1">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="ap2">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="ap3">
+    </div>
+    <div style="color:#ff6b6b;font-size:13px;min-height:18px" id="apError"></div>
+    <button id="btnApUnlock" style="background:#2b65ff;color:white;border:0;border-radius:12px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">Entrar</button>
+    <button id="btnApCancel" style="background:transparent;color:#9fb1db;border:1px solid #22304f;border-radius:10px;padding:8px 20px;cursor:pointer;font-size:13px">Cancelar</button>
+  </div>
+</div>
 
 <script>
 /* =================== Config =================== */
@@ -425,49 +453,66 @@ function renderRound(){
       </div>
     `;
 
-    const scores = document.createElement("div");
-    scores.className = "scores";
+    if (isArbitroMode) {
+      const scores = document.createElement("div");
+      scores.className = "scores";
 
-    const inpA = document.createElement("input");
-    inpA.type="number"; inpA.min="0"; inpA.step="1"; inpA.style.width="90px";
-    inpA.setAttribute("aria-label",`Puntos jugador A (mesa ${m.table})`);
-    inpA.value = m.ptsA ?? "";
+      const inpA = document.createElement("input");
+      inpA.type="number"; inpA.min="0"; inpA.step="1"; inpA.style.width="90px";
+      inpA.setAttribute("aria-label",`Puntos jugador A (mesa ${m.table})`);
+      inpA.value = m.ptsA ?? "";
 
-    const inpB = document.createElement("input");
-    inpB.type="number"; inpB.min="0"; inpB.step="1"; inpB.style.width="90px";
-    inpB.setAttribute("aria-label",`Puntos jugador B (mesa ${m.table})`);
-    inpB.value = m.ptsB ?? "";
+      const inpB = document.createElement("input");
+      inpB.type="number"; inpB.min="0"; inpB.step="1"; inpB.style.width="90px";
+      inpB.setAttribute("aria-label",`Puntos jugador B (mesa ${m.table})`);
+      inpB.value = m.ptsB ?? "";
 
-    const labA = document.createElement("label");
-    labA.innerHTML = `<span>Pts A</span>`;
-    labA.appendChild(inpA);
+      const labA = document.createElement("label");
+      labA.innerHTML = `<span>Pts A</span>`;
+      labA.appendChild(inpA);
 
-    const labB = document.createElement("label");
-    labB.innerHTML = `<span>Pts B</span>`;
-    labB.appendChild(inpB);
+      const labB = document.createElement("label");
+      labB.innerHTML = `<span>Pts B</span>`;
+      labB.appendChild(inpB);
 
-    scores.appendChild(labA);
-    scores.appendChild(labB);
+      scores.appendChild(labA);
+      scores.appendChild(labB);
 
-    const winner = document.createElement("div");
-    winner.className = "winner";
+      const winner = document.createElement("div");
+      winner.className = "winner";
 
-    function renderResult(){
-      const a = Number(m.ptsA), b = Number(m.ptsB);
-      if(!m.ptsA && !m.ptsB) return `<span class="muted">—</span>`;
-      if(!Number.isFinite(a) || !Number.isFinite(b)) return `<span class="muted">—</span>`;
-      if(a === b) return `<span class="pill" style="border-color:#d12b2b;color:#ffd0d0">⚠️ Empate no permitido</span>`;
-      const name = a > b ? escapeHtml(m.pA) : escapeHtml(m.pB);
-      return `<span class="pill">Gana: ${name}</span>`;
+      function renderResult(){
+        const a = Number(m.ptsA), b = Number(m.ptsB);
+        if(!m.ptsA && !m.ptsB) return `<span class="muted">—</span>`;
+        if(!Number.isFinite(a) || !Number.isFinite(b)) return `<span class="muted">—</span>`;
+        if(a === b) return `<span class="pill" style="border-color:#d12b2b;color:#ffd0d0">⚠️ Empate no permitido</span>`;
+        const name = a > b ? escapeHtml(m.pA) : escapeHtml(m.pB);
+        return `<span class="pill">Gana: ${name}</span>`;
+      }
+      winner.innerHTML = renderResult();
+
+      inpA.addEventListener("input", ()=>{ m.ptsA = inpA.value; winner.innerHTML = renderResult(); });
+      inpB.addEventListener("input", ()=>{ m.ptsB = inpB.value; winner.innerHTML = renderResult(); });
+
+      div.appendChild(names);
+      div.appendChild(scores);
+      div.appendChild(winner);
+    } else {
+      const result = document.createElement("div");
+      result.className = "winner";
+      const a = (m.ptsA !== "" && m.ptsA != null) ? Number(m.ptsA) : null;
+      const b = (m.ptsB !== "" && m.ptsB != null) ? Number(m.ptsB) : null;
+      if (a !== null && b !== null && Number.isFinite(a) && Number.isFinite(b) && a !== b) {
+        const winName = a > b ? escapeHtml(m.pA) : escapeHtml(m.pB);
+        result.innerHTML = `<span class="pill" style="background:#0b2218;border-color:#2d6e2d;color:#6fcf6f">🏆 ${winName}</span>`;
+      } else if (a !== null && b !== null && Number.isFinite(a) && Number.isFinite(b)) {
+        result.innerHTML = `<span class="pill">${a} – ${b}</span>`;
+      } else {
+        result.innerHTML = `<span class="muted">En juego…</span>`;
+      }
+      div.appendChild(names);
+      div.appendChild(result);
     }
-    winner.innerHTML = renderResult();
-
-    inpA.addEventListener("input", ()=>{ m.ptsA = inpA.value; winner.innerHTML = renderResult(); });
-    inpB.addEventListener("input", ()=>{ m.ptsB = inpB.value; winner.innerHTML = renderResult(); });
-
-    div.appendChild(names);
-    div.appendChild(scores);
-    div.appendChild(winner);
     els.matches.appendChild(div);
   }
 }
@@ -568,6 +613,74 @@ function q(s){
   if(/[,"\n]/.test(t)) return `"${t.replace(/"/g,'""')}"`;
   return t;
 }
+
+/* =================== Modo Árbitro =================== */
+const ARBITRO_PIN_IND = "2468";
+let isArbitroMode = sessionStorage.getItem("suizo_ind_arbitro_ok") === "1";
+
+function applyArbitroUI() {
+  document.querySelectorAll(".arbitro-only").forEach(el => {
+    el.style.display = isArbitroMode ? "" : "none";
+  });
+}
+
+function openArbitroPin() {
+  document.getElementById("arbitroPinModal").classList.add("open");
+  document.getElementById("ap0").focus();
+}
+
+function closeArbitroPin() {
+  document.getElementById("arbitroPinModal").classList.remove("open");
+  ["ap0","ap1","ap2","ap3"].forEach(id => { document.getElementById(id).value = ""; });
+  document.getElementById("apError").textContent = "";
+}
+
+function tryUnlockArbitro() {
+  const pin = ["ap0","ap1","ap2","ap3"].map(id => document.getElementById(id).value).join("");
+  if (pin === ARBITRO_PIN_IND) {
+    sessionStorage.setItem("suizo_ind_arbitro_ok", "1");
+    isArbitroMode = true;
+    closeArbitroPin();
+    applyArbitroUI();
+    renderAll();
+    showToast("Modo árbitro activado ✅");
+  } else {
+    document.getElementById("apError").textContent = "Clave incorrecta";
+    ["ap0","ap1","ap2","ap3"].forEach(id => { document.getElementById(id).value = ""; });
+    document.getElementById("ap0").focus();
+    setTimeout(() => { document.getElementById("apError").textContent = ""; }, 2000);
+  }
+}
+
+document.getElementById("btnArbitroPIN").addEventListener("click", openArbitroPin);
+document.getElementById("btnApCancel").addEventListener("click", closeArbitroPin);
+document.getElementById("btnApUnlock").addEventListener("click", tryUnlockArbitro);
+document.getElementById("btnSalirArbitro").addEventListener("click", () => {
+  sessionStorage.removeItem("suizo_ind_arbitro_ok");
+  isArbitroMode = false;
+  applyArbitroUI();
+  renderAll();
+  showToast("Modo árbitro desactivado");
+});
+
+const _apDigits = ["ap0","ap1","ap2","ap3"];
+_apDigits.forEach((id, i) => {
+  const d = document.getElementById(id);
+  d.addEventListener("input", () => {
+    d.value = d.value.replace(/\D/g,"").slice(-1);
+    document.getElementById("apError").textContent = "";
+    if (d.value && i < 3) document.getElementById(_apDigits[i+1]).focus();
+    const pin = _apDigits.map(x => document.getElementById(x).value).join("");
+    if (pin.length === 4) tryUnlockArbitro();
+  });
+  d.addEventListener("keydown", e => {
+    if (e.key === "Backspace" && !d.value && i > 0) document.getElementById(_apDigits[i-1]).focus();
+    if (e.key === "Enter") tryUnlockArbitro();
+    if (e.key === "Escape") closeArbitroPin();
+  });
+});
+
+applyArbitroUI();
 
 /* =================== Init =================== */
 if(new URLSearchParams(location.search).get("reset") !== null){

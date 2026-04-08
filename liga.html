@@ -116,6 +116,14 @@
 
   /* FOOTER */
   .app-footer { text-align:center;font-size:11px;color:#2a3a55;padding:1.5rem 0 1rem; }
+  .arbitro-only { display: none; }
+  .badge-arbitro { background: #1a3a1a; border: 1px solid #2d6e2d; color: #6fcf6f; border-radius: 6px; padding: 3px 10px; font-size: 12px; }
+  #arbPinModal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9500; display: none; align-items: center; justify-content: center; }
+  #arbPinModal.open { display: flex; }
+  #arbPinBox { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 1.5rem; max-width: 300px; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .arb-pin-box { display: flex; gap: 12px; justify-content: center; }
+  .arb-pin-digit { width: 52px; height: 64px; font-size: 28px; font-weight: bold; text-align: center; background: #0b1220; color: #e8eefc; border: 2px solid #22304f; border-radius: 12px; caret-color: #2b65ff; }
+  .arb-pin-digit:focus { border-color: #2b65ff; outline: none; }
 
   /* SCORE FORM */
   .score-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
@@ -161,10 +169,13 @@
     <div class="header-title">Liga <span>Dominó</span> Suizo</div>
   </div>
   <div class="header-actions">
-    <button class="btn btn-secondary btn-sm" onclick="exportData()">&#x1F4E5; Exportar</button>
-    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importFileHeader').click()">&#x1F4E4; Importar</button>
+    <button class="btn btn-secondary btn-sm arbitro-only" onclick="exportData()">&#x1F4E5; Exportar</button>
+    <button class="btn btn-secondary btn-sm arbitro-only" onclick="document.getElementById('importFileHeader').click()">&#x1F4E4; Importar</button>
     <input type="file" id="importFileHeader" accept=".json" style="display:none" onchange="importData(this)">
-    <button class="btn btn-sm" style="background:#7a1010;color:#fff;" onclick="resetAll()">&#x1F5D1; Reset</button>
+    <button class="btn btn-sm arbitro-only" style="background:#7a1010;color:#fff;" onclick="resetAll()">&#x1F5D1; Reset</button>
+    <span class="badge-arbitro arbitro-only" style="align-self:center;">Árbitro</span>
+    <button class="btn btn-sm" id="btnLigaArbitroPIN" style="background:#1a3a1a;border:1px solid #2d6e2d;color:#6fcf6f;">🔑 Árbitro</button>
+    <button class="btn btn-sm arbitro-only" id="btnLigaSalirArbitro" style="background:#2a1010;border:1px solid #6e2d2d;color:#ffa0a0;">Salir árbitro</button>
   </div>
 </header>
 
@@ -176,7 +187,7 @@
 </div>
 
 <div id="tab-sesiones" class="container">
-  <div class="card">
+  <div class="card arbitro-only">
     <div class="card-title">Nueva Sesión</div>
     <div class="form-group">
       <label>Fecha</label>
@@ -199,7 +210,7 @@
 </div>
 
 <div id="tab-jugadores" class="section-hidden container">
-  <div class="card">
+  <div class="card arbitro-only">
     <div class="card-title">Añadir jugador</div>
     <div class="form-group">
       <label>Nombre</label>
@@ -359,7 +370,7 @@ function renderPlayers() {
     return '<div class="player-item">' +
       '<span class="player-name">' + esc(p.name) + '</span>' +
       '<div class="player-actions">' +
-        '<button class="btn btn-danger btn-sm" onclick="deletePlayer(\'' + p.id + '\')">Eliminar</button>' +
+        (isArbitroLiga ? '<button class="btn btn-danger btn-sm" onclick="deletePlayer(\'' + p.id + '\')">Eliminar</button>' : '') +
       '</div>' +
     '</div>';
   }).join("");
@@ -494,8 +505,10 @@ function renderSessions() {
 
     const actions = locked
       ? '<span class="lock-badge">&#x1F512; Cerrado</span>'
-      : '<button class="btn btn-secondary btn-sm" onclick="openEditModal(\'' + sess.id + '\')">Editar</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="deleteSession(\'' + sess.id + '\')">&#x1F5D1;</button>';
+      : (isArbitroLiga
+          ? '<button class="btn btn-secondary btn-sm" onclick="openEditModal(\'' + sess.id + '\')">Editar</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="deleteSession(\'' + sess.id + '\')">&#x1F5D1;</button>'
+          : '');
 
     return '<div class="session-item">' +
       '<div class="session-header">' +
@@ -602,11 +615,13 @@ function renderRanking() {
   const bannerHTML = closed
     ? '<div class="closed-banner">' +
         '<span>&#x1F4CC; Mes cerrado el ' + formatISODate(closed.closedAt) + '</span>' +
-        '<button class="btn-link btn-link-danger" onclick="reopenMonth(\'' + ymStr + '\')">Reabrir</button>' +
+        (isArbitroLiga ? '<button class="btn-link btn-link-danger" onclick="reopenMonth(\'' + ymStr + '\')">Reabrir</button>' : '') +
       '</div>'
-    : '<div style="margin-bottom:0.75rem;text-align:right">' +
-        '<button class="btn btn-warning" onclick="closeMonth(\'' + ymStr + '\')">&#x1F512; Cerrar mes</button>' +
-      '</div>';
+    : (isArbitroLiga
+        ? '<div style="margin-bottom:0.75rem;text-align:right">' +
+            '<button class="btn btn-warning" onclick="closeMonth(\'' + ymStr + '\')">&#x1F512; Cerrar mes</button>' +
+          '</div>'
+        : '');
 
   function buildRow(p, i, showRank) {
     const rate = p.PJ ? ((p.G / p.PJ) * 100).toFixed(1) : "0.0";
@@ -837,11 +852,93 @@ function renderAll() {
   }
 }
 
+// ── Modo Árbitro ──────────────────────────────────────────────────────────────
+let isArbitroLiga = sessionStorage.getItem("liga_arbitro_ok") === "1";
+
+function applyArbitroLiga() {
+  document.querySelectorAll(".arbitro-only").forEach(function(el) {
+    el.style.display = isArbitroLiga ? "" : "none";
+  });
+}
+
+function openLigaArbitroPin() {
+  document.getElementById("arbPinModal").classList.add("open");
+  document.getElementById("lap0").focus();
+}
+
+function closeLigaArbitroPin() {
+  document.getElementById("arbPinModal").classList.remove("open");
+  ["lap0","lap1","lap2","lap3"].forEach(function(id) { document.getElementById(id).value = ""; });
+  document.getElementById("lapError").textContent = "";
+}
+
+function tryUnlockLigaArbitro() {
+  var pin = ["lap0","lap1","lap2","lap3"].map(function(id) { return document.getElementById(id).value; }).join("");
+  if (pin === "2468") {
+    sessionStorage.setItem("liga_arbitro_ok", "1");
+    isArbitroLiga = true;
+    closeLigaArbitroPin();
+    applyArbitroLiga();
+    renderAll();
+  } else {
+    document.getElementById("lapError").textContent = "Clave incorrecta";
+    ["lap0","lap1","lap2","lap3"].forEach(function(id) { document.getElementById(id).value = ""; });
+    document.getElementById("lap0").focus();
+    setTimeout(function() { document.getElementById("lapError").textContent = ""; }, 2000);
+  }
+}
+
+document.getElementById("btnLigaArbitroPIN").addEventListener("click", openLigaArbitroPin);
+document.getElementById("btnLapCancel").addEventListener("click", closeLigaArbitroPin);
+document.getElementById("btnLapUnlock").addEventListener("click", tryUnlockLigaArbitro);
+document.getElementById("btnLigaSalirArbitro").addEventListener("click", function() {
+  sessionStorage.removeItem("liga_arbitro_ok");
+  isArbitroLiga = false;
+  applyArbitroLiga();
+  renderAll();
+});
+
+var _lapDigits = ["lap0","lap1","lap2","lap3"];
+_lapDigits.forEach(function(id, i) {
+  var d = document.getElementById(id);
+  d.addEventListener("input", function() {
+    d.value = d.value.replace(/\D/g,"").slice(-1);
+    document.getElementById("lapError").textContent = "";
+    if (d.value && i < 3) document.getElementById(_lapDigits[i+1]).focus();
+    var pin = _lapDigits.map(function(x) { return document.getElementById(x).value; }).join("");
+    if (pin.length === 4) tryUnlockLigaArbitro();
+  });
+  d.addEventListener("keydown", function(e) {
+    if (e.key === "Backspace" && !d.value && i > 0) document.getElementById(_lapDigits[i-1]).focus();
+    if (e.key === "Enter") tryUnlockLigaArbitro();
+    if (e.key === "Escape") closeLigaArbitroPin();
+  });
+});
+
+applyArbitroLiga();
+
 loadState();
 document.getElementById("newSessionDate").value = todayStr();
 renderAll();
 </script>
 
 <div class="app-footer">Creado por Usama Mizher · Liga Dominó Suizo</div>
+
+<div id="arbPinModal">
+  <div id="arbPinBox">
+    <div style="font-size:32px">🔑</div>
+    <div style="font-size:18px;font-weight:800;color:#fff">Modo Árbitro</div>
+    <div style="color:#9fb1db;font-size:13px">Ingresa la clave de árbitro</div>
+    <div class="arb-pin-box">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="lap0">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="lap1">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="lap2">
+      <input class="arb-pin-digit" type="password" inputmode="numeric" maxlength="1" id="lap3">
+    </div>
+    <div style="color:#ff6b6b;font-size:13px;min-height:18px" id="lapError"></div>
+    <button id="btnLapUnlock" style="background:#2b65ff;color:white;border:0;border-radius:12px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">Entrar</button>
+    <button id="btnLapCancel" style="background:transparent;color:#9fb1db;border:1px solid #22304f;border-radius:10px;padding:8px 20px;cursor:pointer;font-size:13px">Cancelar</button>
+  </div>
+</div>
 </body>
 </html>
