@@ -63,6 +63,8 @@
   #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
   #pinInput:focus{border-color:#2b65ff}
   #pinError{color:#ff6b6b;font-size:13px;min-height:18px}
+    .round-tab { background: #1b2847; border: 1px solid #22304f; border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; color: #cfe0ff; }
+    .round-tab.active { background: #2b65ff; border-color: #2b65ff; color: white; font-weight: bold; }
 </style>
 </head>
 
@@ -112,9 +114,10 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
 
   <section class="card">
     <div class="flex-between">
-      <h2>Ronda actual</h2>
+      <h2 id="matchesTitle">Ronda actual</h2>
       <button id="btnSaveScores">Guardar puntos</button>
     </div>
+    <div id="roundTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
     <div class="matches" id="matches"></div>
     <p class="muted small">Pon puntos por jugador (ej: 200–120). <b>No se permiten empates</b>.</p>
   </section>
@@ -360,9 +363,12 @@ function addNewRoundFromRanked(rankedPlayers, vsUsed){
     state.rounds.push({ round: rn, table: tableNo++, pA: m.pA, pB: m.pB, ptsA: "", ptsB: "" });
   }
   state._lastBench = bench.length ? {round: rn, players: bench.slice()} : null;
+  viewRound = rn;
   saveState();
   renderAll();
 }
+
+let viewRound = 0;
 
 /* =================== UI =================== */
 const els = {
@@ -387,9 +393,27 @@ function renderPlayersBox(){
   els.byeMode.value = state.byeMode;
 }
 
+function renderRoundTabs(){
+  const rn = currentRoundNumber();
+  const el = document.getElementById("roundTabs");
+  el.innerHTML = "";
+  if(rn === 0) return;
+  for(let i = 1; i <= rn; i++){
+    const btn = document.createElement("button");
+    btn.className = "round-tab" + (i === viewRound ? " active" : "");
+    btn.textContent = `Ronda ${i}`;
+    btn.dataset.r = i;
+    btn.addEventListener("click", ()=>{ viewRound = +btn.dataset.r; renderRound(); renderRoundTabs(); });
+    el.appendChild(btn);
+  }
+}
+
 function renderRound(){
   const rn = currentRoundNumber();
+  if(viewRound === 0 || viewRound > rn) viewRound = rn;
   els.roundPill.textContent = `Ronda: ${rn}/${MAX_ROUNDS}`;
+  document.getElementById("matchesTitle").textContent =
+    viewRound === rn ? `Ronda actual – ingresar puntos` : `Ronda ${viewRound} – editar puntos`;
   els.matches.innerHTML = "";
 
   if(rn === 0){
@@ -397,8 +421,8 @@ function renderRound(){
     return;
   }
 
-  const ms = matchesInRound(rn);
-  const bench = state._lastBench && state._lastBench.round === rn
+  const ms = matchesInRound(viewRound);
+  const bench = state._lastBench && state._lastBench.round === viewRound
     ? (state._lastBench.players || state._lastBench.pairs || [])
     : [];
 
@@ -496,6 +520,7 @@ function renderTable(){
 function renderAll(){
   renderPlayersBox();
   renderRound();
+  renderRoundTabs();
   renderTable();
 
   els.btnGenR1.disabled   = state.players.length < 2 || currentRoundNumber() > 0;
@@ -524,9 +549,8 @@ els.btnGenNext.addEventListener("click", ()=>{
 });
 
 els.btnSaveScores.addEventListener("click", ()=>{
-  const rn = currentRoundNumber();
-  if(rn > 0){
-    const ms = matchesInRound(rn);
+  if(viewRound > 0){
+    const ms = matchesInRound(viewRound);
     for(const m of ms){
       const a = Number(m.ptsA), b = Number(m.ptsB);
       if(!m.ptsA && !m.ptsB) return showToast("Faltan puntos en alguna mesa.", 3000);
@@ -536,7 +560,7 @@ els.btnSaveScores.addEventListener("click", ()=>{
   }
   state.byeMode = els.byeMode.value;
   saveState(); renderAll();
-  showToast("Puntos guardados ✅");
+  showToast(`Puntos de Ronda ${viewRound} guardados ✅`);
 });
 
 els.btnReset.addEventListener("click", resetAll);
