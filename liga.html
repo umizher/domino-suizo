@@ -71,8 +71,6 @@
   .rank-badge.r1 { background: #d4a017; color: #000; }
   .rank-badge.r2 { background: #9e9e9e; color: #000; }
   .rank-badge.r3 { background: #cd7f32; color: #000; }
-  .win-rate { font-weight: 700; color: #4caf50; }
-  .streak-fire { margin-left: 0.2rem; }
 
   /* MONTH SELECTOR */
   .month-selector { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
@@ -482,13 +480,10 @@ function renderSessions() {
 
     const medals = ["🥇","🥈","🥉"];
     const scoresHTML = ranked.map(function(x, i) {
-      const medal  = medals[i] || ("#" + (i + 1));
-      const rate   = x.pj > 0 ? ((x.g / x.pj) * 100).toFixed(0) : 0;
-      const isTop  = i === 0;
-      return '<span class="score-chip ' + (isTop ? 'winner' : '') + '" style="display:inline-flex;align-items:center;gap:4px;">' +
-        '<b>' + medal + '</b>' +
-        esc(x.p.name) + ': ' + x.g + 'G/' + x.pp + 'P' +
-        '<span style="font-size:0.75rem;opacity:0.75">(' + rate + '%)</span>' +
+      const medal = medals[i] || ("#" + (i + 1));
+      const isTop = i === 0;
+      return '<span class="score-chip ' + (isTop ? 'winner' : '') + '">' +
+        '<b>' + medal + '</b> ' + esc(x.p.name) + ': ' + x.g + 'G/' + x.pp + 'P' +
       '</span>';
     }).join("");
 
@@ -512,54 +507,35 @@ function computeMonthStats(ymStr) {
   const sessions = state.sessions.filter(function(s) { return ym(s.date) === ymStr; })
     .slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
 
-  const sessionCount = sessions.length;
-  // Clasifican quienes asistieron a más de la mitad, mínimo 1 sesión
-  const minSessions = Math.max(1, Math.ceil(sessionCount / 2));
-
   const statsMap = {};
   state.players.forEach(function(p) {
-    statsMap[p.id] = { playerId: p.id, name: p.name, G: 0, P: 0, sessionsAttended: 0, racha: 0, _streak: 0 };
+    statsMap[p.id] = { playerId: p.id, name: p.name, G: 0, P: 0, sessionsAttended: 0 };
   });
 
   sessions.forEach(function(sess) {
     sess.scores.forEach(function(sc) {
       if (!statsMap[sc.playerId]) return;
       const st = statsMap[sc.playerId];
-      // Compatibilidad con datos viejos (points/winner) y nuevos (G/P)
       const g = sc.G !== undefined ? sc.G : (sc.winner ? 1 : 0);
       const p = sc.P !== undefined ? sc.P : (!sc.winner ? 1 : 0);
       if (g + p > 0) {
         st.G += g;
         st.P += p;
         st.sessionsAttended++;
-        if (g > p) {
-          st._streak++;
-        } else {
-          st._streak = 0;
-        }
-        st.racha = st._streak;
       }
     });
   });
 
   const players = Object.values(statsMap).filter(function(st) { return st.sessionsAttended > 0; });
 
-  players.forEach(function(p) {
-    p.PJ = p.G + p.P;
-    p.rate = p.PJ > 0 ? p.G / p.PJ : 0;
-    p.qualified = p.sessionsAttended >= minSessions;
-  });
+  players.forEach(function(p) { p.PJ = p.G + p.P; });
 
   players.sort(function(a, b) {
-    // Clasificados primero, luego por % efectividad, luego por G-P
-    if (a.qualified !== b.qualified) return b.qualified ? 1 : -1;
-    if (Math.abs(b.rate - a.rate) > 1e-9) return b.rate - a.rate;
+    if (b.G !== a.G) return b.G - a.G;
     return (b.G - b.P) - (a.G - a.P);
   });
 
-  const totalPJ = players.reduce(function(s, p) { return s + p.PJ; }, 0);
-
-  return { players: players, sessionCount: sessionCount, totalPJ: totalPJ, minSessions: minSessions };
+  return { players: players, sessionCount: sessions.length };
 }
 
 // ── Ranking ───────────────────────────────────────────────────────────────────
@@ -583,21 +559,16 @@ function renderRanking() {
   }
 
   const closed = state.closedMonths[ymStr];
-  let players, sessionCount, minSessions;
+  let players, sessionCount;
 
   if (closed) {
     players = closed.ranking;
     sessionCount = closed.sessionCount;
-    minSessions = closed.minSessions || Math.max(1, Math.ceil(sessionCount / 2));
   } else {
     const stats = computeMonthStats(ymStr);
     players = stats.players;
     sessionCount = stats.sessionCount;
-    minSessions = stats.minSessions;
   }
-
-  const qualified   = players.filter(function(p) { return p.qualified !== false; });
-  const nonQual     = players.filter(function(p) { return p.qualified === false; });
 
   const bannerHTML = closed
     ? '<div class="closed-banner">' +
@@ -608,32 +579,19 @@ function renderRanking() {
         '<button class="btn btn-warning" onclick="closeMonth(\'' + ymStr + '\')">&#x1F512; Cerrar mes</button>' +
       '</div>';
 
-  function buildRow(p, i, showRank) {
-    const rate = p.PJ ? ((p.G / p.PJ) * 100).toFixed(1) : "0.0";
-    const badgeClass = showRank ? (i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "") : "";
-    const medal = showRank
-      ? (i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1))
-      : "—";
-    const fireIcon = p.racha >= 2 ? ' &#x1F525;' : "";
-    return '<tr' + (!showRank ? ' style="opacity:0.55"' : '') + '>' +
+  function buildRow(p, i) {
+    const badgeClass = i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "";
+    const medal = i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1);
+    return '<tr>' +
       '<td><span class="rank-badge ' + badgeClass + '">' + medal + '</span></td>' +
-      '<td>' + esc(p.name) + fireIcon + '</td>' +
+      '<td>' + esc(p.name) + '</td>' +
       '<td style="text-align:center">' + p.sessionsAttended + '/' + sessionCount + '</td>' +
       '<td style="text-align:center">' + p.G + '</td>' +
       '<td style="text-align:center">' + p.P + '</td>' +
-      '<td class="win-rate">' + rate + '%</td>' +
-      '<td style="text-align:center">' + (p.racha >= 2 ? p.racha + ' &#x1F525;' : p.racha) + '</td>' +
     '</tr>';
   }
 
-  const qualRows  = qualified.map(function(p, i) { return buildRow(p, i, true); }).join("");
-  const nqRows    = nonQual.map(function(p, i)   { return buildRow(p, i, false); }).join("");
-
-  const thead = '<thead><tr><th>#</th><th>Jugador</th><th style="text-align:center">Asist.</th><th style="text-align:center">G</th><th style="text-align:center">P</th><th>% Efect.</th><th style="text-align:center">Racha</th></tr></thead>';
-
-  const thresholdNote = '<div style="font-size:0.78rem;color:#8899aa;margin-bottom:0.6rem">' +
-    '&#x2139;&#xFE0F; Clasifican quienes asistieron a <b>' + minSessions + ' o m\u00e1s</b> de las ' + sessionCount + ' sesiones del mes.' +
-  '</div>';
+  const thead = '<thead><tr><th>#</th><th>Jugador</th><th style="text-align:center">Asist.</th><th style="text-align:center">G</th><th style="text-align:center">P</th></tr></thead>';
 
   el.innerHTML = bannerHTML +
     '<div class="card">' +
@@ -641,9 +599,8 @@ function renderRanking() {
         '<div class="card-title" style="margin:0">' + monthLabel(ymStr) + '</div>' +
         '<div style="font-size:0.8rem;color:#8899aa">' + sessionCount + ' sesi\u00f3n(es)</div>' +
       '</div>' +
-      thresholdNote +
       (players.length
-        ? '<table class="ranking-table">' + thead + '<tbody>' + qualRows + (nqRows ? '<tr><td colspan="7" style="font-size:0.75rem;color:#555;padding:0.4rem 0.6rem;border-top:2px dashed #22304f">No clasificados (menos de ' + minSessions + ' sesiones)</td></tr>' + nqRows : '') + '</tbody></table>'
+        ? '<table class="ranking-table">' + thead + '<tbody>' + players.map(buildRow).join("") + '</tbody></table>'
         : '<div class="empty">Sin datos para este mes.</div>') +
     '</div>';
 }
@@ -656,9 +613,7 @@ function closeMonth(ymStr) {
   state.closedMonths[ymStr] = {
     closedAt: new Date().toISOString(),
     ranking: stats.players,
-    minSessions: stats.minSessions,
-    sessionCount: stats.sessionCount,
-    totalPJ: stats.totalPJ
+    sessionCount: stats.sessionCount
   };
   saveState();
   renderRanking();
@@ -686,16 +641,12 @@ function renderHistorial() {
     const first = cm.ranking && cm.ranking[0];
     const firstStr = first ? '&#x1F947; ' + esc(first.name) : '\u2014';
     const rows = (cm.ranking || []).map(function(p, i) {
-      const rate = p.PJ ? ((p.G / p.PJ) * 100).toFixed(1) : "0.0";
       const badgeClass = i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "";
       const medal = i === 0 ? "&#x1F947;" : i === 1 ? "&#x1F948;" : i === 2 ? "&#x1F949;" : (i + 1);
-      const fire = p.racha >= 2 ? " &#x1F525;" : "";
       return '<tr>' +
         '<td><span class="rank-badge ' + badgeClass + '">' + medal + '</span></td>' +
-        '<td>' + esc(p.name) + fire + '</td>' +
+        '<td>' + esc(p.name) + '</td>' +
         '<td>' + p.PJ + '</td><td>' + p.G + '</td><td>' + p.P + '</td>' +
-        '<td class="win-rate">' + rate + '%</td>' +
-        '<td>' + (p.racha >= 2 ? p.racha + ' &#x1F525;' : p.racha) + '</td>' +
       '</tr>';
     }).join("");
     return '<div class="historial-item">' +
@@ -708,7 +659,7 @@ function renderHistorial() {
       '</div>' +
       '<div class="historial-body">' +
         '<table class="ranking-table">' +
-          '<thead><tr><th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th><th>%G</th><th>Racha</th></tr></thead>' +
+          '<thead><tr><th>#</th><th>Jugador</th><th>PJ</th><th>G</th><th>P</th></tr></thead>' +
           '<tbody>' + rows + '</tbody>' +
         '</table>' +
       '</div>' +
