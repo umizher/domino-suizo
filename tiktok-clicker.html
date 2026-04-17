@@ -93,9 +93,7 @@
   <div class="card">
     <h2>1. Guarda el Bookmarklet</h2>
 
-    <a class="bookmarklet-btn"
-       href="javascript:(function(){if(window._tikClicker){clearInterval(window._tikClicker);window._tikClicker=null;var u=document.getElementById('_tc_ui');if(u)u.remove();return;}var delay=3000;function next(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));var btn=document.querySelector('[data-e2e=&quot;arrow-right&quot;],[data-e2e=&quot;browse-video-arrow-bottom&quot;]');if(btn)btn.click();}window._tikClicker=setInterval(next,delay);var ui=document.createElement('div');ui.id='_tc_ui';ui.style.cssText='position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,0.92);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,0.6);backdrop-filter:blur(8px);min-width:180px;';ui.innerHTML='<div style=&quot;font-weight:700;color:#fe2c55;margin-bottom:10px;&quot;>&#9654; TikTok Auto-Clicker</div><label style=&quot;display:flex;align-items:center;gap:8px;&quot;>Vel&nbsp;<input id=&quot;_tc_s&quot; type=&quot;range&quot; min=&quot;1&quot; max=&quot;10&quot; value=&quot;3&quot; style=&quot;flex:1&quot;></label><div id=&quot;_tc_l&quot; style=&quot;font-size:11px;color:#aaa;margin:6px 0;&quot;>3.0 seg / video</div><button onclick=&quot;clearInterval(window._tikClicker);window._tikClicker=null;this.closest(\'#_tc_ui\').remove();&quot; style=&quot;background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;&quot;>Detener</button>';document.body.appendChild(ui);document.getElementById('_tc_s').oninput=function(){var v=parseInt(this.value);delay=Math.round((11-v)*1000);clearInterval(window._tikClicker);window._tikClicker=setInterval(next,delay);document.getElementById('_tc_l').textContent=(delay/1000).toFixed(1)+' seg / video';};})();"
-    >
+    <a class="bookmarklet-btn" id="bm-link" href="#">
       ⚡ TikTok Auto-Clicker — Arrastra aquí
     </a>
 
@@ -144,30 +142,109 @@
   <a href="index.html" class="back-link">← Volver al inicio</a>
 
   <script>
-    // Build the bookmarklet code and show it in the code box
-    var bm = document.querySelector('.bookmarklet-btn').href;
-    document.getElementById('bm-code').textContent = bm;
+    // ── Bookmarklet logic ────────────────────────────────────────────────────
+    function tikClickerFn() {
+      if (window._tikClicker) {
+        clearInterval(window._tikClicker);
+        window._tikClicker = null;
+        var u = document.getElementById('_tc_ui');
+        if (u) u.remove();
+        return;
+      }
+
+      var delay = 3000;
+      var feedEl = null;
+
+      function findFeed() {
+        // TikTok-specific candidates first
+        var selectors = ['[data-e2e="recommend-list-item-container"]',
+          '[class*="DivVideoFeed"]', '[class*="video-feed"]', 'main', '[role="main"]'];
+        for (var s = 0; s < selectors.length; s++) {
+          var c = document.querySelector(selectors[s]);
+          if (c && c.scrollHeight - c.clientHeight > 200) {
+            var oy = window.getComputedStyle(c).overflowY;
+            if (oy === 'scroll' || oy === 'auto') return c;
+          }
+        }
+        // Brute-force over divs
+        var divs = document.querySelectorAll('div');
+        var best = null, bestH = 0;
+        for (var i = 0; i < Math.min(divs.length, 600); i++) {
+          var el = divs[i];
+          if (el.scrollHeight - el.clientHeight > 200 && el.clientHeight > bestH) {
+            var oy2 = window.getComputedStyle(el).overflowY;
+            if (oy2 === 'scroll' || oy2 === 'auto') { best = el; bestH = el.clientHeight; }
+          }
+        }
+        return best;
+      }
+
+      function next() {
+        // 1) Click TikTok nav buttons (arrow-down / next)
+        var btns = document.querySelectorAll(
+          '[data-e2e*="arrow"],[data-e2e*="next"],[aria-label*="Next"],[aria-label*="next"],[class*="ArrowDown"],[class*="arrow-down"]'
+        );
+        var clicked = false;
+        for (var i = 0; i < btns.length; i++) {
+          var r = btns[i].getBoundingClientRect();
+          if (r.height > 0 && r.top > window.innerHeight * 0.3) {
+            btns[i].click(); clicked = true; break;
+          }
+        }
+        if (!clicked) {
+          // 2) Keyboard ArrowDown
+          var k = { key: 'ArrowDown', keyCode: 40, which: 40, bubbles: true, cancelable: true };
+          document.dispatchEvent(new KeyboardEvent('keydown', k));
+          document.body.dispatchEvent(new KeyboardEvent('keydown', k));
+          // 3) Scroll the feed container
+          if (!feedEl || !document.contains(feedEl)) feedEl = findFeed();
+          if (feedEl) feedEl.scrollBy({ top: feedEl.clientHeight, behavior: 'smooth' });
+          else window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+        }
+      }
+
+      window._tikClicker = setInterval(next, delay);
+
+      // Panel UI
+      var ui = document.createElement('div');
+      ui.id = '_tc_ui';
+      ui.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,.93);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,.6);backdrop-filter:blur(8px);min-width:185px;';
+      ui.innerHTML = '<div style="font-weight:700;color:#fe2c55;margin-bottom:10px;">\u25BA TikTok Auto-Clicker<\/div>'
+        + '<label style="display:flex;align-items:center;gap:8px;">Vel <input id="_tc_s" type="range" min="1" max="10" value="3" style="flex:1"><\/label>'
+        + '<div id="_tc_l" style="font-size:11px;color:#aaa;margin:6px 0;">3.0 seg \/ video<\/div>'
+        + '<button onclick="clearInterval(window._tikClicker);window._tikClicker=null;document.getElementById(\'_tc_ui\').remove();"'
+        + ' style="background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;">Detener<\/button>';
+      document.body.appendChild(ui);
+
+      document.getElementById('_tc_s').oninput = function () {
+        var v = parseInt(this.value);
+        delay = Math.round((11 - v) * 1000);
+        clearInterval(window._tikClicker);
+        window._tikClicker = setInterval(next, delay);
+        document.getElementById('_tc_l').textContent = (delay / 1000).toFixed(1) + ' seg / video';
+      };
+    }
+
+    // ── Wire up bookmarklet link & code box ──────────────────────────────────
+    var bmSrc = 'javascript:(' + tikClickerFn.toString() + ')();';
+    document.getElementById('bm-link').href = bmSrc;
+    document.getElementById('bm-code').textContent = bmSrc;
 
     function copyCode() {
       var text = document.getElementById('bm-code').textContent;
+      var btn = document.querySelector('.copy-btn');
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function() {
-          var btn = document.querySelector('.copy-btn');
+        navigator.clipboard.writeText(text).then(function () {
           btn.textContent = '¡Copiado!';
-          setTimeout(function() { btn.textContent = 'Copiar código'; }, 2000);
+          setTimeout(function () { btn.textContent = 'Copiar código'; }, 2000);
         });
       } else {
-        // Fallback for older Safari
         var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        var btn = document.querySelector('.copy-btn');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
         btn.textContent = '¡Copiado!';
-        setTimeout(function() { btn.textContent = 'Copiar código'; }, 2000);
+        setTimeout(function () { btn.textContent = 'Copiar código'; }, 2000);
       }
     }
   </script>
