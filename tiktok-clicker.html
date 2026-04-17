@@ -93,9 +93,7 @@
   <div class="card">
     <h2>1. Guarda el Bookmarklet</h2>
 
-    <a class="bookmarklet-btn"
-       href="javascript:(function(){if(window._tikClicker){clearInterval(window._tikClicker);window._tikClicker=null;var u=document.getElementById('_tc_ui');if(u)u.remove();return;}var delay=3000;function next(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));var btn=document.querySelector('[data-e2e=&quot;arrow-right&quot;],[data-e2e=&quot;browse-video-arrow-bottom&quot;]');if(btn)btn.click();}window._tikClicker=setInterval(next,delay);var ui=document.createElement('div');ui.id='_tc_ui';ui.style.cssText='position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,0.92);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,0.6);backdrop-filter:blur(8px);min-width:180px;';ui.innerHTML='<div style=&quot;font-weight:700;color:#fe2c55;margin-bottom:10px;&quot;>&#9654; TikTok Auto-Clicker</div><label style=&quot;display:flex;align-items:center;gap:8px;&quot;>Vel&nbsp;<input id=&quot;_tc_s&quot; type=&quot;range&quot; min=&quot;1&quot; max=&quot;10&quot; value=&quot;3&quot; style=&quot;flex:1&quot;></label><div id=&quot;_tc_l&quot; style=&quot;font-size:11px;color:#aaa;margin:6px 0;&quot;>3.0 seg / video</div><button onclick=&quot;clearInterval(window._tikClicker);window._tikClicker=null;this.closest(\'#_tc_ui\').remove();&quot; style=&quot;background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;&quot;>Detener</button>';document.body.appendChild(ui);document.getElementById('_tc_s').oninput=function(){var v=parseInt(this.value);delay=Math.round((11-v)*1000);clearInterval(window._tikClicker);window._tikClicker=setInterval(next,delay);document.getElementById('_tc_l').textContent=(delay/1000).toFixed(1)+' seg / video';};})();"
-    >
+    <a class="bookmarklet-btn" id="bm-link" href="#">
       ⚡ TikTok Auto-Clicker — Arrastra aquí
     </a>
 
@@ -141,33 +139,229 @@
     </div>
   </div>
 
+  <!-- Card: AutoHotkey (Windows) -->
+  <div class="card" style="border-color:#2a6e2a;">
+    <h2 style="color:#7fcf7f;">Windows: AutoHotkey (recomendado)</h2>
+    <p style="color:#c0d4f5;font-size:14px;margin:0 0 16px;">
+      Los bookmarklets no pueden clickear TikTok porque el navegador bloquea clicks artificiales.<br>
+      AutoHotkey simula clicks reales del sistema operativo — TikTok no lo puede bloquear.
+    </p>
+    <ol class="steps">
+      <li>Descarga e instala <strong>AutoHotkey v1</strong> desde <code>autohotkey.com</code></li>
+      <li><a href="tiktok-clicker.ahk" download style="color:#7fcf7f;font-weight:700;">Descarga el script (.ahk)</a> y ábrelo con AutoHotkey</li>
+      <li>Aparece una ventana con instrucciones. Pon el mouse sobre el corazón ❤️ del Live</li>
+      <li>Presiona <strong>F3</strong> para guardar la posición del corazón</li>
+      <li>Presiona <strong>F2</strong> para iniciar — <strong>F2</strong> de nuevo para detener</li>
+    </ol>
+    <div class="tip">
+      El script hace click en esa posición fija cada 0.8 segundos. TikTok lo registra como click real.
+    </div>
+  </div>
+
   <a href="index.html" class="back-link">← Volver al inicio</a>
 
   <script>
-    // Build the bookmarklet code and show it in the code box
-    var bm = document.querySelector('.bookmarklet-btn').href;
-    document.getElementById('bm-code').textContent = bm;
+    // ── Bookmarklet logic ────────────────────────────────────────────────────
+    function tikClickerFn() {
+      if (window._tikClicker) {
+        clearInterval(window._tikClicker);
+        window._tikClicker = null;
+        var u = document.getElementById('_tc_ui');
+        if (u) u.remove();
+        return;
+      }
+
+      var delay = 1000;
+      var feedEl = null;
+      var isLive = location.href.indexOf('/live') !== -1;
+
+      function findFeed() {
+        var selectors = ['[data-e2e="recommend-list-item-container"]',
+          '[class*="DivVideoFeed"]', '[class*="video-feed"]', 'main', '[role="main"]'];
+        for (var s = 0; s < selectors.length; s++) {
+          var c = document.querySelector(selectors[s]);
+          if (c && c.scrollHeight - c.clientHeight > 200) {
+            var oy = window.getComputedStyle(c).overflowY;
+            if (oy === 'scroll' || oy === 'auto') return c;
+          }
+        }
+        var divs = document.querySelectorAll('div');
+        var best = null, bestH = 0;
+        for (var i = 0; i < Math.min(divs.length, 600); i++) {
+          var el = divs[i];
+          if (el.scrollHeight - el.clientHeight > 200 && el.clientHeight > bestH) {
+            var oy2 = window.getComputedStyle(el).overflowY;
+            if (oy2 === 'scroll' || oy2 === 'auto') { best = el; bestH = el.clientHeight; }
+          }
+        }
+        return best;
+      }
+
+      // Fire via React fiber (bypasses isTrusted check)
+      function reactFire(el) {
+        var walked = el;
+        while (walked) {
+          var rk = Object.keys(walked).find(function(k) {
+            return k.startsWith('__reactProps') || k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance');
+          });
+          if (rk) {
+            var node = walked[rk];
+            // __reactProps$xxx has onClick directly
+            if (rk.startsWith('__reactProps') && node && node.onClick) {
+              node.onClick({ type:'click', bubbles:true, cancelable:true,
+                target:walked, currentTarget:walked,
+                preventDefault:function(){}, stopPropagation:function(){} });
+              return true;
+            }
+            // traverse fiber tree
+            var fiber = node;
+            while (fiber) {
+              var p = fiber.memoizedProps;
+              if (p && p.onClick) {
+                p.onClick({ type:'click', bubbles:true, cancelable:true,
+                  target:el, currentTarget:el,
+                  preventDefault:function(){}, stopPropagation:function(){} });
+                return true;
+              }
+              fiber = fiber.return;
+              if (fiber && fiber.stateNode === document) break;
+            }
+          }
+          walked = walked.parentElement;
+          if (!walked || walked === document.body) break;
+        }
+        return false;
+      }
+
+      function fireClick(el) {
+        var r = el.getBoundingClientRect();
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        // Try React fiber first (isTrusted-safe)
+        var ok = reactFire(el);
+        // Also dispatch native events as backup
+        ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(t) {
+          el.dispatchEvent(new MouseEvent(t, {bubbles:true, cancelable:true, clientX:cx, clientY:cy}));
+        });
+        el.click();
+        el.style.outline = '3px solid #fe2c55';
+        setTimeout(function(){ el.style.outline = ''; }, 300);
+        return ok;
+      }
+
+      function clickLiveHeart() {
+        var heartSels = [
+          '[data-e2e="live-like-btn"]', '[data-e2e="like-icon"]',
+          '[data-e2e="browse-like-icon"]', '[data-e2e="video-like-icon"]',
+          '[class*="LikeButton"]', '[class*="like-button"]',
+          '[class*="HeartButton"]', '[class*="heart-button"]',
+          '[class*="likeBtn"]', '[class*="LikeBtn"]',
+          '[aria-label*="Like" i]', '[aria-label*="heart" i]',
+          '[aria-label*="coraz" i]'
+        ];
+        for (var i = 0; i < heartSels.length; i++) {
+          var found = document.querySelectorAll(heartSels[i]);
+          for (var j = 0; j < found.length; j++) {
+            if (found[j].offsetParent !== null) {
+              var ok = fireClick(found[j]);
+              setStatus((ok ? '\u2665 React' : '\u2665 DOM') + ': ' + heartSels[i].replace(/[\[\]"*]/g,'').slice(0,20));
+              return true;
+            }
+          }
+        }
+        // Position fallback
+        var x = window.innerWidth - 45, y = window.innerHeight * 0.72;
+        var t = document.elementFromPoint(x, y);
+        if (t && t !== document.body) {
+          fireClick(t);
+          setStatus('\u2665 pos(' + Math.round(x) + ',' + Math.round(y) + ') ' + t.tagName);
+          return true;
+        }
+        setStatus('\u274c no encontrado — ve a tiktok.com/live');
+        return false;
+      }
+
+      function setStatus(msg) {
+        var el = document.getElementById('_tc_status');
+        if (el) el.textContent = msg;
+      }
+
+      function nextVideo() {
+        var btns = document.querySelectorAll(
+          '[data-e2e*="arrow"],[data-e2e*="next"],[aria-label*="Next"],[aria-label*="next"],[class*="ArrowDown"],[class*="arrow-down"]'
+        );
+        var clicked = false;
+        for (var i = 0; i < btns.length; i++) {
+          var r = btns[i].getBoundingClientRect();
+          if (r.height > 0 && r.top > window.innerHeight * 0.3) {
+            btns[i].click(); clicked = true; break;
+          }
+        }
+        if (!clicked) {
+          var k = { key: 'ArrowDown', keyCode: 40, which: 40, bubbles: true, cancelable: true };
+          document.dispatchEvent(new KeyboardEvent('keydown', k));
+          document.body.dispatchEvent(new KeyboardEvent('keydown', k));
+          if (!feedEl || !document.contains(feedEl)) feedEl = findFeed();
+          if (feedEl) feedEl.scrollBy({ top: feedEl.clientHeight, behavior: 'smooth' });
+          else window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+        }
+      }
+
+      function tick() {
+        isLive = location.href.indexOf('/live') !== -1;
+        if (isLive) clickLiveHeart(); else nextVideo();
+      }
+
+      window._tikClicker = setInterval(tick, delay);
+
+      // Panel UI
+      var modeLabel = isLive ? '\u2665 Live auto-like' : '\u25BA Navegar videos';
+      var defaultSpeed = isLive ? 5 : 3;
+      delay = isLive ? 800 : 3000;
+      clearInterval(window._tikClicker);
+      window._tikClicker = setInterval(tick, delay);
+
+      var ui = document.createElement('div');
+      ui.id = '_tc_ui';
+      ui.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,.93);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,.6);backdrop-filter:blur(8px);min-width:185px;';
+      ui.innerHTML = '<div style="font-weight:700;color:#fe2c55;margin-bottom:6px;">\u25BA TikTok Auto-Clicker<\/div>'
+        + '<div id="_tc_mode" style="font-size:11px;color:#aaa;margin-bottom:4px;">' + modeLabel + '<\/div>'
+        + '<div id="_tc_status" style="font-size:10px;color:#7eb8ff;margin-bottom:8px;word-break:break-all;">iniciando...<\/div>'
+        + '<label style="display:flex;align-items:center;gap:8px;">Vel <input id="_tc_s" type="range" min="1" max="10" value="' + defaultSpeed + '" style="flex:1"><\/label>'
+        + '<div id="_tc_l" style="font-size:11px;color:#aaa;margin:6px 0;">' + (delay/1000).toFixed(1) + ' seg \/ click<\/div>'
+        + '<button onclick="clearInterval(window._tikClicker);window._tikClicker=null;document.getElementById(\'_tc_ui\').remove();"'
+        + ' style="background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;margin-top:4px;">Detener<\/button>';
+      document.body.appendChild(ui);
+
+      document.getElementById('_tc_s').oninput = function () {
+        var v = parseInt(this.value);
+        delay = Math.round((11 - v) * (isLive ? 300 : 1000));
+        if (delay < 200) delay = 200;
+        clearInterval(window._tikClicker);
+        window._tikClicker = setInterval(tick, delay);
+        document.getElementById('_tc_l').textContent = (delay / 1000).toFixed(1) + ' seg / click';
+      };
+    }
+
+    // ── Wire up bookmarklet link & code box ──────────────────────────────────
+    var bmSrc = 'javascript:(' + tikClickerFn.toString() + ')();';
+    document.getElementById('bm-link').href = bmSrc;
+    document.getElementById('bm-code').textContent = bmSrc;
 
     function copyCode() {
       var text = document.getElementById('bm-code').textContent;
+      var btn = document.querySelector('.copy-btn');
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function() {
-          var btn = document.querySelector('.copy-btn');
+        navigator.clipboard.writeText(text).then(function () {
           btn.textContent = '¡Copiado!';
-          setTimeout(function() { btn.textContent = 'Copiar código'; }, 2000);
+          setTimeout(function () { btn.textContent = 'Copiar código'; }, 2000);
         });
       } else {
-        // Fallback for older Safari
         var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        var btn = document.querySelector('.copy-btn');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
         btn.textContent = '¡Copiado!';
-        setTimeout(function() { btn.textContent = 'Copiar código'; }, 2000);
+        setTimeout(function () { btn.textContent = 'Copiar código'; }, 2000);
       }
     }
   </script>
