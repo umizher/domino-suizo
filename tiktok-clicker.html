@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TikTok Auto-Clicker</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0; min-height: 100vh;
+      background: #0b1220; color: #e8eefc;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 32px 16px 48px;
+    }
+
+    h1 {
+      font-size: 26px; margin: 0 0 4px; text-align: center;
+      letter-spacing: -0.5px;
+    }
+    .subtitle { color: #9fb1db; font-size: 14px; margin: 0 0 36px; text-align: center; }
+
+    .card {
+      background: #131e35; border: 1px solid #1e3156;
+      border-radius: 16px; padding: 24px; width: 100%; max-width: 480px;
+      margin-bottom: 20px;
+    }
+    .card h2 { margin: 0 0 16px; font-size: 17px; color: #7eb8ff; }
+
+    /* Bookmarklet drag button */
+    .bookmarklet-btn {
+      display: block; text-align: center;
+      background: linear-gradient(135deg, #fe2c55, #c0005a);
+      color: #fff; text-decoration: none;
+      font-weight: 700; font-size: 16px;
+      padding: 14px 20px; border-radius: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 20px rgba(254,44,85,0.35);
+      cursor: grab;
+      -webkit-user-select: none; user-select: none;
+    }
+    .bookmarklet-btn:active { transform: scale(0.97); }
+
+    .steps { padding-left: 20px; margin: 0; color: #c0d4f5; }
+    .steps li { margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
+    .steps li strong { color: #e8eefc; }
+
+    .code-box {
+      background: #0b1220; border: 1px solid #1e3156;
+      border-radius: 8px; padding: 12px;
+      font-family: monospace; font-size: 11px;
+      color: #9fb1db; word-break: break-all;
+      overflow-y: auto; max-height: 120px;
+      margin: 12px 0 8px;
+      -webkit-user-select: all; user-select: all;
+    }
+
+    .copy-btn {
+      background: #1e3156; color: #7eb8ff;
+      border: 1px solid #2a4575; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer;
+      width: 100%; margin-top: 4px;
+    }
+    .copy-btn:active { background: #253d66; }
+
+    .tip {
+      background: #0f1e0f; border: 1px solid #1a4a1a;
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 13px; color: #7fcf7f; margin-top: 8px;
+    }
+
+    .back-link {
+      display: inline-block; margin-top: 8px;
+      color: #7eb8ff; font-size: 14px; text-decoration: none;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    .tag {
+      display: inline-block; background: #fe2c55;
+      color: #fff; font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 20px;
+      vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>TikTok Auto-Clicker <span class="tag">iPhone</span></h1>
+  <p class="subtitle">Navega videos automáticamente en TikTok desde Safari</p>
+
+  <!-- Card 1: Bookmarklet -->
+  <div class="card">
+    <h2>1. Guarda el Bookmarklet</h2>
+
+    <a class="bookmarklet-btn"
+       href="javascript:(function(){if(window._tikClicker){clearInterval(window._tikClicker);window._tikClicker=null;var u=document.getElementById('_tc_ui');if(u)u.remove();return;}var delay=3000;function next(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));var btn=document.querySelector('[data-e2e=&quot;arrow-right&quot;],[data-e2e=&quot;browse-video-arrow-bottom&quot;]');if(btn)btn.click();}window._tikClicker=setInterval(next,delay);var ui=document.createElement('div');ui.id='_tc_ui';ui.style.cssText='position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,0.92);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,0.6);backdrop-filter:blur(8px);min-width:180px;';ui.innerHTML='<div style=&quot;font-weight:700;color:#fe2c55;margin-bottom:10px;&quot;>&#9654; TikTok Auto-Clicker</div><label style=&quot;display:flex;align-items:center;gap:8px;&quot;>Vel&nbsp;<input id=&quot;_tc_s&quot; type=&quot;range&quot; min=&quot;1&quot; max=&quot;10&quot; value=&quot;3&quot; style=&quot;flex:1&quot;></label><div id=&quot;_tc_l&quot; style=&quot;font-size:11px;color:#aaa;margin:6px 0;&quot;>3.0 seg / video</div><button onclick=&quot;clearInterval(window._tikClicker);window._tikClicker=null;this.closest(\'#_tc_ui\').remove();&quot; style=&quot;background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;&quot;>Detener</button>';document.body.appendChild(ui);document.getElementById('_tc_s').oninput=function(){var v=parseInt(this.value);delay=Math.round((11-v)*1000);clearInterval(window._tikClicker);window._tikClicker=setInterval(next,delay);document.getElementById('_tc_l').textContent=(delay/1000).toFixed(1)+' seg / video';};})();"
+    >
+      ⚡ TikTok Auto-Clicker — Arrastra aquí
+    </a>
+
+    <p style="color:#9fb1db;font-size:13px;margin:0 0 16px;">
+      En computadora: <strong>arrastra</strong> el botón rojo a tu barra de favoritos.<br>
+      En iPhone: sigue los pasos de abajo.
+    </p>
+
+    <div class="tip">
+      <strong>iPhone (Safari):</strong><br>
+      No se puede arrastrar en móvil. Copia el código y sigue los pasos del bloque siguiente.
+    </div>
+  </div>
+
+  <!-- Card 2: iPhone steps -->
+  <div class="card">
+    <h2>2. Instalación en iPhone</h2>
+    <ol class="steps">
+      <li>Toca <strong>"Copiar código"</strong> abajo.</li>
+      <li>Abre <strong>Safari</strong> y ve a cualquier página (ej. apple.com).</li>
+      <li>Toca el ícono <strong>Compartir ↑</strong> → <strong>Añadir marcador</strong> → guárdalo como <em>TikTok Clicker</em>.</li>
+      <li>Abre <strong>Favoritos</strong>, mantén presionado el marcador recién creado → <strong>Editar</strong>.</li>
+      <li>Borra la URL y <strong>pega el código</strong> copiado. Guarda.</li>
+      <li>¡Listo! Ahora ve a <strong>tiktok.com</strong> en Safari y toca el marcador para activarlo.</li>
+    </ol>
+
+    <div class="code-box" id="bm-code"></div>
+    <button class="copy-btn" onclick="copyCode()">Copiar código</button>
+  </div>
+
+  <!-- Card 3: Usage -->
+  <div class="card">
+    <h2>3. Cómo usarlo</h2>
+    <ol class="steps">
+      <li>Abre <strong>tiktok.com</strong> en Safari (no la app).</li>
+      <li>Inicia sesión si quieres que cuente tus vistas.</li>
+      <li>Toca el marcador <em>TikTok Clicker</em> → aparece el panel rojo.</li>
+      <li>Ajusta la <strong>velocidad</strong> con el deslizador.</li>
+      <li>Para detener, toca <strong>"Detener"</strong> en el panel.</li>
+    </ol>
+    <div class="tip">
+      La velocidad recomendada es <strong>3–5 seg/video</strong> para que TikTok cargue correctamente cada video.
+    </div>
+  </div>
+
+  <a href="index.html" class="back-link">← Volver al inicio</a>
+
+  <script>
+    // Build the bookmarklet code and show it in the code box
+    var bm = document.querySelector('.bookmarklet-btn').href;
+    document.getElementById('bm-code').textContent = bm;
+
+    function copyCode() {
+      var text = document.getElementById('bm-code').textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          var btn = document.querySelector('.copy-btn');
+          btn.textContent = '¡Copiado!';
+          setTimeout(function() { btn.textContent = 'Copiar código'; }, 2000);
+        });
+      } else {
+        // Fallback for older Safari
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        var btn = document.querySelector('.copy-btn');
+        btn.textContent = '¡Copiado!';
+        setTimeout(function() { btn.textContent = 'Copiar código'; }, 2000);
+      }
+    }
+  </script>
+</body>
+</html>
