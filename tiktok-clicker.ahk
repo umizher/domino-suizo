@@ -1,61 +1,50 @@
 #NoEnv
 #SingleInstance Force
-SetWorkingDir %A_ScriptDir%
 CoordMode, Mouse, Screen
 
-; ── TikTok Auto-Clicker ──────────────────────────────────────────
-;  F2  → Iniciar / Detener
-;  F3  → Guardar posición actual del mouse como punto de clic
-;  Esc → Salir
-; ─────────────────────────────────────────────────────────────────
+global clickX := 0
+global clickY := 0
+global active := false
 
-global running  := false
-global clickX   := 0
-global clickY   := 0
-global interval := 800   ; ms entre clicks (puedes cambiar este valor)
-
-; Mostrar instrucciones al inicio
 MsgBox, 48, TikTok Auto-Clicker,
 (
-INSTRUCCIONES:
-
-1. Pon el mouse ENCIMA del botón corazón en TikTok Live
-2. Presiona F3 para guardar esa posición
-3. Presiona F2 para INICIAR los clicks automáticos
-4. Presiona F2 de nuevo para DETENER
-5. Presiona Esc para cerrar el programa
+1. Pon el mouse sobre el corazon de TikTok
+2. Presiona Ctrl+1 para guardar posicion
+3. Presiona Ctrl+2 para iniciar/detener
+4. Presiona Ctrl+3 para cerrar
 )
-
 return
 
-F3::
+^1::
   MouseGetPos, clickX, clickY
-  ToolTip, ✓ Posición guardada: X=%clickX% Y=%clickY%`nAhora presiona F2 para iniciar
-  Sleep, 3000
+  ToolTip, Posicion guardada: %clickX%`, %clickY%
+  Sleep, 2000
   ToolTip
 return
 
-F2::
-  if (clickX = 0 && clickY = 0) {
-    MsgBox, 48, Error, Primero presiona F3 con el mouse sobre el corazón de TikTok.
+^2::
+  if (clickX = 0) {
+    MsgBox Primero presiona Ctrl+1 sobre el corazon.
     return
   }
-  running := !running
-  if (running) {
-    ToolTip, ▶ Auto-Clicker ACTIVO — F2 para detener
-    SetTimer, DoClick, %interval%
+  active := !active
+  if (active) {
+    ToolTip, ACTIVO - Ctrl+2 para detener
+    SetTimer, Clicker, 800
   } else {
-    SetTimer, DoClick, Off
-    ToolTip, ■ Auto-Clicker DETENIDO
-    Sleep, 1500
+    SetTimer, Clicker, Off
+    ToolTip, DETENIDO
+    Sleep, 1000
     ToolTip
   }
 return
 
-DoClick:
-  Click, %clickX%, %clickY%
+Clicker:
+  MouseMove, %clickX%, %clickY%
+  Sleep, 30
+  SendInput {LButton Down}
+  Sleep, 50
+  SendInput {LButton Up}
 return
 
-Esc::
-  SetTimer, DoClick, Off
-  ExitApp
+^3::ExitApp
