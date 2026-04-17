@@ -152,11 +152,11 @@
         return;
       }
 
-      var delay = 3000;
+      var delay = 1000;
       var feedEl = null;
+      var isLive = location.href.indexOf('/live') !== -1;
 
       function findFeed() {
-        // TikTok-specific candidates first
         var selectors = ['[data-e2e="recommend-list-item-container"]',
           '[class*="DivVideoFeed"]', '[class*="video-feed"]', 'main', '[role="main"]'];
         for (var s = 0; s < selectors.length; s++) {
@@ -166,7 +166,6 @@
             if (oy === 'scroll' || oy === 'auto') return c;
           }
         }
-        // Brute-force over divs
         var divs = document.querySelectorAll('div');
         var best = null, bestH = 0;
         for (var i = 0; i < Math.min(divs.length, 600); i++) {
@@ -179,8 +178,37 @@
         return best;
       }
 
-      function next() {
-        // 1) Click TikTok nav buttons (arrow-down / next)
+      function clickLiveHeart() {
+        // Try known selectors for the Live like/heart button
+        var heartSels = [
+          '[data-e2e="live-like-btn"]',
+          '[data-e2e="like-icon"]',
+          '[class*="LikeButton"]',
+          '[class*="like-button"]',
+          '[class*="HeartButton"]',
+          '[aria-label*="Like" i]',
+          '[aria-label*="like" i]',
+          '[aria-label*="heart" i]'
+        ];
+        for (var i = 0; i < heartSels.length; i++) {
+          var btn = document.querySelector(heartSels[i]);
+          if (btn && btn.offsetParent !== null) { btn.click(); return true; }
+        }
+        // Fallback: find the rightmost button near bottom of screen
+        var allBtns = document.querySelectorAll('button, [role="button"]');
+        var candidate = null, bestScore = -1;
+        for (var j = 0; j < allBtns.length; j++) {
+          var r = allBtns[j].getBoundingClientRect();
+          if (r.width > 0 && r.height > 0 && r.bottom > window.innerHeight * 0.5 && r.bottom < window.innerHeight) {
+            var score = r.right + r.bottom;
+            if (score > bestScore) { bestScore = score; candidate = allBtns[j]; }
+          }
+        }
+        if (candidate) { candidate.click(); return true; }
+        return false;
+      }
+
+      function nextVideo() {
         var btns = document.querySelectorAll(
           '[data-e2e*="arrow"],[data-e2e*="next"],[aria-label*="Next"],[aria-label*="next"],[class*="ArrowDown"],[class*="arrow-down"]'
         );
@@ -192,36 +220,47 @@
           }
         }
         if (!clicked) {
-          // 2) Keyboard ArrowDown
           var k = { key: 'ArrowDown', keyCode: 40, which: 40, bubbles: true, cancelable: true };
           document.dispatchEvent(new KeyboardEvent('keydown', k));
           document.body.dispatchEvent(new KeyboardEvent('keydown', k));
-          // 3) Scroll the feed container
           if (!feedEl || !document.contains(feedEl)) feedEl = findFeed();
           if (feedEl) feedEl.scrollBy({ top: feedEl.clientHeight, behavior: 'smooth' });
           else window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
         }
       }
 
-      window._tikClicker = setInterval(next, delay);
+      function tick() {
+        isLive = location.href.indexOf('/live') !== -1;
+        if (isLive) clickLiveHeart(); else nextVideo();
+      }
+
+      window._tikClicker = setInterval(tick, delay);
 
       // Panel UI
+      var modeLabel = isLive ? '\u2665 Live auto-like' : '\u25BA Navegar videos';
+      var defaultSpeed = isLive ? 5 : 3;
+      delay = isLive ? 800 : 3000;
+      clearInterval(window._tikClicker);
+      window._tikClicker = setInterval(tick, delay);
+
       var ui = document.createElement('div');
       ui.id = '_tc_ui';
       ui.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,.93);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,.6);backdrop-filter:blur(8px);min-width:185px;';
-      ui.innerHTML = '<div style="font-weight:700;color:#fe2c55;margin-bottom:10px;">\u25BA TikTok Auto-Clicker<\/div>'
-        + '<label style="display:flex;align-items:center;gap:8px;">Vel <input id="_tc_s" type="range" min="1" max="10" value="3" style="flex:1"><\/label>'
-        + '<div id="_tc_l" style="font-size:11px;color:#aaa;margin:6px 0;">3.0 seg \/ video<\/div>'
+      ui.innerHTML = '<div style="font-weight:700;color:#fe2c55;margin-bottom:6px;">\u25BA TikTok Auto-Clicker<\/div>'
+        + '<div id="_tc_mode" style="font-size:11px;color:#aaa;margin-bottom:10px;">' + modeLabel + '<\/div>'
+        + '<label style="display:flex;align-items:center;gap:8px;">Vel <input id="_tc_s" type="range" min="1" max="10" value="' + defaultSpeed + '" style="flex:1"><\/label>'
+        + '<div id="_tc_l" style="font-size:11px;color:#aaa;margin:6px 0;">' + (delay/1000).toFixed(1) + ' seg \/ click<\/div>'
         + '<button onclick="clearInterval(window._tikClicker);window._tikClicker=null;document.getElementById(\'_tc_ui\').remove();"'
-        + ' style="background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;">Detener<\/button>';
+        + ' style="background:#fe2c55;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;width:100%;margin-top:4px;">Detener<\/button>';
       document.body.appendChild(ui);
 
       document.getElementById('_tc_s').oninput = function () {
         var v = parseInt(this.value);
-        delay = Math.round((11 - v) * 1000);
+        delay = Math.round((11 - v) * (isLive ? 300 : 1000));
+        if (delay < 200) delay = 200;
         clearInterval(window._tikClicker);
-        window._tikClicker = setInterval(next, delay);
-        document.getElementById('_tc_l').textContent = (delay / 1000).toFixed(1) + ' seg / video';
+        window._tikClicker = setInterval(tick, delay);
+        document.getElementById('_tc_l').textContent = (delay / 1000).toFixed(1) + ' seg / click';
       };
     }
 
