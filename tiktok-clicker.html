@@ -178,17 +178,55 @@
         return best;
       }
 
+      // Fire via React fiber (bypasses isTrusted check)
+      function reactFire(el) {
+        var walked = el;
+        while (walked) {
+          var rk = Object.keys(walked).find(function(k) {
+            return k.startsWith('__reactProps') || k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance');
+          });
+          if (rk) {
+            var node = walked[rk];
+            // __reactProps$xxx has onClick directly
+            if (rk.startsWith('__reactProps') && node && node.onClick) {
+              node.onClick({ type:'click', bubbles:true, cancelable:true,
+                target:walked, currentTarget:walked,
+                preventDefault:function(){}, stopPropagation:function(){} });
+              return true;
+            }
+            // traverse fiber tree
+            var fiber = node;
+            while (fiber) {
+              var p = fiber.memoizedProps;
+              if (p && p.onClick) {
+                p.onClick({ type:'click', bubbles:true, cancelable:true,
+                  target:el, currentTarget:el,
+                  preventDefault:function(){}, stopPropagation:function(){} });
+                return true;
+              }
+              fiber = fiber.return;
+              if (fiber && fiber.stateNode === document) break;
+            }
+          }
+          walked = walked.parentElement;
+          if (!walked || walked === document.body) break;
+        }
+        return false;
+      }
+
       function fireClick(el) {
-        var cx = el.getBoundingClientRect().left + el.offsetWidth / 2;
-        var cy = el.getBoundingClientRect().top + el.offsetHeight / 2;
+        var r = el.getBoundingClientRect();
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        // Try React fiber first (isTrusted-safe)
+        var ok = reactFire(el);
+        // Also dispatch native events as backup
         ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(t) {
           el.dispatchEvent(new MouseEvent(t, {bubbles:true, cancelable:true, clientX:cx, clientY:cy}));
         });
         el.click();
-        // Flash red border so user sees what's being clicked
-        var prev = el.style.outline;
         el.style.outline = '3px solid #fe2c55';
-        setTimeout(function(){ el.style.outline = prev; }, 250);
+        setTimeout(function(){ el.style.outline = ''; }, 300);
+        return ok;
       }
 
       function clickLiveHeart() {
@@ -198,28 +236,28 @@
           '[class*="LikeButton"]', '[class*="like-button"]',
           '[class*="HeartButton"]', '[class*="heart-button"]',
           '[class*="likeBtn"]', '[class*="LikeBtn"]',
-          '[aria-label*="Like" i]', '[aria-label*="like" i]',
-          '[aria-label*="heart" i]', '[aria-label*="coraz" i]'
+          '[aria-label*="Like" i]', '[aria-label*="heart" i]',
+          '[aria-label*="coraz" i]'
         ];
         for (var i = 0; i < heartSels.length; i++) {
-          var all = document.querySelectorAll(heartSels[i]);
-          for (var j = 0; j < all.length; j++) {
-            if (all[j].offsetParent !== null) {
-              fireClick(all[j]);
-              setStatus('\u2665 ' + heartSels[i].replace(/[\[\]]/g,'').slice(0,22));
+          var found = document.querySelectorAll(heartSels[i]);
+          for (var j = 0; j < found.length; j++) {
+            if (found[j].offsetParent !== null) {
+              var ok = fireClick(found[j]);
+              setStatus((ok ? '\u2665 React' : '\u2665 DOM') + ': ' + heartSels[i].replace(/[\[\]"*]/g,'').slice(0,20));
               return true;
             }
           }
         }
-        // Position fallback: bottom-right quadrant, pick element closest to corner
-        var x = window.innerWidth - 40, y = window.innerHeight * 0.72;
-        var target = document.elementFromPoint(x, y);
-        if (target && target !== document.body) {
-          fireClick(target);
-          setStatus('\u2665 pos-fallback');
+        // Position fallback
+        var x = window.innerWidth - 45, y = window.innerHeight * 0.72;
+        var t = document.elementFromPoint(x, y);
+        if (t && t !== document.body) {
+          fireClick(t);
+          setStatus('\u2665 pos(' + Math.round(x) + ',' + Math.round(y) + ') ' + t.tagName);
           return true;
         }
-        setStatus('\u274c no encontrado');
+        setStatus('\u274c no encontrado — ve a tiktok.com/live');
         return false;
       }
 
