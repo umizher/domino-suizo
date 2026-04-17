@@ -178,34 +178,54 @@
         return best;
       }
 
+      function fireClick(el) {
+        var cx = el.getBoundingClientRect().left + el.offsetWidth / 2;
+        var cy = el.getBoundingClientRect().top + el.offsetHeight / 2;
+        ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(t) {
+          el.dispatchEvent(new MouseEvent(t, {bubbles:true, cancelable:true, clientX:cx, clientY:cy}));
+        });
+        el.click();
+        // Flash red border so user sees what's being clicked
+        var prev = el.style.outline;
+        el.style.outline = '3px solid #fe2c55';
+        setTimeout(function(){ el.style.outline = prev; }, 250);
+      }
+
       function clickLiveHeart() {
-        // Try known selectors for the Live like/heart button
         var heartSels = [
-          '[data-e2e="live-like-btn"]',
-          '[data-e2e="like-icon"]',
-          '[class*="LikeButton"]',
-          '[class*="like-button"]',
-          '[class*="HeartButton"]',
-          '[aria-label*="Like" i]',
-          '[aria-label*="like" i]',
-          '[aria-label*="heart" i]'
+          '[data-e2e="live-like-btn"]', '[data-e2e="like-icon"]',
+          '[data-e2e="browse-like-icon"]', '[data-e2e="video-like-icon"]',
+          '[class*="LikeButton"]', '[class*="like-button"]',
+          '[class*="HeartButton"]', '[class*="heart-button"]',
+          '[class*="likeBtn"]', '[class*="LikeBtn"]',
+          '[aria-label*="Like" i]', '[aria-label*="like" i]',
+          '[aria-label*="heart" i]', '[aria-label*="coraz" i]'
         ];
         for (var i = 0; i < heartSels.length; i++) {
-          var btn = document.querySelector(heartSels[i]);
-          if (btn && btn.offsetParent !== null) { btn.click(); return true; }
-        }
-        // Fallback: find the rightmost button near bottom of screen
-        var allBtns = document.querySelectorAll('button, [role="button"]');
-        var candidate = null, bestScore = -1;
-        for (var j = 0; j < allBtns.length; j++) {
-          var r = allBtns[j].getBoundingClientRect();
-          if (r.width > 0 && r.height > 0 && r.bottom > window.innerHeight * 0.5 && r.bottom < window.innerHeight) {
-            var score = r.right + r.bottom;
-            if (score > bestScore) { bestScore = score; candidate = allBtns[j]; }
+          var all = document.querySelectorAll(heartSels[i]);
+          for (var j = 0; j < all.length; j++) {
+            if (all[j].offsetParent !== null) {
+              fireClick(all[j]);
+              setStatus('\u2665 ' + heartSels[i].replace(/[\[\]]/g,'').slice(0,22));
+              return true;
+            }
           }
         }
-        if (candidate) { candidate.click(); return true; }
+        // Position fallback: bottom-right quadrant, pick element closest to corner
+        var x = window.innerWidth - 40, y = window.innerHeight * 0.72;
+        var target = document.elementFromPoint(x, y);
+        if (target && target !== document.body) {
+          fireClick(target);
+          setStatus('\u2665 pos-fallback');
+          return true;
+        }
+        setStatus('\u274c no encontrado');
         return false;
+      }
+
+      function setStatus(msg) {
+        var el = document.getElementById('_tc_status');
+        if (el) el.textContent = msg;
       }
 
       function nextVideo() {
@@ -247,7 +267,8 @@
       ui.id = '_tc_ui';
       ui.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:rgba(10,10,20,.93);color:#fff;padding:14px 16px;border-radius:14px;font-family:system-ui;font-size:13px;box-shadow:0 4px 24px rgba(0,0,0,.6);backdrop-filter:blur(8px);min-width:185px;';
       ui.innerHTML = '<div style="font-weight:700;color:#fe2c55;margin-bottom:6px;">\u25BA TikTok Auto-Clicker<\/div>'
-        + '<div id="_tc_mode" style="font-size:11px;color:#aaa;margin-bottom:10px;">' + modeLabel + '<\/div>'
+        + '<div id="_tc_mode" style="font-size:11px;color:#aaa;margin-bottom:4px;">' + modeLabel + '<\/div>'
+        + '<div id="_tc_status" style="font-size:10px;color:#7eb8ff;margin-bottom:8px;word-break:break-all;">iniciando...<\/div>'
         + '<label style="display:flex;align-items:center;gap:8px;">Vel <input id="_tc_s" type="range" min="1" max="10" value="' + defaultSpeed + '" style="flex:1"><\/label>'
         + '<div id="_tc_l" style="font-size:11px;color:#aaa;margin:6px 0;">' + (delay/1000).toFixed(1) + ' seg \/ click<\/div>'
         + '<button onclick="clearInterval(window._tikClicker);window._tikClicker=null;document.getElementById(\'_tc_ui\').remove();"'
