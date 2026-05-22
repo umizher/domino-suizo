@@ -95,7 +95,6 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
 
 <script>
 const STORAGE_KEY = "domino_parejas_v2";
-const MAX_ROUNDS = 5;
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
@@ -105,6 +104,9 @@ function esc(s) {
 function load() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; }
 }
+
+const d0 = load();
+const maxRounds = (d0 && d0.maxRounds) ? d0.maxRounds : 5;
 
 function standings(pairs, rounds) {
   const m = new Map(pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0 }]));
@@ -143,7 +145,8 @@ function render() {
   }
 
   const rn = d.rounds.reduce((m, r) => Math.max(m, r.round), 0);
-  document.getElementById("roundPill").textContent = `Ronda: ${rn}/${MAX_ROUNDS}`;
+  const curMaxRounds = (d && d.maxRounds) ? d.maxRounds : maxRounds;
+  document.getElementById("roundPill").textContent = `Ronda: ${rn}/${curMaxRounds}`;
   document.getElementById("matchesTitle").textContent = rn > 0 ? `Ronda ${rn}` : "Sin rondas aún";
 
   // Mesas
