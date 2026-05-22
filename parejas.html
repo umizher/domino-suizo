@@ -79,12 +79,12 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
   <div class="card">
     <div class="flex-between" style="margin-bottom:10px;">
       <h2>Posiciones</h2>
-      <span class="muted">Ganadas → Puntos → DIF</span>
+      <span class="muted">Ganadas → Buchholz → Puntos → DIF</span>
     </div>
     <div style="overflow:auto; border-radius:12px; border:1px solid #22304f;">
       <table>
         <thead>
-          <tr><th>#</th><th>Pareja</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th></tr>
+          <tr><th>#</th><th>Pareja</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th><th title="Buchholz: suma de victorias de rivales">BUC</th></tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
@@ -109,7 +109,7 @@ const d0 = load();
 const maxRounds = (d0 && d0.maxRounds) ? d0.maxRounds : 5;
 
 function standings(pairs, rounds) {
-  const m = new Map(pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0 }]));
+  const m = new Map(pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0, opps:[] }]));
   for (const r of rounds) {
     if (!m.has(r.pA) || !m.has(r.pB)) continue;
     m.get(r.pA).PJ++; m.get(r.pB).PJ++;
@@ -119,11 +119,18 @@ function standings(pairs, rounds) {
     else        { m.get(r.pB).G++; m.get(r.pA).P++; }
     m.get(r.pA).PF += a; m.get(r.pA).PC += b;
     m.get(r.pB).PF += b; m.get(r.pB).PC += a;
+    m.get(r.pA).opps.push(r.pB);
+    m.get(r.pB).opps.push(r.pA);
+  }
+  // Buchholz: suma de victorias de cada rival enfrentado
+  for (const s of m.values()) {
+    s.BUC = s.opps.reduce((sum, opp) => sum + (m.get(opp)?.G || 0), 0);
   }
   return [...m.values()]
     .map(r => ({ ...r, DIF: r.PF - r.PC }))
     .sort((x, y) =>
       y.G !== x.G ? y.G - x.G :
+      y.BUC !== x.BUC ? y.BUC - x.BUC :
       y.PF !== x.PF ? y.PF - x.PF :
       y.DIF !== x.DIF ? y.DIF - x.DIF :
       x.p.localeCompare(y.p)
@@ -199,7 +206,7 @@ function render() {
   rows.forEach((r, i) => {
     const tr = document.createElement("tr");
     if (i < 3) tr.className = "top3";
-    tr.innerHTML = `<td>${i+1}</td><td><b>${esc(r.p)}</b></td><td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td>`;
+    tr.innerHTML = `<td>${i+1}</td><td><b>${esc(r.p)}</b></td><td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td><td>${r.BUC}</td>`;
     tb.appendChild(tr);
   });
 }

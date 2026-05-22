@@ -280,7 +280,7 @@
     <section class="card" style="grid-column:1/-1;">
       <div class="flex-between" style="margin-bottom:12px;">
         <h2>Tabla de posiciones</h2>
-        <span class="muted small">Orden: <b>Ganadas</b> → <b>Puntos</b> → DIF</span>
+        <span class="muted small">Orden: <b>Ganadas</b> → <b>Buchholz</b> → <b>Puntos</b> → DIF</span>
       </div>
       <div style="overflow:auto; border-radius:12px; border:1px solid var(--border);">
         <table>
@@ -290,7 +290,7 @@
               <th>Pareja</th>
               <th>PJ</th><th>G</th><th>P</th>
               <th>Pts</th><th>En contra</th>
-              <th>DIF</th><th>Gda</th>
+              <th>DIF</th><th title="Buchholz: suma de victorias de rivales">BUC</th><th>Gda</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -398,7 +398,7 @@ let viewRound = 0;
 
 /* ===== STANDINGS ===== */
 function standings() {
-  const map = new Map(S.pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0 }]));
+  const map = new Map(S.pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0, opps:[] }]));
   const played = new Set();
   for (const r of S.rounds) {
     if (!map.has(r.pA) || !map.has(r.pB)) continue;
@@ -410,10 +410,17 @@ function standings() {
     else        { map.get(r.pB).G++; map.get(r.pA).P++; }
     map.get(r.pA).PF += a; map.get(r.pA).PC += b;
     map.get(r.pB).PF += b; map.get(r.pB).PC += a;
+    map.get(r.pA).opps.push(r.pB);
+    map.get(r.pB).opps.push(r.pA);
+  }
+  // Buchholz: suma de victorias de cada rival enfrentado
+  for (const s of map.values()) {
+    s.BUC = s.opps.reduce((sum, opp) => sum + (map.get(opp)?.G || 0), 0);
   }
   const rows = [...map.values()].map(r => ({ ...r, DIF: r.PF - r.PC, PTS: r.G }));
   rows.sort((x, y) =>
     y.PTS !== x.PTS ? y.PTS - x.PTS :
+    y.BUC !== x.BUC ? y.BUC - x.BUC :
     y.PF  !== x.PF  ? y.PF  - x.PF  :
     y.DIF !== x.DIF ? y.DIF - x.DIF :
     x.p.localeCompare(y.p)
@@ -706,6 +713,7 @@ function renderTable() {
       <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td>
       <td>${r.PF}</td><td>${r.PC}</td>
       <td class="${difCls}">${r.DIF > 0 ? "+" : ""}${r.DIF}</td>
+      <td>${r.BUC}</td>
       <td><b>${r.PTS}</b></td>
     `;
     tb.appendChild(tr);
