@@ -270,7 +270,7 @@
     <section class="card" style="grid-column:1/-1;">
       <div class="flex-between" style="margin-bottom:12px;">
         <h2>Tabla de posiciones</h2>
-        <span class="muted small">Orden: <b>Ganadas</b> → <b>Puntos</b> → DIF</span>
+        <span class="muted small">Orden: <b>Ganadas</b> → <b>Buchholz</b> → <b>Puntos</b> → DIF</span>
       </div>
       <div style="overflow:auto; border-radius:12px; border:1px solid var(--border);">
         <table>
@@ -280,7 +280,7 @@
               <th>Jugador</th>
               <th>PJ</th><th>G</th><th>P</th>
               <th>Pts</th><th>En contra</th>
-              <th>DIF</th><th>Gda</th>
+              <th>DIF</th><th title="Buchholz: suma de victorias de rivales">BUC</th><th>Gda</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -409,7 +409,7 @@ function escapeHtml(s){
 function computeStandings(){
   const stats = new Map();
   for(const p of state.players){
-    stats.set(p, {player:p, PJ:0, G:0, P:0, PF:0, PC:0, DIF:0, PTS:0});
+    stats.set(p, {player:p, PJ:0, G:0, P:0, PF:0, PC:0, DIF:0, PTS:0, BUC:0, _opps:[]});
   }
   const vsUsed = new Set();
 
@@ -434,12 +434,20 @@ function computeStandings(){
     }
     stats.get(m.pA).PF += a;  stats.get(m.pA).PC += b;
     stats.get(m.pB).PF += b;  stats.get(m.pB).PC += a;
+    stats.get(m.pA)._opps.push(m.pB);
+    stats.get(m.pB)._opps.push(m.pA);
   }
 
   for(const s of stats.values()) s.DIF = s.PF - s.PC;
 
+  // Buchholz: suma de las victorias (PTS) de cada rival enfrentado
+  for(const s of stats.values()){
+    s.BUC = s._opps.reduce((sum, opp) => sum + (stats.get(opp)?.PTS || 0), 0);
+  }
+
   const table = Array.from(stats.values()).sort((x,y)=>{
     if(y.PTS !== x.PTS) return y.PTS - x.PTS;
+    if(y.BUC !== x.BUC) return y.BUC - x.BUC;
     if(y.PF  !== x.PF ) return y.PF  - x.PF;
     if(y.DIF !== x.DIF) return y.DIF - x.DIF;
     return x.player.localeCompare(y.player);
@@ -795,6 +803,7 @@ function renderTable(){
       <td>${s.PF}</td>
       <td>${s.PC}</td>
       <td class="${difCls}">${s.DIF > 0 ? "+" : ""}${s.DIF}</td>
+      <td>${s.BUC}</td>
       <td><b>${s.PTS}</b></td>
     `;
     els.tableBody.appendChild(tr);
