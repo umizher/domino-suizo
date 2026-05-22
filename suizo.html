@@ -16,11 +16,26 @@
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: #e8eefc; }
 
-    /* ---- PIN ---- */
-    #pinOverlay { position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px; }
-    #pinInput { text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:var(--card);color:#fff;border:2px solid var(--border);border-radius:12px;outline:none; }
-    #pinInput:focus { border-color:var(--pri); }
-    #pinError { color:#ff6b6b;font-size:13px;min-height:18px; }
+    /* ---- PIN Screen (digit boxes) ---- */
+    #pinScreen {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      min-height:100vh; gap:20px; padding:20px;
+    }
+    #pinScreen h2 { margin:0; font-size:22px; }
+    #pinScreen p  { margin:0; color:var(--muted); font-size:14px; }
+    .pin-box { display:flex; gap:12px; }
+    .pin-digit {
+      width:52px; height:64px; font-size:28px; font-weight:bold;
+      text-align:center; background:var(--card); color:#e8eefc;
+      border:2px solid var(--border); border-radius:12px; caret-color:var(--pri);
+    }
+    .pin-digit:focus { border-color:var(--pri); outline:none; }
+    .pin-error { color:#ff6b6b; font-size:14px; min-height:20px; }
+    #btnUnlock {
+      background:var(--pri); color:#fff; border:0; border-radius:12px;
+      padding:14px 32px; font-size:16px; font-weight:700; cursor:pointer;
+    }
+    #btnUnlock:active { opacity:.85; }
 
     /* ---- Header ---- */
     header {
@@ -30,6 +45,10 @@
     }
     .header-top { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
     header h1 { margin:0; font-size:18px; flex:1; min-width:180px; }
+    .nav-tabs { display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap; }
+    .nav-tab { padding:5px 16px; font-size:13px; font-weight:600; border-radius:8px; border:1px solid var(--border); color:var(--muted); text-decoration:none; cursor:pointer; }
+    .nav-tab.active { background:var(--pri); border-color:var(--pri); color:#fff; }
+    a.nav-tab:hover { color:#e8eefc; }
     .badge {
       display:inline-flex; align-items:center; gap:5px;
       padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700;
@@ -150,23 +169,21 @@
 <body>
 
 <!-- PIN -->
-<div id="pinOverlay">
+<div id="pinScreen">
   <div style="font-size:48px">🁫</div>
-  <div style="font-size:22px;font-weight:800;color:#fff">Dominó</div>
-  <div style="color:var(--muted);font-size:14px">Ingresa la clave para continuar</div>
-  <input type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)">
-  <div id="pinError"></div>
-  <div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div>
+  <h2>Dominó – Individual</h2>
+  <p>Ingresa la clave para continuar</p>
+  <div class="pin-box">
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d0" />
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d1" />
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d2" />
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d3" />
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <button id="btnUnlock">Entrar</button>
+  <div style="font-size:11px;color:#2a3a55;margin-top:8px">Creado por Usama Mizher</div>
 </div>
-<script>
-(function(){ if(sessionStorage.getItem("domino_pin_ok")==="1") document.getElementById("pinOverlay").style.display="none"; })();
-function checkPin(inp){
-  if(inp.value.length>=4){
-    if(inp.value==="5050"){ sessionStorage.setItem("domino_pin_ok","1"); document.getElementById("pinOverlay").style.display="none"; }
-    else { document.getElementById("pinError").textContent="Clave incorrecta"; inp.value=""; setTimeout(function(){ document.getElementById("pinError").textContent=""; },2000); }
-  }
-}
-</script>
+<div id="app" style="display:none;">
 
 <!-- ROUNDS MODAL -->
 <div class="modal-overlay hidden" id="roundsModal">
@@ -189,10 +206,13 @@ function checkPin(inp){
     <span class="pill" id="roundPill">Ronda 0/–</span>
     <span class="pill" id="playersPill">0 jugadores</span>
     <nav class="nav-btns">
-      <a href="index.html" style="text-decoration:none;"><button class="secondary" type="button">← Inicio</button></a>
       <button class="secondary" id="btnExport">↓ CSV</button>
       <button class="danger" id="btnReset">Reset</button>
     </nav>
+  </div>
+  <div class="nav-tabs">
+    <a class="nav-tab" href="index.html">← Inicio</a>
+    <span class="nav-tab active">Individual</span>
   </div>
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
 </header>
@@ -272,8 +292,44 @@ function checkPin(inp){
 </main>
 
 <div id="toast"></div>
+</div><!-- /app -->
 
 <script>
+/* =================== PIN =================== */
+const PIN = "5050";
+const digits = [0,1,2,3].map(i => document.getElementById(`d${i}`));
+function getPin(){ return digits.map(d => d.value).join(""); }
+function tryUnlock(){
+  if(getPin() === PIN){
+    sessionStorage.setItem("domino_pin_ok","1");
+    document.getElementById("pinScreen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+  } else {
+    document.getElementById("pinError").textContent = "Clave incorrecta. Intenta de nuevo.";
+    digits.forEach(d => d.value = "");
+    digits[0].focus();
+  }
+}
+digits.forEach((d, i) => {
+  d.addEventListener("input", () => {
+    d.value = d.value.replace(/\D/g,"").slice(-1);
+    document.getElementById("pinError").textContent = "";
+    if(d.value && i < 3) digits[i+1].focus();
+    if(getPin().length === 4) tryUnlock();
+  });
+  d.addEventListener("keydown", e => {
+    if(e.key === "Backspace" && !d.value && i > 0) digits[i-1].focus();
+    if(e.key === "Enter") tryUnlock();
+  });
+});
+document.getElementById("btnUnlock").addEventListener("click", tryUnlock);
+if(sessionStorage.getItem("domino_pin_ok") === "1"){
+  document.getElementById("pinScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+} else {
+  digits[0].focus();
+}
+
 /* =================== Toast =================== */
 let toastTimer = null;
 function showToast(msg, ms = 2500){
@@ -837,8 +893,7 @@ if(new URLSearchParams(location.search).get("reset") !== null){
   }
   history.replaceState(null,"", location.pathname);
 }
-loadState();
-renderAll();
+if(sessionStorage.getItem("domino_pin_ok") === "1"){ loadState(); renderAll(); }
 </script>
 <div style="text-align:center;font-size:11px;color:#2a3a55;padding:1rem 0">Creado por Usama Mizher</div>
 </body>
