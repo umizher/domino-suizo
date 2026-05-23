@@ -398,8 +398,21 @@ function loadData() {
       S.maxRounds  = d.maxRounds  || (d.rounds.length > 0 ? 4 : null);
       S.benchQueue = d.benchQueue || [];
       S.byeRound   = d.byeRound   || null;
+      if (S.benchQueue.length === 0 && S.pairs.length > 0) reconstructBenchQueue();
     }
   } catch {}
+}
+function reconstructBenchQueue() {
+  const counts = S.benchCount;
+  const byCount = new Map();
+  for (const p of S.pairs) {
+    const c = counts[p] || 0;
+    if (!byCount.has(c)) byCount.set(c, []);
+    byCount.get(c).push(p);
+  }
+  S.benchQueue = [];
+  for (const c of [...byCount.keys()].sort((a, b) => a - b))
+    S.benchQueue.push(...shuffle(byCount.get(c)));
 }
 
 /* ===== UTILITIES ===== */
