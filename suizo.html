@@ -540,7 +540,11 @@ function computeStandings(){
   for(const s of stats.values()) s.DIF = s.PF - s.PC;
 
   for(const s of stats.values()){
-    s.BUC = s._opps.reduce((sum, opp) => sum + (stats.get(opp)?.PTS || 0), 0);
+    // Use unique opponents only: the same player can appear as rival in multiple rounds
+    // (different table compositions but same individual opponent). Counting them twice
+    // would artificially inflate BUC, so deduplicate before summing.
+    const uniqueOpps = [...new Set(s._opps)];
+    s.BUC = uniqueOpps.reduce((sum, opp) => sum + (stats.get(opp)?.PTS || 0), 0);
   }
 
   const table = Array.from(stats.values()).sort((x, y) => {
