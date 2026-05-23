@@ -874,9 +874,9 @@ els.btnExport.addEventListener("click", ()=>{
   }
   lines.push("","STANDINGS,,,,,");
   const { table } = computeStandings();
-  lines.push(["rank","jugador","PJ","G","P","PF","PC","DIF","PTS"].join(","));
+  lines.push(["rank","jugador","PJ","G","P","PF","PC","DIF","BUC","PTS"].join(","));
   table.forEach((s,i)=>{
-    lines.push([i+1,q(s.player),s.PJ,s.G,s.P,s.PF,s.PC,s.DIF,s.PTS].join(","));
+    lines.push([i+1,q(s.player),s.PJ,s.G,s.P,s.PF,s.PC,s.DIF,s.BUC,s.PTS].join(","));
   });
 
   const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
