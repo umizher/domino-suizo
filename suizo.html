@@ -502,21 +502,20 @@ function pickSmartBench(pool){
   });
 
   if(eliminated.length > 0){
-    // Pick worst ranked among eliminated, tiebreak by bench count (fewest benches preferred)
     const ranked = eliminated.map(p => {
       const idx = table.findIndex(r => r.player === p);
       return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
     });
-    ranked.sort((a,b) => b.rank - a.rank || a.c - b.c);
+    ranked.sort((a,b) => a.c - b.c || b.rank - a.rank);
     return { player: ranked[0].p, reason: "menor posibilidad de alcanzar el podio" };
   }
 
-  // No eliminated: pick last-place in pool, tiebreak bench count
+  // No eliminated: pick last-place in pool, prioridad a quien menos ha descansado
   const ranked = pool.map(p => {
     const idx = table.findIndex(r => r.player === p);
     return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
   });
-  ranked.sort((a,b) => b.rank - a.rank || a.c - b.c);
+  ranked.sort((a,b) => a.c - b.c || b.rank - a.rank);
   return { player: ranked[0].p, reason: "último en la tabla" };
 }
 

@@ -472,16 +472,16 @@ function pickSmartBench(pool) {
       const idx = rows.findIndex(r => r.p === p);
       return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
     });
-    ranked.sort((a, b) => b.rank - a.rank || a.c - b.c);
+    ranked.sort((a, b) => a.c - b.c || b.rank - a.rank);
     return { pair: ranked[0].p, reason: "menor posibilidad de alcanzar el podio" };
   }
 
-  // No eliminated: last place in pool, tiebreak bench count
+  // No eliminated: prioridad a quien menos ha descansado, desempate por peor puesto
   const ranked = pool.map(p => {
     const idx = rows.findIndex(r => r.p === p);
     return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
   });
-  ranked.sort((a, b) => b.rank - a.rank || a.c - b.c);
+  ranked.sort((a, b) => a.c - b.c || b.rank - a.rank);
   return { pair: ranked[0].p, reason: "último en la tabla" };
 }
 
