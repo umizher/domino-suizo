@@ -189,8 +189,23 @@
 <div class="modal-overlay hidden" id="roundsModal">
   <div class="modal-box">
     <h3>¿Cuántas rondas tendrá el torneo?</h3>
-    <p>Elige entre 1 y 30 rondas. No podrás cambiarlo una vez iniciado el torneo.</p>
-    <input type="number" id="roundsInput" value="5" min="1" max="30" />
+    <p>Solo se permiten rondas pares (4, 6, 8…). Con parejas impares, garantiza que todos jueguen igual.</p>
+    <select id="roundsInput" style="font-size:18px;text-align:center;width:100%;padding:12px;border-radius:12px;background:var(--bg);color:#e8eefc;border:1px solid var(--border);">
+      <option value="4">4 rondas</option>
+      <option value="6">6 rondas</option>
+      <option value="8">8 rondas</option>
+      <option value="10">10 rondas</option>
+      <option value="12">12 rondas</option>
+      <option value="14">14 rondas</option>
+      <option value="16">16 rondas</option>
+      <option value="18">18 rondas</option>
+      <option value="20">20 rondas</option>
+      <option value="22">22 rondas</option>
+      <option value="24">24 rondas</option>
+      <option value="26">26 rondas</option>
+      <option value="28">28 rondas</option>
+      <option value="30">30 rondas</option>
+    </select>
     <div class="modal-actions">
       <button class="secondary" id="btnModalCancel">Cancelar</button>
       <button id="btnModalConfirm">Comenzar torneo</button>
@@ -233,20 +248,17 @@
       <div class="footer">
         <button class="secondary" id="btnIniciar">Iniciar torneo</button>
         <button class="secondary" id="btnGenNext">Siguiente ronda</button>
+        <button class="secondary" id="btnByeRound" style="display:none;">Generar ronda bye</button>
       </div>
       <div class="notice">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span class="pill">Reglas</span>
-          <span class="muted small"><b>Sin empates</b>. Ranking: <b>Ganadas</b> → <b>Puntos</b> → <b>DIF</b>.</span>
+          <span class="muted small"><b>Sin empates</b>. Ranking: <b>Ganadas</b> → <b>Puntos</b> → <b>DIF</b>. Rotación de banco automática.</span>
         </div>
-        <div style="margin-top:8px;">
-          <label class="small">Número impar de jugadores:
-            <select id="byeMode">
-              <option value="bench" selected>Banco (descansa y NO suma)</option>
-              <option value="none">No permitir (solo número par)</option>
-            </select>
-          </label>
-        </div>
+      </div>
+      <div id="renameSection" style="display:none; margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
+        <div class="muted" style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Corregir nombres</div>
+        <div id="renameList"></div>
       </div>
     </section>
 
@@ -286,6 +298,16 @@
           <tbody id="tableBody"></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- FULL WIDTH: Bye Round -->
+    <section class="card" id="byeRoundCard" style="grid-column:1/-1; display:none;">
+      <div class="flex-between" style="margin-bottom:12px;">
+        <h2>Ronda Bye</h2>
+        <button id="btnSaveByeScores">Guardar puntos</button>
+      </div>
+      <p class="muted" style="margin:0 0 12px;font-size:12px;">Jugadores que descansaron juegan su partido pendiente. Resultado cuenta en la tabla.</p>
+      <div class="matches" id="byeMatches"></div>
     </section>
 
   </div>
@@ -345,10 +367,11 @@ const STORAGE_KEY = "domino_suizo_individual_v1";
 const state = {
   players: [],
   rounds: [],
-  byeMode: "bench",
   benchHistory: {},
   _lastBench: null,
-  maxRounds: null
+  maxRounds: null,
+  benchQueue: [],
+  byeRound: null
 };
 
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -360,10 +383,11 @@ function loadState(){
     if(s && Array.isArray(s.rounds)){
       state.players      = s.players      || [];
       state.rounds       = s.rounds;
-      state.byeMode      = s.byeMode      || "bench";
       state.benchHistory = s.benchHistory || {};
       state._lastBench   = s._lastBench   || null;
-      state.maxRounds    = s.maxRounds    || (s.rounds.length > 0 ? 5 : null);
+      state.maxRounds    = s.maxRounds    || (s.rounds.length > 0 ? 4 : null);
+      state.benchQueue   = s.benchQueue   || [];
+      state.byeRound     = s.byeRound     || null;
     }
   }catch{}
 }
@@ -371,10 +395,11 @@ function resetAll(){
   if(!confirm("¿Seguro que quieres borrar todo el torneo?")) return;
   state.players = [];
   state.rounds = [];
-  state.byeMode = "bench";
   state.benchHistory = {};
   state._lastBench = null;
   state.maxRounds = null;
+  state.benchQueue = [];
+  state.byeRound = null;
   saveState();
   renderAll();
 }
@@ -438,6 +463,30 @@ function computeStandings(){
     stats.get(m.pB)._opps.push(m.pA);
   }
 
+  // Process bye round
+  if(state.byeRound){
+    for(const m of state.byeRound){
+      if(!stats.has(m.pA) || !stats.has(m.pB)) continue;
+      vsUsed.add(vsKey(m.pA, m.pB));
+      stats.get(m.pA).PJ++;
+      stats.get(m.pB).PJ++;
+      const a = Number(m.ptsA);
+      const b = Number(m.ptsB);
+      if(!Number.isFinite(a) || !Number.isFinite(b) || a === b) continue;
+      if(a > b){
+        stats.get(m.pA).G++;  stats.get(m.pA).PTS++;
+        stats.get(m.pB).P++;
+      } else {
+        stats.get(m.pB).G++;  stats.get(m.pB).PTS++;
+        stats.get(m.pA).P++;
+      }
+      stats.get(m.pA).PF += a;  stats.get(m.pA).PC += b;
+      stats.get(m.pB).PF += b;  stats.get(m.pB).PC += a;
+      stats.get(m.pA)._opps.push(m.pB);
+      stats.get(m.pB)._opps.push(m.pA);
+    }
+  }
+
   for(const s of stats.values()) s.DIF = s.PF - s.PC;
 
   // Buchholz: suma de las victorias (PTS) de cada rival enfrentado
@@ -456,12 +505,32 @@ function computeStandings(){
   return { table, vsUsed };
 }
 
+/* =================== Bench rotation queue =================== */
+function initBenchQueue(){
+  state.benchQueue = shuffle(state.players.slice());
+}
+
+function getNextBench(pool){
+  for(let i = 0; i < state.benchQueue.length; i++){
+    if(pool.includes(state.benchQueue[i])){
+      const p = state.benchQueue.splice(i, 1)[0];
+      state.benchQueue.push(p);
+      state.benchHistory[p] = (state.benchHistory[p] || 0) + 1;
+      return { player: p, reason: "le corresponde en la rotación" };
+    }
+  }
+  const fallback = pool[pool.length - 1];
+  state.benchHistory[fallback] = (state.benchHistory[fallback] || 0) + 1;
+  return { player: fallback, reason: "turno de rotación" };
+}
+
 /* =================== Validaciones =================== */
 function canGenerateNextRound(){
   if(state.players.length < 2) return false;
   const rn = currentRoundNumber();
   if(rn === 0) return false; // must go through iniciar for round 1
   if(state.maxRounds && rn >= state.maxRounds) return false;
+  if(state.byeRound !== null) return false;
   const ms = matchesInRound(rn);
   for(const m of ms){
     const a = Number(m.ptsA), b = Number(m.ptsB);
@@ -471,55 +540,82 @@ function canGenerateNextRound(){
   return true;
 }
 
-/* =================== Smart bench selection =================== */
-function pickSmartBench(pool){
-  const counts = state.benchHistory || {};
-
-  // Ronda 1: aleatorio puro (nadie ha descansado aún)
-  if(currentRoundNumber() === 0){
-    const shuffled = shuffle(pool.slice());
-    return { player: shuffled[0], reason: "selección aleatoria (primera ronda)" };
+/* =================== Bye Round =================== */
+function canGenerateByeRound(){
+  const rn = currentRoundNumber();
+  if(rn !== state.maxRounds) return false;
+  if(state.byeRound !== null) return false;
+  const ms = matchesInRound(rn);
+  for(const m of ms){
+    const a = Number(m.ptsA), b = Number(m.ptsB);
+    if(!Number.isFinite(a) || !Number.isFinite(b) || a === b) return false;
   }
-
-  // Paso 1: mínimo de descansos entre los jugadores del pool
-  const minBenches = Math.min(...pool.map(p => counts[p] || 0));
-
-  // Paso 2: solo son candidatos quienes han descansado ESE mínimo
-  const eligible = pool.filter(p => (counts[p] || 0) === minBenches);
-
-  // Paso 3: entre los candidatos, descansa el peor clasificado
-  const { table } = computeStandings();
-  const ranked = eligible.map(p => {
-    const idx = table.findIndex(r => r.player === p);
-    return { p, rank: idx >= 0 ? idx : 9999 };
-  });
-  ranked.sort((a, b) => b.rank - a.rank);
-
-  const reason = minBenches === 0
-    ? "aún no ha descansado"
-    : "ha descansado menos veces, último en tabla";
-  return { player: ranked[0].p, reason };
+  const rested = state.players.filter(p => (state.benchHistory[p] || 0) > 0);
+  return rested.length >= 2;
 }
 
-function markBench(players){
-  for(const p of players) state.benchHistory[p] = (state.benchHistory[p]||0) + 1;
+function byeRoundComplete(){
+  if(!state.byeRound || state.byeRound.length === 0) return true;
+  for(const m of state.byeRound){
+    const a = Number(m.ptsA), b = Number(m.ptsB);
+    if(!Number.isFinite(a) || !Number.isFinite(b) || a === b) return false;
+  }
+  return true;
+}
+
+function generateByeRound(){
+  const rested = state.players.filter(p => (state.benchHistory[p] || 0) > 0);
+  const { table } = computeStandings();
+  rested.sort((a, b) => {
+    const ia = table.findIndex(r => r.player === a);
+    const ib = table.findIndex(r => r.player === b);
+    return (ia >= 0 ? ia : 9999) - (ib >= 0 ? ib : 9999);
+  });
+  const eligible = rested.length % 2 === 0 ? rested : rested.slice(0, -1);
+  const half = eligible.length / 2;
+  const byeMatches = [];
+  for(let i = 0; i < half; i++){
+    byeMatches.push({ table: i+1, pA: eligible[i], pB: eligible[i+half], ptsA: "", ptsB: "" });
+  }
+  state.byeRound = byeMatches;
+  saveState();
+  renderAll();
+  showToast("Ronda bye generada ✅");
+}
+
+/* =================== Rename =================== */
+function renamePlayer(oldName, newName){
+  newName = newName.trim();
+  if(!newName || newName === oldName) return;
+  if(state.players.some(p => p.toLowerCase() === newName.toLowerCase() && p !== oldName))
+    return showToast("Ya existe un jugador con ese nombre.");
+  const rep = s => s === oldName ? newName : s;
+  state.players = state.players.map(rep);
+  state.benchQueue = state.benchQueue.map(rep);
+  if(state.benchHistory[oldName] !== undefined){
+    state.benchHistory[newName] = state.benchHistory[oldName];
+    delete state.benchHistory[oldName];
+  }
+  if(state._lastBench && state._lastBench.players)
+    state._lastBench.players = state._lastBench.players.map(rep);
+  for(const r of state.rounds){ if(r.pA === oldName) r.pA = newName; if(r.pB === oldName) r.pB = newName; }
+  if(state.byeRound) for(const r of state.byeRound){ if(r.pA === oldName) r.pA = newName; if(r.pB === oldName) r.pB = newName; }
+  saveState(); renderAll();
+  showToast("Nombre actualizado ✅");
 }
 
 /* =================== Pairing suizo =================== */
 function generateRound1(){
   if(state.players.length < 2) return showToast("Necesitas mínimo 2 jugadores.");
-  if(state.players.length % 2 !== 0 && state.byeMode === "none")
-    return showToast("Número impar de jugadores. Usa Banco o agrega uno más.");
+  initBenchQueue();
   const ranked = shuffle(state.players.slice());
   addNewRoundFromRanked(ranked, new Set());
 }
 
 function generateNextRound(){
-  const maxRounds = state.maxRounds || 5;
+  const maxRounds = state.maxRounds || 4;
   if(currentRoundNumber() >= maxRounds) return showToast("Ya se jugaron todas las rondas ✅");
   if(!canGenerateNextRound()) return showToast("Completa puntos de la ronda actual (sin empates).");
-  if(state.players.length % 2 !== 0 && state.byeMode === "none")
-    return showToast("Número impar de jugadores. Usa Banco o agrega uno más.");
   const { table, vsUsed } = computeStandings();
   const ranked = table.map(x=>x.player);
   addNewRoundFromRanked(ranked, vsUsed);
@@ -531,13 +627,10 @@ function addNewRoundFromRanked(rankedPlayers, vsUsed){
   let benchPlayers = [];
   let benchReason = "";
   if(pool.length % 2 !== 0){
-    if(state.byeMode === "bench"){
-      const pick = pickSmartBench(pool);
-      benchPlayers = [pick.player];
-      benchReason = pick.reason;
-      pool = pool.filter(p => p !== pick.player);
-      markBench(benchPlayers);
-    } else return;
+    const pick = getNextBench(pool);
+    benchPlayers = [pick.player];
+    benchReason = pick.reason;
+    pool = pool.filter(p => p !== pick.player);
   }
 
   const localVsUsed = new Set(vsUsed);
@@ -586,7 +679,7 @@ let viewRound = 0;
 /* =================== Rounds modal =================== */
 function openRoundsModal(){
   document.getElementById("roundsModal").classList.remove("hidden");
-  document.getElementById("roundsInput").value = "5";
+  document.getElementById("roundsInput").value = "4";
   document.getElementById("roundsInput").focus();
 }
 function closeRoundsModal(){
@@ -595,16 +688,10 @@ function closeRoundsModal(){
 document.getElementById("btnModalCancel").addEventListener("click", closeRoundsModal);
 document.getElementById("btnModalConfirm").addEventListener("click", ()=>{
   const val = parseInt(document.getElementById("roundsInput").value, 10);
-  if(!Number.isFinite(val) || val < 1 || val > 30) return showToast("Elige entre 1 y 30 rondas.");
   state.maxRounds = val;
   closeRoundsModal();
-  state.byeMode = document.getElementById("byeMode").value;
   saveState();
   generateRound1();
-});
-document.getElementById("roundsInput").addEventListener("keydown", e=>{
-  if(e.key==="Enter") document.getElementById("btnModalConfirm").click();
-  if(e.key==="Escape") closeRoundsModal();
 });
 
 /* =================== UI =================== */
@@ -615,7 +702,6 @@ const els = {
   tableBody:     document.getElementById("tableBody"),
   roundPill:     document.getElementById("roundPill"),
   playersPill:   document.getElementById("playersPill"),
-  byeMode:       document.getElementById("byeMode"),
   btnLoadPlayers:document.getElementById("btnLoadPlayers"),
   btnIniciar:    document.getElementById("btnIniciar"),
   btnGenNext:    document.getElementById("btnGenNext"),
@@ -631,7 +717,11 @@ function getStatusInfo(){
   const rn = currentRoundNumber();
   const max = state.maxRounds;
   if(!max || rn === 0) return { cls:"config", text:"⚙ Configuración" };
-  if(rn >= max)        return { cls:"done",   text:"🏆 Finalizado" };
+  const regularDone = rn >= max;
+  const byeDone = !state.byeRound || byeRoundComplete();
+  if(regularDone && byeDone) return { cls:"done", text:"🏆 Finalizado" };
+  if(regularDone && state.byeRound) return { cls:"playing", text:"▶ Ronda Bye" };
+  if(regularDone) return { cls:"done", text:"✓ Rondas completas" };
   return { cls:"playing", text:"▶ En juego" };
 }
 
@@ -640,7 +730,6 @@ function renderPlayersBox(){
   const n = state.players.length;
   els.playersCount.textContent = n ? `${n} jugador(es) guardados` : "Sin jugadores";
   els.playersPill.textContent = `${n} jugador${n===1?"":"es"}`;
-  els.byeMode.value = state.byeMode;
 }
 
 function renderRoundTabs(){
@@ -791,14 +880,99 @@ function renderTable(){
   });
 }
 
+function renderByeRoundSection(){
+  const card = document.getElementById("byeRoundCard");
+  const btn = document.getElementById("btnByeRound");
+
+  const showBtn = canGenerateByeRound();
+  btn.style.display = showBtn ? "" : "none";
+  btn.disabled = !showBtn;
+
+  if(!state.byeRound){
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "";
+
+  const el = document.getElementById("byeMatches");
+  el.innerHTML = "";
+
+  for(const m of state.byeRound){
+    const div = document.createElement("div");
+    div.className = "match";
+    const names = document.createElement("div");
+    names.className = "names";
+    names.innerHTML = `
+      <div class="match-label">Mesa ${m.table} — Ronda Bye</div>
+      <div class="line"><span class="pill">A</span> <b>${escapeHtml(m.pA)}</b></div>
+      <div class="vs">vs</div>
+      <div class="line"><span class="pill">B</span> <b>${escapeHtml(m.pB)}</b></div>
+    `;
+    const scores = document.createElement("div");
+    scores.className = "scores";
+    const inpA = document.createElement("input");
+    inpA.type="number"; inpA.min="0"; inpA.style.width="90px";
+    inpA.value = m.ptsA ?? "";
+    const inpB = document.createElement("input");
+    inpB.type="number"; inpB.min="0"; inpB.style.width="90px";
+    inpB.value = m.ptsB ?? "";
+    const labA = document.createElement("label");
+    labA.innerHTML = `<span>${escapeHtml(m.pA)}</span>`; labA.appendChild(inpA);
+    const labB = document.createElement("label");
+    labB.innerHTML = `<span>${escapeHtml(m.pB)}</span>`; labB.appendChild(inpB);
+    scores.appendChild(labA); scores.appendChild(labB);
+    const winner = document.createElement("div");
+    winner.className = "winner";
+    function updateWinner(){
+      const a = Number(m.ptsA), b = Number(m.ptsB);
+      if(!m.ptsA && !m.ptsB) { winner.innerHTML = `<span class="muted">—</span>`; return; }
+      if(!Number.isFinite(a) || !Number.isFinite(b)) { winner.innerHTML = `<span class="muted">—</span>`; return; }
+      if(a === b) { winner.innerHTML = `<span class="pill" style="border-color:#d12b2b;color:#ffd0d0">⚠ Empate</span>`; return; }
+      winner.innerHTML = `<span class="pill">Gana: ${escapeHtml(a > b ? m.pA : m.pB)}</span>`;
+    }
+    updateWinner();
+    inpA.addEventListener("input", ()=>{ m.ptsA = inpA.value; updateWinner(); });
+    inpB.addEventListener("input", ()=>{ m.ptsB = inpB.value; updateWinner(); });
+    div.appendChild(names); div.appendChild(scores); div.appendChild(winner);
+    el.appendChild(div);
+  }
+}
+
+function renderRenameSection(){
+  const section = document.getElementById("renameSection");
+  const list = document.getElementById("renameList");
+  const rn = currentRoundNumber();
+  if(rn === 0 || state.players.length === 0){ section.style.display = "none"; return; }
+  section.style.display = "";
+  list.innerHTML = "";
+  state.players.forEach(p => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:8px;align-items:center;margin-bottom:6px;";
+    const span = document.createElement("span");
+    span.style.cssText = "flex:1;font-size:13px;";
+    span.textContent = p;
+    const btn = document.createElement("button");
+    btn.className = "secondary";
+    btn.style.cssText = "padding:4px 10px;font-size:12px;";
+    btn.textContent = "✎ Editar";
+    btn.addEventListener("click", ()=>{
+      const newName = prompt(`Corregir nombre:\n"${p}"`, p);
+      if(newName !== null) renamePlayer(p, newName);
+    });
+    row.appendChild(span); row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
 function renderAll(){
   renderPlayersBox();
   renderRound();
   renderRoundTabs();
   renderTable();
+  renderByeRoundSection();
+  renderRenameSection();
 
   const rn = currentRoundNumber();
-  const max = state.maxRounds;
 
   els.btnIniciar.disabled = state.players.length < 2 || rn > 0;
   els.btnGenNext.disabled = !canGenerateNextRound();
@@ -817,7 +991,6 @@ els.btnIniciar.addEventListener("click", ()=>{
   if(state.players.length < 2) return showToast("Guarda al menos 2 jugadores primero.");
   // If tournament already started, skip modal
   if(state.maxRounds !== null && currentRoundNumber() > 0){
-    state.byeMode = els.byeMode.value;
     saveState();
     generateRound1();
     return;
@@ -826,7 +999,6 @@ els.btnIniciar.addEventListener("click", ()=>{
 });
 
 els.btnGenNext.addEventListener("click", ()=>{
-  state.byeMode = els.byeMode.value;
   saveState();
   generateNextRound();
 });
@@ -841,18 +1013,37 @@ els.btnSaveScores.addEventListener("click", ()=>{
       if(a === b) return showToast("No se permiten empates. Ajusta los puntos.", 3000);
     }
   }
-  state.byeMode = els.byeMode.value;
   saveState(); renderAll();
   showToast(`Puntos de Ronda ${viewRound} guardados ✅`);
 });
 
 els.btnReset.addEventListener("click", resetAll);
 
+document.getElementById("btnByeRound").addEventListener("click", generateByeRound);
+
+document.getElementById("btnSaveByeScores").addEventListener("click", ()=>{
+  if(!state.byeRound) return;
+  for(const m of state.byeRound){
+    const a = Number(m.ptsA), b = Number(m.ptsB);
+    if(!m.ptsA && !m.ptsB) return showToast("Faltan puntos en alguna mesa.", 3000);
+    if(!Number.isFinite(a) || !Number.isFinite(b)) return showToast("Puntos inválidos.", 3000);
+    if(a === b) return showToast("No se permiten empates.", 3000);
+  }
+  saveState(); renderAll();
+  showToast("Puntos de Ronda Bye guardados ✅");
+});
+
 els.btnExport.addEventListener("click", ()=>{
   const lines = [];
   lines.push(["round","table","jugadorA","jugadorB","ptsA","ptsB"].join(","));
   for(const m of state.rounds){
     lines.push([m.round, m.table, q(m.pA), q(m.pB), m.ptsA??"", m.ptsB??""].join(","));
+  }
+  if(state.byeRound && state.byeRound.length > 0){
+    lines.push("","BYE ROUND,,,,,");
+    for(const m of state.byeRound){
+      lines.push(["bye", m.table, q(m.pA), q(m.pB), m.ptsA??"", m.ptsB??""].join(","));
+    }
   }
   lines.push("","STANDINGS,,,,,");
   const { table } = computeStandings();
