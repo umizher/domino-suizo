@@ -575,36 +575,44 @@ function renamePair(oldName, newA, newB) {
 /* ===== ROUND BUILDING ===== */
 function buildRound(ranked, played) {
   let pool = ranked.slice();
-  let bench = null;
-  let benchReason = "";
+  let bench = null, benchReason = "";
   if (pool.length % 2 !== 0) {
     const pick = getNextBench(pool);
-    bench = pick.pair;
-    benchReason = pick.reason;
+    bench = pick.pair; benchReason = pick.reason;
     pool = pool.filter(p => p !== bench);
   }
-  const used = new Set();
-  const matches = [];
-  for (let i = 0; i < pool.length; i++) {
-    if (used.has(i)) continue;
-    const pA = pool[i];
-    let best = -1;
-    for (let j = i + 1; j < pool.length; j++) {
-      if (!used.has(j) && !played.has(vsKey(pA, pool[j]))) { best = j; break; }
+
+  // Sequential Monrad pairs: 1st vs 2nd, 3rd vs 4th, ...
+  const pairs = [];
+  for (let i = 0; i < pool.length; i += 2) pairs.push([pool[i], pool[i + 1]]);
+
+  // Border-swap to avoid repeat matchups (limited backtracking)
+  // Forward pass: fix repeats by swapping with the next pair
+  for (let i = 0; i < pairs.length - 1; i++) {
+    if (!played.has(vsKey(pairs[i][0], pairs[i][1]))) continue;
+    const [a, b] = pairs[i], [c, d] = pairs[i + 1];
+    if (!played.has(vsKey(a, c)) && !played.has(vsKey(b, d))) {
+      pairs[i] = [a, c]; pairs[i + 1] = [b, d];
+    } else if (!played.has(vsKey(a, d)) && !played.has(vsKey(b, c))) {
+      pairs[i] = [a, d]; pairs[i + 1] = [b, c];
     }
-    if (best === -1) {
-      for (let j = i + 1; j < pool.length; j++) {
-        if (!used.has(j)) { best = j; break; }
-      }
-    }
-    if (best === -1) continue;
-    used.add(i); used.add(best);
-    matches.push({ pA, pB: pool[best] });
   }
+  // Backward pass: catch remaining repeats (especially last pair) by swapping with the previous pair
+  for (let i = pairs.length - 1; i >= 1; i--) {
+    if (!played.has(vsKey(pairs[i][0], pairs[i][1]))) continue;
+    const [a, b] = pairs[i], [c, d] = pairs[i - 1];
+    if (!played.has(vsKey(a, c)) && !played.has(vsKey(b, d))) {
+      pairs[i] = [a, c]; pairs[i - 1] = [b, d];
+    } else if (!played.has(vsKey(a, d)) && !played.has(vsKey(b, c))) {
+      pairs[i] = [a, d]; pairs[i - 1] = [b, c];
+    }
+    // else: accept repeat — no fix without creating another repeat
+  }
+
   const rn = currentRound() + 1;
   let t = 1;
-  for (const m of matches)
-    S.rounds.push({ round: rn, table: t++, pA: m.pA, pB: m.pB, ptsA: "", ptsB: "" });
+  for (const [pA, pB] of pairs)
+    S.rounds.push({ round: rn, table: t++, pA, pB, ptsA: "", ptsB: "" });
   S.lastBench = bench ? { round: rn, pairs: [bench], reason: benchReason } : null;
   viewRound = rn;
   save(); renderAll();

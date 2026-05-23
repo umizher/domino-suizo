@@ -445,6 +445,7 @@ function shuffle(arr){
   }
   return a;
 }
+function tableKey(p1, p2, p3, p4){ return [p1, p2, p3, p4].sort().join("||"); }
 
 function currentRoundNumber(){ return state.rounds.reduce((m, x) => Math.max(m, x.round), 0); }
 function matchesInRound(rn){ return state.rounds.filter(m => m.round === rn).sort((a, b) => a.table - b.table); }
@@ -670,11 +671,42 @@ function addNewRoundFromRanked(rankedPlayers){
   const pool = [...rankedPlayers];
   const { players: benchPlayers, reason: benchReason } = getBenchPlayers(pool);
   const active = pool.filter(p => !benchPlayers.includes(p));
+
+  // Collect table compositions from all previous rounds
+  const tableUsed = new Set();
+  for(const m of state.rounds) tableUsed.add(tableKey(m.p1, m.p2, m.p3, m.p4));
+
+  // Sequential Monrad groups of 4
+  const groups = [];
+  for(let i = 0; i < active.length; i += 4) groups.push(active.slice(i, i + 4));
+
+  // Border-swap to avoid repeated table compositions (limited backtracking)
+  function trySwapGroups(gi, gj){
+    for(let si = groups[gi].length - 1; si >= groups[gi].length - 2 && si >= 0; si--){
+      for(let sj = 0; sj < Math.min(2, groups[gj].length); sj++){
+        [groups[gi][si], groups[gj][sj]] = [groups[gj][sj], groups[gi][si]];
+        if(!tableUsed.has(tableKey(...groups[gi])) && !tableUsed.has(tableKey(...groups[gj]))) return true;
+        [groups[gi][si], groups[gj][sj]] = [groups[gj][sj], groups[gi][si]];
+      }
+    }
+    return false;
+  }
+  // Forward pass: fix repeats by swapping with next group
+  for(let i = 0; i < groups.length - 1; i++){
+    if(!tableUsed.has(tableKey(...groups[i]))) continue;
+    trySwapGroups(i, i + 1);
+  }
+  // Backward pass: catch remaining repeats (especially last group)
+  for(let i = groups.length - 1; i >= 1; i--){
+    if(!tableUsed.has(tableKey(...groups[i]))) continue;
+    trySwapGroups(i, i - 1);
+  }
+
   const rn = currentRoundNumber() + 1;
   let tableNo = 1;
-  for(let i = 0; i < active.length; i += 4){
-    const g = shuffle(active.slice(i, i + 4));
-    state.rounds.push({ round: rn, table: tableNo++, p1: g[0], p2: g[1], p3: g[2], p4: g[3], ptsA: "", ptsB: "" });
+  for(const g of groups){
+    const s = shuffle(g.slice());
+    state.rounds.push({ round: rn, table: tableNo++, p1: s[0], p2: s[1], p3: s[2], p4: s[3], ptsA: "", ptsB: "" });
   }
   state._lastBench = benchPlayers.length
     ? { round: rn, players: benchPlayers, reason: benchReason }
