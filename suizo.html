@@ -326,6 +326,7 @@ function tryUnlock(){
     sessionStorage.setItem("domino_pin_ok","1");
     document.getElementById("pinScreen").style.display = "none";
     document.getElementById("app").style.display = "block";
+    loadState(); renderAll();
   } else {
     document.getElementById("pinError").textContent = "Clave incorrecta. Intenta de nuevo.";
     digits.forEach(d => d.value = "");
