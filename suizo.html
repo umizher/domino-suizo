@@ -473,50 +473,32 @@ function canGenerateNextRound(){
 
 /* =================== Smart bench selection =================== */
 function pickSmartBench(pool){
-  const rn = currentRoundNumber();
-  const nextRn = rn + 1;
-  const maxRounds = state.maxRounds || 5;
-
-  // Round 1: random rotation among those benched least
-  if(rn === 0){
-    const counts = state.benchHistory || {};
-    const scored = pool.map(p=>({p, c:(counts[p]||0)}));
-    scored.sort((a,b)=>a.c - b.c);
-    const minC = scored[0].c;
-    const candidates = shuffle(scored.filter(x=>x.c===minC).map(x=>x.p));
-    return { player: candidates[0], reason: "selección aleatoria (primera ronda)" };
-  }
-
-  const { table } = computeStandings();
-  const remainingAfterThis = maxRounds - nextRn;
-  const podiumIdx = Math.min(2, table.length - 1);
-  const podiumPTS = podiumIdx >= 0 ? table[podiumIdx].PTS : 0;
-
   const counts = state.benchHistory || {};
 
-  // Players mathematically eliminated from podium
-  const eliminated = pool.filter(p => {
-    const row = table.find(r => r.player === p);
-    const pts = row ? row.PTS : 0;
-    return (pts + remainingAfterThis) < podiumPTS;
-  });
-
-  if(eliminated.length > 0){
-    const ranked = eliminated.map(p => {
-      const idx = table.findIndex(r => r.player === p);
-      return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
-    });
-    ranked.sort((a,b) => a.c - b.c || b.rank - a.rank);
-    return { player: ranked[0].p, reason: "menor posibilidad de alcanzar el podio" };
+  // Ronda 1: aleatorio puro (nadie ha descansado aún)
+  if(currentRoundNumber() === 0){
+    const shuffled = shuffle(pool.slice());
+    return { player: shuffled[0], reason: "selección aleatoria (primera ronda)" };
   }
 
-  // No eliminated: pick last-place in pool, prioridad a quien menos ha descansado
-  const ranked = pool.map(p => {
+  // Paso 1: mínimo de descansos entre los jugadores del pool
+  const minBenches = Math.min(...pool.map(p => counts[p] || 0));
+
+  // Paso 2: solo son candidatos quienes han descansado ESE mínimo
+  const eligible = pool.filter(p => (counts[p] || 0) === minBenches);
+
+  // Paso 3: entre los candidatos, descansa el peor clasificado
+  const { table } = computeStandings();
+  const ranked = eligible.map(p => {
     const idx = table.findIndex(r => r.player === p);
-    return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
+    return { p, rank: idx >= 0 ? idx : 9999 };
   });
-  ranked.sort((a,b) => a.c - b.c || b.rank - a.rank);
-  return { player: ranked[0].p, reason: "último en la tabla" };
+  ranked.sort((a, b) => b.rank - a.rank);
+
+  const reason = minBenches === 0
+    ? "aún no ha descansado"
+    : "ha descansado menos veces, último en tabla";
+  return { player: ranked[0].p, reason };
 }
 
 function markBench(players){

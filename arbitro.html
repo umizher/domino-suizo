@@ -440,49 +440,32 @@ function roundComplete() {
 
 /* ===== SMART BENCH ===== */
 function pickSmartBench(pool) {
-  const rn = currentRound();
-  const nextRn = rn + 1;
-  const maxRounds = S.maxRounds || 5;
-
-  // Round 1: random rotation among those benched least
-  if (rn === 0) {
-    const counts = S.benchCount || {};
-    const scored = pool.map(p => ({ p, c: counts[p] || 0 }));
-    scored.sort((a, b) => a.c - b.c);
-    const minC = scored[0].c;
-    const candidates = shuffle(scored.filter(x => x.c === minC).map(x => x.p));
-    return { pair: candidates[0], reason: "selección aleatoria (primera ronda)" };
-  }
-
-  const { rows } = standings();
-  const remainingAfterThis = maxRounds - nextRn;
-  const podiumIdx = Math.min(2, rows.length - 1);
-  const podiumPTS = podiumIdx >= 0 ? rows[podiumIdx].PTS : 0;
   const counts = S.benchCount || {};
 
-  // Pairs mathematically eliminated from podium
-  const eliminated = pool.filter(p => {
-    const row = rows.find(r => r.p === p);
-    const pts = row ? row.PTS : 0;
-    return (pts + remainingAfterThis) < podiumPTS;
-  });
-
-  if (eliminated.length > 0) {
-    const ranked = eliminated.map(p => {
-      const idx = rows.findIndex(r => r.p === p);
-      return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
-    });
-    ranked.sort((a, b) => a.c - b.c || b.rank - a.rank);
-    return { pair: ranked[0].p, reason: "menor posibilidad de alcanzar el podio" };
+  // Ronda 1: aleatorio puro (nadie ha descansado aún)
+  if (currentRound() === 0) {
+    const shuffled = shuffle(pool.slice());
+    return { pair: shuffled[0], reason: "selección aleatoria (primera ronda)" };
   }
 
-  // No eliminated: prioridad a quien menos ha descansado, desempate por peor puesto
-  const ranked = pool.map(p => {
+  // Paso 1: encontrar el mínimo de descansos entre las parejas del pool
+  const minBenches = Math.min(...pool.map(p => counts[p] || 0));
+
+  // Paso 2: solo son candidatas las que han descansado ESE mínimo (0 antes que 1, 1 antes que 2…)
+  const eligible = pool.filter(p => (counts[p] || 0) === minBenches);
+
+  // Paso 3: entre las candidatas, descansa la peor clasificada
+  const { rows } = standings();
+  const ranked = eligible.map(p => {
     const idx = rows.findIndex(r => r.p === p);
-    return { p, rank: idx >= 0 ? idx : 9999, c: counts[p] || 0 };
+    return { p, rank: idx >= 0 ? idx : 9999 };
   });
-  ranked.sort((a, b) => a.c - b.c || b.rank - a.rank);
-  return { pair: ranked[0].p, reason: "último en la tabla" };
+  ranked.sort((a, b) => b.rank - a.rank);
+
+  const reason = minBenches === 0
+    ? "aún no ha descansado"
+    : "ha descansado menos veces, último en tabla";
+  return { pair: ranked[0].p, reason };
 }
 
 function buildRound(ranked, played) {
