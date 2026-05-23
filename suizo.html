@@ -388,8 +388,21 @@ function loadState(){
       state.maxRounds    = s.maxRounds    || (s.rounds.length > 0 ? 4 : null);
       state.benchQueue   = s.benchQueue   || [];
       state.byeRound     = s.byeRound     || null;
+      if (state.benchQueue.length === 0 && state.players.length > 0) reconstructBenchQueue();
     }
   }catch{}
+}
+function reconstructBenchQueue() {
+  const counts = state.benchHistory;
+  const byCount = new Map();
+  for (const p of state.players) {
+    const c = counts[p] || 0;
+    if (!byCount.has(c)) byCount.set(c, []);
+    byCount.get(c).push(p);
+  }
+  state.benchQueue = [];
+  for (const c of [...byCount.keys()].sort((a, b) => a - b))
+    state.benchQueue.push(...shuffle(byCount.get(c)));
 }
 function resetAll(){
   if(!confirm("¿Seguro que quieres borrar todo el torneo?")) return;
