@@ -76,6 +76,14 @@ function checkPin(inp){if(inp.value.length>=4){if(inp.value==="5050"){sessionSto
     </div>
   </div>
 
+  <div class="card" id="byeRoundCard" style="display:none;">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <h2>Ronda Bye</h2>
+    </div>
+    <p class="muted" style="margin:0 0 10px;font-size:12px;">Parejas que descansaron juegan su partido pendiente.</p>
+    <div class="matches" id="byeMatchesEl"></div>
+  </div>
+
   <div class="card">
     <div class="flex-between" style="margin-bottom:10px;">
       <h2>Posiciones</h2>
@@ -106,9 +114,9 @@ function load() {
 }
 
 const d0 = load();
-const maxRounds = (d0 && d0.maxRounds) ? d0.maxRounds : 5;
+const maxRounds = (d0 && d0.maxRounds) ? d0.maxRounds : 4;
 
-function standings(pairs, rounds) {
+function standings(pairs, rounds, byeRound) {
   const m = new Map(pairs.map(p => [p, { p, PJ:0, G:0, P:0, PF:0, PC:0, opps:[] }]));
   for (const r of rounds) {
     if (!m.has(r.pA) || !m.has(r.pB)) continue;
@@ -121,6 +129,21 @@ function standings(pairs, rounds) {
     m.get(r.pB).PF += b; m.get(r.pB).PC += a;
     m.get(r.pA).opps.push(r.pB);
     m.get(r.pB).opps.push(r.pA);
+  }
+  // Process bye round
+  if (byeRound) {
+    for (const r of byeRound) {
+      if (!m.has(r.pA) || !m.has(r.pB)) continue;
+      m.get(r.pA).PJ++; m.get(r.pB).PJ++;
+      const a = Number(r.ptsA), b = Number(r.ptsB);
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) continue;
+      if (a > b) { m.get(r.pA).G++; m.get(r.pB).P++; }
+      else        { m.get(r.pB).G++; m.get(r.pA).P++; }
+      m.get(r.pA).PF += a; m.get(r.pA).PC += b;
+      m.get(r.pB).PF += b; m.get(r.pB).PC += a;
+      m.get(r.pA).opps.push(r.pB);
+      m.get(r.pB).opps.push(r.pA);
+    }
   }
   // Buchholz: suma de victorias de cada rival enfrentado
   for (const s of m.values()) {
@@ -148,6 +171,7 @@ function render() {
     document.getElementById("matches").innerHTML =
       `<div class="no-data"><div class="big">🁫</div>Esperando que el árbitro inicie el torneo…</div>`;
     document.getElementById("tableBody").innerHTML = "";
+    document.getElementById("byeRoundCard").style.display = "none";
     return;
   }
 
@@ -199,8 +223,42 @@ function render() {
     }
   }
 
+  // Bye Round display
+  const byeCard = document.getElementById("byeRoundCard");
+  const byeEl = document.getElementById("byeMatchesEl");
+  if (d.byeRound && d.byeRound.length > 0) {
+    byeCard.style.display = "";
+    byeEl.innerHTML = "";
+    for (const m of d.byeRound) {
+      const a = Number(m.ptsA), b = Number(m.ptsB);
+      const hasScores = m.ptsA !== "" && m.ptsB !== "" && Number.isFinite(a) && Number.isFinite(b);
+      const aWins = hasScores && a > b;
+      const bWins = hasScores && b > a;
+      const div = document.createElement("div");
+      div.className = "match";
+      div.innerHTML = `
+        <div class="mesa-label">Mesa ${m.table} — Ronda Bye</div>
+        <div class="teams">
+          <div class="team-row">
+            <span class="team-name">${esc(m.pA)}</span>
+            <span class="team-score ${aWins ? 'winner' : ''}">${hasScores ? a : '—'}</span>
+          </div>
+          <div class="vs-line">vs</div>
+          <div class="team-row">
+            <span class="team-name">${esc(m.pB)}</span>
+            <span class="team-score ${bWins ? 'winner' : ''}">${hasScores ? b : '—'}</span>
+          </div>
+          ${!hasScores ? `<div class="pending">En juego…</div>` : ''}
+        </div>
+      `;
+      byeEl.appendChild(div);
+    }
+  } else {
+    byeCard.style.display = "none";
+  }
+
   // Tabla
-  const rows = standings(d.pairs, d.rounds);
+  const rows = standings(d.pairs, d.rounds, d.byeRound || null);
   const tb = document.getElementById("tableBody");
   tb.innerHTML = "";
   rows.forEach((r, i) => {
