@@ -193,6 +193,9 @@
     <span class="pill" id="unitsPill">–</span>
     <nav class="nav-btns">
       <button class="secondary" id="btnExport">↓ CSV</button>
+      <button class="secondary" id="btnBackup">⇪ Respaldar</button>
+      <button class="secondary" id="btnRestore">⇩ Restaurar</button>
+      <input type="file" id="restoreFile" accept=".json,application/json" style="display:none;" />
       <button class="danger" id="btnReset">Reset</button>
     </nav>
   </div>
@@ -234,16 +237,12 @@
     </div>
 
     <div class="footer">
-      <label class="muted">Rondas:
-        <select id="roundsInput" style="margin-left:6px;">
-          <option value="4">4</option><option value="5">5</option><option value="6" selected>6</option>
-          <option value="7">7</option><option value="8">8</option><option value="10">10</option>
-          <option value="12">12</option><option value="14">14</option><option value="16">16</option>
-          <option value="20">20</option>
-        </select>
+      <label class="muted">Rondas (4 o más):
+        <input type="number" id="roundsInput" min="4" max="50" value="6" style="width:80px; margin-left:6px;" />
       </label>
       <button id="btnStart">Iniciar torneo</button>
     </div>
+    <div id="byeForecast" class="info-banner" style="display:none; margin-top:12px;"></div>
     <div class="notice">
       <span class="pill">Reglas</span>
       <span class="muted small"><b>Sin empates</b>. Clasificación: <b id="tiebreakLabel1"></b>. Banco rotativo equitativo si el número no es exacto. Ronda bye final para quienes descansaron.</span>
@@ -281,6 +280,7 @@
       <div class="footer">
         <button id="btnNextRound">Siguiente ronda</button>
         <button class="secondary" id="btnByeRound" style="display:none;">Generar ronda bye</button>
+        <button class="secondary" id="btnUndoRound" style="display:none;">↩ Deshacer ronda</button>
       </div>
       <div class="notice">
         <span class="pill">Reglas</span>
@@ -403,7 +403,8 @@ function applyWithConfirm(mutator) {
   let result;
   try { result = mutator(trial); }
   catch (e) { toast(e.message); return false; }
-  const blocking = (result.warnings || []).filter(w => w.type === "rematch" || w.type === "partner_repeat");
+  const blocking = (result.warnings || []).filter(w =>
+    w.type === "rematch" || w.type === "partner_repeat" || w.type === "rival_repeat");
   if (blocking.length) {
     const txt = blocking.map(w => warningText(trial, w)).join("\n");
     if (!confirm(`Atención:\n\n${txt}\n\n¿Generar la ronda de todos modos?`)) return false;
@@ -419,8 +420,8 @@ function warningText(st, w) {
   switch (w.type) {
     case "rematch":        return `Ya no quedan cruces nuevos posibles. Se repiten: ${pairTxt(w.pairs, "vs")}.`;
     case "partner_repeat": return `Ya no quedan combinaciones de compañeros nuevas. Se repiten: ${pairTxt(w.pairs, "+")}.`;
-    case "rival_repeat":   return `Rivales repetidos (minimizados): ${pairTxt(w.pairs, "vs")}.`;
-    case "excluded_bye":   return `Quedan fuera de la ronda bye (no completan mesa): ${w.ids.map(id => E.nameOf(st, id)).join(", ")}.`;
+    case "rival_repeat":   return `Ya no quedan rivales nuevos posibles para todos. Se repiten (al mínimo): ${pairTxt(w.pairs, "vs")}.`;
+    case "excluded_bye":   return `Queda fuera de la ronda bye por ser el peor clasificado de los descansados: ${w.ids.map(id => E.nameOf(st, id)).join(", ")}.`;
     case "late_join":      return `${w.ids.map(id => E.nameOf(st, id)).join(", ")} entra en la ronda ${w.round}: tendrá menos partidas jugadas.`;
     case "past_edit":      return `Editaste la ronda ${w.round}: las rondas posteriores se emparejaron con la clasificación previa (los emparejamientos no cambian, la tabla sí).`;
     default: return "";
@@ -473,8 +474,46 @@ document.getElementById("btnAddPair").addEventListener("click", () => {
   if (inputs[0]) inputs[0].focus();
 });
 
+// Pronóstico en vivo de la ronda bye según participantes y rondas elegidas
+function setupParticipantCount() {
+  if (setupMode === "individual")
+    return new Set(document.getElementById("playersInput").value
+      .split("\n").map(s => s.trim()).filter(Boolean)).size;
+  return pairsBuilder.filter(p => p.a.trim() && p.b.trim()).length;
+}
+function updateByeForecast() {
+  const el = document.getElementById("byeForecast");
+  const n = setupParticipantCount();
+  const maxRounds = parseInt(document.getElementById("roundsInput").value, 10);
+  const cfg = E.MODES[setupMode];
+  if (!n || n < cfg.unitsPerTable || !Number.isInteger(maxRounds) || maxRounds < 4) {
+    el.style.display = "none"; return;
+  }
+  const f = E.byeForecast(setupMode, n, maxRounds);
+  const unit = n => `${n} ${n === 1 ? cfg.unitLabel : cfg.unitLabelPlural}`;
+  if (f.perRound === 0) {
+    el.style.display = "";
+    el.textContent = `Con ${unit(n)} nadie descansa: mesas exactas todas las rondas, sin ronda bye.`;
+    return;
+  }
+  el.style.display = "";
+  if (f.excludedCount === 0) {
+    el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansará(n) ${unit(f.restedCount)}: la ronda bye quedará exacta.`;
+  } else {
+    const sug = f.suggestedRounds.length
+      ? ` Con ${f.suggestedRounds.join(" o ")} rondas la bye queda exacta.`
+      : "";
+    el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansará(n) ${unit(f.restedCount)} y ${f.excludedCount} quedará(n) fuera de la ronda bye (peor clasificado).${sug}`;
+  }
+}
+document.getElementById("setupCard").addEventListener("input", updateByeForecast);
+// Clicks (cambiar modalidad, quitar pareja) también alteran el pronóstico
+document.getElementById("setupCard").addEventListener("click", () => setTimeout(updateByeForecast, 0));
+
 document.getElementById("btnStart").addEventListener("click", () => {
   const maxRounds = parseInt(document.getElementById("roundsInput").value, 10);
+  if (!Number.isInteger(maxRounds) || maxRounds < 4 || maxRounds > 50)
+    return toast("Las rondas deben ser un número entre 4 y 50.");
   let participants;
   if (setupMode === "individual") {
     const names = [...new Set(document.getElementById("playersInput").value
@@ -642,9 +681,10 @@ function renderBanners() {
     el.appendChild(div);
   }
   for (const w of warnings) {
+    const isWarn = w.type === "rematch" || w.type === "partner_repeat" || w.type === "rival_repeat";
     const div = document.createElement("div");
-    div.className = (w.type === "rematch" || w.type === "partner_repeat") ? "warn-banner" : "info-banner";
-    div.textContent = ((w.type === "rematch" || w.type === "partner_repeat") ? "⚠ " : "ℹ ") + warningText(state, w);
+    div.className = isWarn ? "warn-banner" : "info-banner";
+    div.textContent = (isWarn ? "⚠ " : "ℹ ") + warningText(state, w);
     el.appendChild(div);
   }
 }
@@ -765,7 +805,19 @@ function renderButtons() {
   const canBye = E.canGenerateByeRound(state);
   const btnBye = document.getElementById("btnByeRound");
   btnBye.style.display = canBye.ok ? "" : "none";
+  document.getElementById("btnUndoRound").style.display =
+    (state.byeRound || state.rounds.length > 0) ? "" : "none";
 }
+
+document.getElementById("btnUndoRound").addEventListener("click", () => {
+  if (!state) return;
+  const target = state.byeRound ? "la ronda bye" : `la ronda ${state.rounds.length}`;
+  if (!confirm(`¿Deshacer ${target}? Se perderán sus emparejamientos y puntos.`)) return;
+  try { E.undoLastRound(state); } catch (e) { return toast(e.message); }
+  viewRound = currentRoundNo();
+  save(); renderAll();
+  toast(`Se deshizo ${target} ✅`);
+});
 
 document.getElementById("btnNextRound").addEventListener("click", () => {
   const can = E.canGenerateNextRound(state);
@@ -789,6 +841,35 @@ document.getElementById("btnExport").addEventListener("click", () => {
   a.href = url; a.download = `torneo-${state.mode}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+});
+
+document.getElementById("btnBackup").addEventListener("click", () => {
+  if (!state) return toast("No hay torneo que respaldar.");
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+  const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = `torneo-respaldo-${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast("Respaldo descargado ✅ Guárdalo en un lugar seguro.");
+});
+
+document.getElementById("btnRestore").addEventListener("click", () => {
+  document.getElementById("restoreFile").click();
+});
+document.getElementById("restoreFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  let raw;
+  try { raw = JSON.parse(await file.text()); }
+  catch { return toast("El archivo no es un respaldo válido."); }
+  const v = E.validateState(raw);
+  if (!v.ok) return toast("Respaldo inválido: " + v.errors.join(" "));
+  if (state && !confirm("Ya hay un torneo activo. ¿Reemplazarlo con el respaldo?")) return;
+  state = v.state; loadError = null; viewRound = 0;
+  save(); renderAll();
+  toast("Torneo restaurado desde respaldo ✅");
 });
 
 document.getElementById("btnReset").addEventListener("click", () => {

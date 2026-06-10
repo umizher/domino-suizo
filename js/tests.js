@@ -51,6 +51,35 @@
     return go(ids);
   }
 
+  // Verificador exacto de referencia (individual, n pequeño): ¿existe una
+  // partición en mesas de 4 sin repetir NI compañeros NI rivales?
+  function strictIndividualPossible(ids, partnerKeys, rivalCounts) {
+    function splitOk(g) {
+      const splits = [
+        [[g[0], g[1]], [g[2], g[3]]],
+        [[g[0], g[2]], [g[1], g[3]]],
+        [[g[0], g[3]], [g[1], g[2]]]
+      ];
+      return splits.some(([tA, tB]) =>
+        !partnerKeys.has(pk(tA[0], tA[1])) && !partnerKeys.has(pk(tB[0], tB[1])) &&
+        tA.every(x => tB.every(y => !((rivalCounts.get(pk(x, y)) || 0) > 0))));
+    }
+    function go(rem) {
+      if (rem.length === 0) return true;
+      const a = rem[0], rest = rem.slice(1);
+      for (let i = 0; i < rest.length - 2; i++)
+        for (let j = i + 1; j < rest.length - 1; j++)
+          for (let k = j + 1; k < rest.length; k++) {
+            const g = [a, rest[i], rest[j], rest[k]];
+            if (!splitOk(g)) continue;
+            const used = new Set(g);
+            if (go(rem.filter(x => !used.has(x)))) return true;
+          }
+      return false;
+    }
+    return go(ids);
+  }
+
   function scoreAllTables(tables, rng) {
     for (const t of tables) {
       const a = 10 + Math.floor(rng() * 90);
@@ -85,11 +114,13 @@
     // Recorre las rondas en orden y comprueba que ninguna repetición
     // ocurre sin warning en su ronda.
     const partnerSeen = new Set();
+    const rivalSeen = new Set();
     const playedSeen = new Set();
     const roundsAll = state.rounds.map(r => ({ tables: r.tables, warnings: r.warnings, tag: `R${r.round}` }));
     if (state.byeRound) roundsAll.push({ tables: state.byeRound.tables, warnings: state.byeRound.warnings, tag: "BYE" });
     for (const r of roundsAll) {
       const hasPartnerWarn = r.warnings.some(w => w.type === "partner_repeat");
+      const hasRivalWarn = r.warnings.some(w => w.type === "rival_repeat");
       const hasRematchWarn = r.warnings.some(w => w.type === "rematch");
       for (const t of r.tables) {
         if (state.mode === "individual") {
@@ -98,6 +129,12 @@
             if (partnerSeen.has(k))
               assert(hasPartnerWarn, `${label} ${r.tag}: compañeros repetidos SIN warning`);
             partnerSeen.add(k);
+          }
+          for (const x of t.teamA) for (const y of t.teamB) {
+            const k = pk(x, y);
+            if (rivalSeen.has(k))
+              assert(hasRivalWarn, `${label} ${r.tag}: rivales repetidos SIN warning`);
+            rivalSeen.add(k);
           }
         } else {
           const k = pk(t.teamA[0], t.teamB[0]);
@@ -139,8 +176,18 @@
     const state = E.createTournament({ mode, maxRounds, participants: mkParticipants(mode, n) }, rng);
 
     while (E.canGenerateNextRound(state).ok) {
+      const prevHist = (mode === "individual" && n <= 8) ? E.pairingHistory(state) : null;
       const { round, warnings } = E.generateNextRound(state, rng);
       checkRoundInvariants(state, round, label + ` R${round.round}`);
+
+      // En individual pequeño: el warning de repetición solo si era imposible evitarla.
+      if (prevHist) {
+        const seated = round.tables.flatMap(t => [...t.teamA, ...t.teamB]);
+        const hasRepeatWarn = warnings.some(w => w.type === "rival_repeat" || w.type === "partner_repeat");
+        if (hasRepeatWarn)
+          assert(!strictIndividualPossible(seated, prevHist.partnerKeys, prevHist.rivalCounts),
+            `${label} R${round.round}: warning de repetición con solución estricta disponible`);
+      }
 
       // En parejas: el warning de rematch solo si de verdad era imposible.
       if (mode === "parejas" && n <= 12) {
@@ -168,8 +215,14 @@
     checkNoRepeats(state, label);
 
     if (E.canGenerateByeRound(state).ok) {
+      const orderBefore = new Map(E.computeStandings(state).map((r, i) => [r.id, i]));
+      const restedSorted = E.restedIds(state).slice().sort((a, b) => orderBefore.get(a) - orderBefore.get(b));
       const { byeRound } = E.generateByeRound(state, rng);
       const cfg = E.MODES[mode];
+      // Regla del usuario: si la bye no completa mesa, queda fuera el PEOR clasificado
+      const expectedExcluded = byeRound.excluded.length ? restedSorted.slice(-byeRound.excluded.length) : [];
+      assert(JSON.stringify([...byeRound.excluded].sort()) === JSON.stringify([...expectedExcluded].sort()),
+        `${label}: la exclusión de la bye no es el peor clasificado`);
       assert(byeRound.tables.length >= 1, `${label}: bye sin mesas`);
       const seated = byeRound.tables.flatMap(t => [...t.teamA, ...t.teamB]);
       assert(new Set(seated).size === seated.length, `${label}: bye con duplicados`);
@@ -343,6 +396,80 @@
       scoreAllTables(round.tables, rng);
     }
     assert(E.tournamentPhase(s2) === "finished", "sin descansados: fase ≠ finished");
+  }
+
+  section("byeForecast: pronóstico de exclusión y sugerencias");
+  {
+    let f = E.byeForecast("individual", 25, 5);
+    assert(f.perRound === 1 && f.restedCount === 5 && f.excludedCount === 1, "25j/5r: pronóstico incorrecto");
+    assert(f.suggestedRounds.includes(4) && f.suggestedRounds.includes(8), "25j/5r: sugerencias deben incluir 4 y 8");
+    f = E.byeForecast("individual", 25, 4);
+    assert(f.excludedCount === 0 && f.restedCount === 4, "25j/4r: la bye debería ser exacta");
+    f = E.byeForecast("individual", 24, 6);
+    assert(f.perRound === 0 && f.excludedCount === 0, "24j: sin banco no hay bye");
+    // 5 parejas: a partir de la R5 todas han descansado (5, impar), así que
+    // solo 4 rondas dejan la bye exacta — 6+ rondas no ayudan.
+    f = E.byeForecast("parejas", 5, 5);
+    assert(f.excludedCount === 1 && f.suggestedRounds.length === 1 && f.suggestedRounds[0] === 4,
+      "5 parejas/5r: pronóstico incorrecto");
+  }
+
+  section("createTournament: mínimo 4 rondas, acepta impares");
+  {
+    let err = false;
+    try { E.createTournament({ mode: "individual", maxRounds: 3, participants: mkParticipants("individual", 8) }); }
+    catch { err = true; }
+    assert(err, "aceptó 3 rondas");
+    for (const r of [4, 5, 7]) {
+      const st = E.createTournament({ mode: "individual", maxRounds: r, participants: mkParticipants("individual", 8) });
+      assert(st.maxRounds === r, `no aceptó ${r} rondas`);
+    }
+  }
+
+  section("undoLastRound: revierte ronda, banco y bye");
+  {
+    const rng = E._mulberry32(31);
+    const state = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 9) }, rng);
+    let r = E.generateNextRound(state, rng); scoreAllTables(r.round.tables, rng);
+    const snap = () => JSON.stringify({ h: state.benchHistory, q: state.benchQueue, n: state.rounds.length });
+    const before = snap();
+    E.generateNextRound(state, rng);
+    E.undoLastRound(state);
+    assert(snap() === before, "undo no restauró ronda/banco/cola");
+    r = E.generateNextRound(state, rng);
+    checkRoundInvariants(state, r.round, "regenerar tras undo");
+    scoreAllTables(r.round.tables, rng);
+    while (E.canGenerateNextRound(state).ok) {
+      const x = E.generateNextRound(state, rng);
+      scoreAllTables(x.round.tables, rng);
+    }
+    if (E.canGenerateByeRound(state).ok) {
+      E.generateByeRound(state, rng);
+      E.undoLastRound(state);
+      assert(state.byeRound === null, "undo de bye no la eliminó");
+      assert(E.canGenerateByeRound(state).ok, "tras undo de bye no se puede regenerar");
+    }
+    while (state.rounds.length) E.undoLastRound(state);
+    assert(Object.values(state.benchHistory).every(c => c === 0), "historial de banco no quedó en cero al deshacer todo");
+    r = E.generateNextRound(state, rng);
+    checkRoundInvariants(state, r.round, "regenerar R1 tras deshacer todo");
+    let err = false;
+    const s2 = E.createTournament({ mode: "parejas", maxRounds: 4, participants: mkParticipants("parejas", 4) }, rng);
+    try { E.undoLastRound(s2); } catch { err = true; }
+    assert(err, "permitió deshacer sin rondas");
+  }
+
+  section("Escenarios difíciles: rondas impares, 25+ participantes, agotamiento de cruces");
+  {
+    const hard = [
+      ["individual", 5, 7], ["individual", 7, 7], ["individual", 9, 9], ["individual", 13, 9],
+      ["individual", 25, 4], ["individual", 25, 5], ["individual", 25, 7],
+      ["individual", 26, 5], ["individual", 27, 6],
+      ["parejas", 3, 7], ["parejas", 5, 7], ["parejas", 7, 9], ["parejas", 25, 5]
+    ];
+    for (const [mode, n, r] of hard)
+      for (const seed of [1, 2])
+        simulate(mode, n, r, seed * 7777 + n * 31 + r);
   }
 
   section("CSV");
