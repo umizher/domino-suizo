@@ -889,10 +889,20 @@ document.getElementById("restoreFile").addEventListener("change", async (e) => {
   toast("Torneo restaurado desde respaldo ✅");
 });
 
+function clearSetup() {
+  document.getElementById("playersInput").value = "";
+  pairsBuilder = [{ a: "", b: "" }, { a: "", b: "" }];
+  document.getElementById("addName1").value = "";
+  document.getElementById("addName2").value = "";
+  document.getElementById("roundsInput").value = "";
+  document.getElementById("byeForecast").style.display = "none";
+}
+
 document.getElementById("btnReset").addEventListener("click", () => {
   if (!confirm("¿Borrar todo el torneo? Esta acción no se puede deshacer.")) return;
   localStorage.removeItem(E.STORAGE_KEY);
   state = null; viewRound = 0;
+  clearSetup();
   renderAll();
 });
 
@@ -900,6 +910,7 @@ document.getElementById("btnErrorReset").addEventListener("click", () => {
   if (!confirm("¿Borrar los datos dañados?")) return;
   localStorage.removeItem(E.STORAGE_KEY);
   loadError = null;
+  clearSetup();
   renderAll();
 });
 
