@@ -238,7 +238,7 @@
 
     <div class="footer">
       <label class="muted">Rondas (4 o más):
-        <input type="number" id="roundsInput" min="4" max="50" value="6" style="width:80px; margin-left:6px;" />
+        <input type="number" id="roundsInput" min="4" max="50" placeholder="¿?" style="width:80px; margin-left:6px;" />
       </label>
       <button id="btnStart">Iniciar torneo</button>
     </div>
@@ -511,7 +511,17 @@ document.getElementById("setupCard").addEventListener("input", updateByeForecast
 document.getElementById("setupCard").addEventListener("click", () => setTimeout(updateByeForecast, 0));
 
 document.getElementById("btnStart").addEventListener("click", () => {
-  const maxRounds = parseInt(document.getElementById("roundsInput").value, 10);
+  let maxRounds = parseInt(document.getElementById("roundsInput").value, 10);
+  // Sin valor escrito: preguntar antes de iniciar
+  if (!Number.isInteger(maxRounds)) {
+    const resp = prompt("¿Cuántas rondas tendrá el torneo? (mínimo 4)", "4");
+    if (resp === null) return;
+    maxRounds = parseInt(resp, 10);
+    if (Number.isInteger(maxRounds)) {
+      document.getElementById("roundsInput").value = String(maxRounds);
+      updateByeForecast();
+    }
+  }
   if (!Number.isInteger(maxRounds) || maxRounds < 4 || maxRounds > 50)
     return toast("Las rondas deben ser un número entre 4 y 50.");
   let participants;
