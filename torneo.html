@@ -563,14 +563,21 @@ function renderHeader() {
   const cfgMode = state ? E.MODES[state.mode] : null;
   document.getElementById("appTitle").textContent =
     state ? `🁫 Torneo Suizo – ${state.mode === "individual" ? "Individual" : "Parejas"}` : "🁫 Torneo Suizo";
+  // Sin torneo, el badge de fase y los pills solo son ruido en la pantalla de configuración
   const badge = document.getElementById("statusBadge");
-  if (!state) { badge.className = "badge config"; badge.textContent = "⚙ Configuración"; }
-  else { const pi = phaseInfo(); badge.className = "badge " + pi.cls; badge.textContent = pi.text; }
-  document.getElementById("roundPill").textContent =
-    state ? `Ronda ${currentRoundNo()}/${state.maxRounds}${state.byeRound ? " + bye" : ""}` : "Ronda 0/–";
-  const n = state ? E.activeIds(state).length : 0;
-  document.getElementById("unitsPill").textContent =
-    state ? `${n} ${n === 1 ? cfgMode.unitLabel : cfgMode.unitLabelPlural}` : "–";
+  const roundPill = document.getElementById("roundPill");
+  const unitsPill = document.getElementById("unitsPill");
+  badge.style.display = state ? "" : "none";
+  roundPill.style.display = state ? "" : "none";
+  unitsPill.style.display = state ? "" : "none";
+  if (state) {
+    const pi = phaseInfo();
+    badge.className = "badge " + pi.cls;
+    badge.textContent = pi.text;
+    roundPill.textContent = `Ronda ${currentRoundNo()}/${state.maxRounds}${state.byeRound ? " + bye" : ""}`;
+    const n = E.activeIds(state).length;
+    unitsPill.textContent = `${n} ${n === 1 ? cfgMode.unitLabel : cfgMode.unitLabelPlural}`;
+  }
   document.getElementById("progressFill").style.width =
     state && state.maxRounds ? `${Math.min(100, (currentRoundNo() / state.maxRounds) * 100)}%` : "0%";
 }
