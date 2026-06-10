@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Torneo Suizo – Vista Pública</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e8eefc; }
+    header { padding: 16px 18px; background: #121a2b; border-bottom: 1px solid #22304f; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    .header-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    main { padding: 16px 18px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+    .card { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px; }
+    .card h2 { margin: 0 0 10px; font-size: 15px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #22304f; padding: 10px; text-align: left; font-size: 13px; }
+    th { background: #0f1830; }
+    tr.top3 td:first-child { font-weight: bold; color: #ffd700; }
+    tr.retired td { opacity:.45; }
+    .muted { color: #9fb1db; font-size: 12px; }
+    .pill { display: inline-block; padding: 3px 8px; border: 1px solid #22304f; border-radius: 999px; font-size: 12px; color: #cfe0ff; }
+    .flex-between { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .matches { display: flex; flex-direction: column; gap: 10px; }
+    .match { border: 1px solid #22304f; border-radius: 12px; padding: 12px; background: #0f1830; }
+    .mesa-label { color: #9fb1db; font-size: 12px; margin-bottom: 6px; }
+    .teams { display: flex; flex-direction: column; gap: 6px; }
+    .team-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .team-name { font-size: 14px; font-weight: bold; }
+    .team-score { font-size: 20px; font-weight: bold; color: #7ea8ff; min-width: 40px; text-align: right; }
+    .team-score.winner { color: #6fcf6f; }
+    .vs-line { text-align: center; color: #9fb1db; font-size: 11px; margin: 2px 0; }
+    .pending { color: #9fb1db; font-size: 13px; font-style: italic; }
+    .refresh-note { color: #9fb1db; font-size: 11px; }
+    .no-data { text-align: center; padding: 40px 20px; color: #9fb1db; }
+    .no-data .big { font-size: 40px; margin-bottom: 10px; }
+    .bench-note { color:#ffd86e; font-size:13px; margin-bottom:8px; }
+    .nav-tabs { display: flex; gap: 4px; margin-top: 10px; }
+    .nav-tab { padding: 5px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid #22304f; color: #9fb1db; text-decoration: none; }
+    .nav-tab.active { background: #2b65ff; border-color: #2b65ff; color: #fff; }
+    a.nav-tab:hover { color: #e8eefc; }
+    #pinOverlay{position:fixed;inset:0;background:#0b1220;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+    #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
+    #pinInput:focus{border-color:#2b65ff}
+    #pinError{color:#ff6b6b;font-size:13px;min-height:18px}
+  </style>
+</head>
+<body>
+<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Dominó</div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div><div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div></div>
+<script>(function(){if(sessionStorage.getItem("domino_pin_ok")==="1")document.getElementById("pinOverlay").style.display="none";})()
+function checkPin(inp){if(inp.value.length===4){if(inp.value==="5050"){sessionStorage.setItem("domino_pin_ok","1");document.getElementById("pinOverlay").style.display="none";}else{document.getElementById("pinError").textContent="Clave incorrecta";inp.value="";setTimeout(function(){document.getElementById("pinError").textContent="";},2000);}}}</script>
+
+<header>
+  <h1 id="title">🁫 Torneo Suizo – Vista Pública</h1>
+  <div class="header-row">
+    <span class="pill" id="roundPill">Ronda: –</span>
+    <span class="refresh-note" id="refreshNote">Actualiza cada 15s</span>
+  </div>
+  <div class="nav-tabs">
+    <a class="nav-tab" href="index.html">← Inicio</a>
+    <span class="nav-tab active">Vista Pública</span>
+    <a class="nav-tab" href="torneo.html">Árbitro</a>
+  </div>
+</header>
+
+<main>
+
+  <div class="card" id="matchesCard">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <h2 id="matchesTitle">Ronda actual</h2>
+    </div>
+    <div class="matches" id="matches">
+      <div class="no-data"><div class="big">🁫</div>Esperando que el árbitro inicie el torneo…</div>
+    </div>
+  </div>
+
+  <div class="card" id="byeRoundCard" style="display:none;">
+    <h2 style="margin-bottom:10px;">Ronda Bye</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:12px;">Quienes descansaron juegan su partida pendiente. El resultado cuenta en la tabla.</p>
+    <div class="matches" id="byeMatchesEl"></div>
+  </div>
+
+  <div class="card">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <h2>Posiciones</h2>
+      <span class="muted" id="tiebreakLabel"></span>
+    </div>
+    <div style="overflow:auto; border-radius:12px; border:1px solid #22304f;">
+      <table>
+        <thead>
+          <tr><th>#</th><th id="thName">Nombre</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th><th title="Buchholz: suma de victorias de rivales únicos">BUC</th><th>Pts</th></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/swiss-engine.js"></script>
+<script>
+"use strict";
+const E = SwissEngine;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+
+function loadState() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(E.STORAGE_KEY) || "null"); } catch {}
+  if (!raw) return null;
+  const v = E.validateState(raw);
+  return v.ok ? v.state : null;
+}
+
+function teamLabel(state, team) {
+  return team.map(id => E.nameOf(state, id)).join(" + ");
+}
+
+function matchCard(state, t, byeTag) {
+  const a = E.parseScore(t.ptsA), b = E.parseScore(t.ptsB);
+  const hasScores = E.tableScored(t);
+  const div = document.createElement("div");
+  div.className = "match";
+  div.innerHTML = `
+    <div class="mesa-label">Mesa ${t.table}${byeTag ? " — Ronda Bye" : ""}</div>
+    <div class="teams">
+      <div class="team-row">
+        <span class="team-name">${esc(teamLabel(state, t.teamA))}</span>
+        <span class="team-score ${hasScores && a > b ? "winner" : ""}">${hasScores ? a : "—"}</span>
+      </div>
+      <div class="vs-line">vs</div>
+      <div class="team-row">
+        <span class="team-name">${esc(teamLabel(state, t.teamB))}</span>
+        <span class="team-score ${hasScores && b > a ? "winner" : ""}">${hasScores ? b : "—"}</span>
+      </div>
+      ${!hasScores ? `<div class="pending">En juego…</div>` : ""}
+    </div>
+  `;
+  return div;
+}
+
+function render() {
+  const now = new Date();
+  document.getElementById("refreshNote").textContent =
+    `Actualizado: ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+  document.getElementById("tiebreakLabel").textContent = E.TIEBREAK_LABEL;
+
+  const state = loadState();
+  const matchesEl = document.getElementById("matches");
+  if (!state) {
+    document.getElementById("roundPill").textContent = "Ronda: –";
+    matchesEl.innerHTML = `<div class="no-data"><div class="big">🁫</div>Esperando que el árbitro inicie el torneo…</div>`;
+    document.getElementById("tableBody").innerHTML = "";
+    document.getElementById("byeRoundCard").style.display = "none";
+    return;
+  }
+
+  document.getElementById("title").textContent =
+    `🁫 Torneo Suizo – ${state.mode === "individual" ? "Individual" : "Parejas"}`;
+  document.getElementById("thName").textContent = state.mode === "individual" ? "Jugador" : "Pareja";
+  const rn = state.rounds.length;
+  document.getElementById("roundPill").textContent = `Ronda: ${rn}/${state.maxRounds}${state.byeRound ? " + bye" : ""}`;
+  document.getElementById("matchesTitle").textContent = rn > 0 ? `Ronda ${rn}` : "Sin rondas aún";
+
+  matchesEl.innerHTML = "";
+  const round = state.rounds[rn - 1];
+  if (!round) {
+    matchesEl.innerHTML = `<div class="muted">El árbitro aún no generó la primera ronda.</div>`;
+  } else {
+    if (round.bench.length) {
+      const bench = document.createElement("div");
+      bench.className = "bench-note";
+      bench.innerHTML = `<span class="pill">Banco</span> ${round.bench.map(id => esc(E.nameOf(state, id))).join(", ")} — descansa esta ronda`;
+      matchesEl.appendChild(bench);
+    }
+    for (const t of round.tables) matchesEl.appendChild(matchCard(state, t, false));
+  }
+
+  const byeCard = document.getElementById("byeRoundCard");
+  if (state.byeRound) {
+    byeCard.style.display = "";
+    const byeEl = document.getElementById("byeMatchesEl");
+    byeEl.innerHTML = "";
+    for (const t of state.byeRound.tables) byeEl.appendChild(matchCard(state, t, true));
+  } else {
+    byeCard.style.display = "none";
+  }
+
+  const rows = E.computeStandings(state);
+  const tb = document.getElementById("tableBody");
+  tb.innerHTML = "";
+  rows.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    if (i < 3 && !r.retired) tr.className = "top3";
+    if (r.retired) tr.className = "retired";
+    tr.innerHTML = `<td>${i + 1}</td><td><b>${esc(r.name)}</b>${r.retired ? ' <span class="muted">(ret.)</span>' : ""}</td>
+      <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td><td>${r.BUC}</td><td><b>${r.PTS}</b></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+render();
+setInterval(render, 15000);
+</script>
+<div style="text-align:center;font-size:11px;color:#2a3a55;padding:1rem 0">Creado por Usama Mizher</div>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Tests – SwissEngine</title>
+  <style>
+    body { background:#0b1220; color:#e8eefc; font-family:ui-monospace, monospace; padding:20px; }
+    pre { white-space:pre-wrap; font-size:13px; }
+    .ok { color:#3db85d; font-weight:bold; }
+    .bad { color:#ff6b6b; font-weight:bold; }
+  </style>
+</head>
+<body>
+<h2>Self-tests del motor de torneo</h2>
+<pre id="out">Ejecutando…</pre>
+<script src="js/swiss-engine.js"></script>
+<script src="js/tests.js"></script>
+<script>
+const lines = [];
+const res = runSwissTests(msg => lines.push(msg));
+const out = document.getElementById("out");
+out.textContent = lines.join("\n");
+const status = document.createElement("div");
+status.className = res.failed ? "bad" : "ok";
+status.textContent = res.failed ? `✗ ${res.failed} fallos` : "✓ Todos los tests pasan";
+document.body.insertBefore(status, out);
+</script>
+</body>
+</html>
