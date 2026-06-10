@@ -96,8 +96,8 @@
     const { mode, maxRounds, participants } = opts || {};
     if (!MODES[mode]) throw new Error("Modalidad inválida.");
     const cfg = MODES[mode];
-    if (!Number.isInteger(maxRounds) || maxRounds < 1 || maxRounds > 50)
-      throw new Error("Número de rondas inválido.");
+    if (!Number.isInteger(maxRounds) || maxRounds < 4 || maxRounds > 50)
+      throw new Error("El torneo debe tener entre 4 y 50 rondas.");
     if (!Array.isArray(participants)) throw new Error("Lista de participantes inválida.");
 
     const state = {
@@ -344,27 +344,31 @@
 
   /* ===================== emparejamiento: INDIVIDUAL ===================== */
 
-  // Grupos de 4 por orden Monrad con backtracking y función de coste:
-  // compañero repetido inviable (1ª pasada), rivales repetidos penalizados,
-  // dispersión de ranking penalizada. Si no hay solución sin repetir
-  // compañero, 2ª pasada lo permite con coste enorme + warning.
+  // Grupos de 4 por orden Monrad con backtracking y relajación progresiva:
+  //   relax 0: ni compañeros ni rivales repetidos (estricto)
+  //   relax 1: compañeros no; rivales repetidos minimizados + warning
+  //   relax 2: todo penalizado (último recurso) + warnings
+  // Nota: cada ronda consume 3 rivales por jugador, así que con n jugadores
+  // solo existen ~(n−1)/3 rondas sin repetir rival; cuando se agotan, el
+  // motor avisa y el árbitro confirma — nunca se repite en silencio.
   function _pairIndividual(ids, partnerKeys, rivalCounts, opts) {
     const maxNodes = (opts && opts.maxNodes) || MAX_NODES;
     const rng = (opts && opts.rng) || Math.random;
     const rankOf = new Map(ids.map((id, i) => [id, i]));
 
-    function splitCost(t1a, t1b, t2a, t2b, allowPartnerRepeat) {
+    function splitCost(t1a, t1b, t2a, t2b, relax) {
       let partner = 0;
       if (partnerKeys.has(pairKey(t1a, t1b))) partner++;
       if (partnerKeys.has(pairKey(t2a, t2b))) partner++;
-      if (partner > 0 && !allowPartnerRepeat) return Infinity;
+      if (partner > 0 && relax < 2) return Infinity;
       let rival = 0;
       for (const x of [t1a, t1b]) for (const y of [t2a, t2b]) rival += rivalCounts.get(pairKey(x, y)) || 0;
+      if (rival > 0 && relax < 1) return Infinity;
       return partner * W_PARTNER + rival * W_RIVAL;
     }
 
     // Mejor partición de equipos (de las 3 posibles) para un grupo de 4
-    function bestSplit(g, allowPartnerRepeat) {
+    function bestSplit(g, relax) {
       const [a, b, c, d] = g;
       const splits = [
         [[a, b], [c, d]],
@@ -373,15 +377,15 @@
       ];
       let best = null, bestC = Infinity;
       for (const s of shuffle(splits, rng)) {
-        const cst = splitCost(s[0][0], s[0][1], s[1][0], s[1][1], allowPartnerRepeat);
+        const cst = splitCost(s[0][0], s[0][1], s[1][0], s[1][1], relax);
         if (cst < bestC) { bestC = cst; best = s; }
       }
       return { split: best, cost: bestC };
     }
 
-    function groupCost(anchor, trio, allowPartnerRepeat) {
+    function groupCost(anchor, trio, relax) {
       const g = [anchor, ...trio];
-      const { split, cost } = bestSplit(g, allowPartnerRepeat);
+      const { split, cost } = bestSplit(g, relax);
       if (cost === Infinity) return { cost: Infinity, split: null };
       let spread = 0;
       const aRank = rankOf.get(anchor);
@@ -389,7 +393,7 @@
       return { cost: cost + W_SPREAD * spread, split };
     }
 
-    function solve(allowPartnerRepeat) {
+    function solve(relax, stopAtFirst) {
       let nodes = 0;
       let best = null, bestCost = Infinity;
       function dfs(remaining, acc, cost) {
@@ -403,7 +407,7 @@
           for (let j = i + 1; j < window.length - 1; j++)
             for (let k = j + 1; k < window.length; k++) {
               const trio = [window[i], window[j], window[k]];
-              const gc = groupCost(anchor, trio, allowPartnerRepeat);
+              const gc = groupCost(anchor, trio, relax);
               if (gc.cost !== Infinity) candidates.push({ trio, ...gc });
             }
         candidates.sort((x, y) => x.cost - y.cost);
@@ -413,7 +417,7 @@
           acc.push({ group: [anchor, ...cand.trio], split: cand.split, cost: cand.cost });
           dfs(rest, acc, cost + cand.cost);
           acc.pop();
-          if (bestCost < W_RIVAL) return; // solución sin repeticiones: no se puede mejorar lo esencial
+          if (best && stopAtFirst) return;
           if (nodes > maxNodes) return;
         }
       }
@@ -421,10 +425,13 @@
       return best;
     }
 
-    let solution = solve(false);
+    // En relax 0 todo coste es solo dispersión Monrad: la primera solución
+    // completa (candidatos ya ordenados por coste) es la buscada.
+    let solution = solve(0, true);
     let warnings = [];
+    if (!solution) solution = solve(1, false);
     if (!solution) {
-      solution = solve(true);
+      solution = solve(2, false);
       if (!solution) throw new Error("Error interno: no se pudo generar el emparejamiento.");
       const repeated = [];
       for (const g of solution) {
@@ -433,7 +440,7 @@
       }
       if (repeated.length) warnings.push({ type: "partner_repeat", pairs: repeated });
     }
-    // Aviso informativo de rivales repetidos en la solución final
+    // Rivales repetidos en la solución final (solo posibles con relax ≥ 1)
     const rivalRepeats = [];
     for (const g of solution) {
       const [tA, tB] = g.split;
@@ -521,21 +528,59 @@
     const standingOrder = new Map(computeStandings(state).map((r, i) => [r.id, i]));
     const rested = restedIds(state).sort((a, b) => standingOrder.get(a) - standingOrder.get(b));
 
-    // Sobrantes: se excluye primero a quien menos descansó (menos "acreedor"),
-    // desempate por peor posición en la tabla.
+    // Sobrantes: queda fuera el PEOR clasificado de los descansados.
+    // La clasificación es por victorias totales, así que perder la partida
+    // extra debe caer donde menos afecta el resultado final.
     const excessCount = rested.length % cfg.unitsPerTable;
-    const byPriority = rested.slice().sort((a, b) =>
-      (state.benchHistory[a] || 0) - (state.benchHistory[b] || 0) ||
-      standingOrder.get(b) - standingOrder.get(a));
-    const excluded = byPriority.slice(0, excessCount);
-    const exSet = new Set(excluded);
-    const eligible = rested.filter(id => !exSet.has(id));
+    const excluded = excessCount ? rested.slice(-excessCount) : [];
+    const eligible = rested.slice(0, rested.length - excessCount);
 
     const history = pairingHistory(state);
     const { tables, warnings } = buildTables(state, eligible, history, rng);
     if (excluded.length) warnings.push({ type: "excluded_bye", ids: excluded });
     state.byeRound = { tables, excluded, warnings };
     return { byeRound: state.byeRound, warnings };
+  }
+
+  // Pronóstico de la ronda bye al configurar el torneo: con n participantes
+  // y R rondas descansan (n % tamañoMesa) unidades por ronda, todas distintas
+  // hasta completar el ciclo de rotación. Permite avisar al organizador si la
+  // bye dejará a alguien fuera y sugerir números de rondas que la dejan exacta.
+  function byeForecast(mode, n, maxRounds) {
+    const cfg = MODES[mode];
+    const per = n % cfg.unitsPerTable;
+    if (!per || n < cfg.unitsPerTable)
+      return { perRound: 0, restedCount: 0, excludedCount: 0, suggestedRounds: [] };
+    const restedFor = r => Math.min(per * r, n);
+    const rested = restedFor(maxRounds);
+    const excludedCount = rested < cfg.unitsPerTable ? rested : rested % cfg.unitsPerTable;
+    const suggestedRounds = [];
+    if (excludedCount > 0) {
+      for (let r = Math.max(4, maxRounds - 3); r <= maxRounds + 4 && suggestedRounds.length < 3; r++) {
+        const rr = restedFor(r);
+        if (r !== maxRounds && rr >= cfg.unitsPerTable && rr % cfg.unitsPerTable === 0)
+          suggestedRounds.push(r);
+      }
+    }
+    return { perRound: per, restedCount: rested, excludedCount, suggestedRounds };
+  }
+
+  // Deshacer la última ronda generada (o la bye). Revierte también el banco:
+  // historial y posición en la cola vuelven a su estado previo.
+  function undoLastRound(state) {
+    if (state.byeRound) {
+      state.byeRound = null;
+      return { undone: "bye" };
+    }
+    if (state.rounds.length === 0) throw new Error("No hay rondas que deshacer.");
+    const round = state.rounds.pop();
+    for (const id of [...round.bench].reverse()) {
+      if ((state.benchHistory[id] || 0) > 0) state.benchHistory[id]--;
+      const i = state.benchQueue.indexOf(id);
+      if (i >= 0) state.benchQueue.splice(i, 1);
+      state.benchQueue.unshift(id);
+    }
+    return { undone: round.round };
   }
 
   /* ===================== resultados ===================== */
@@ -673,7 +718,7 @@
     SCHEMA_VERSION, STORAGE_KEY, TIEBREAK_LABEL, MODES,
     createTournament, validateState,
     addParticipant, renameParticipant, setParticipantActive,
-    generateNextRound, generateByeRound,
+    generateNextRound, generateByeRound, undoLastRound, byeForecast,
     canGenerateNextRound, canGenerateByeRound,
     setResult, computeStandings, tournamentPhase, toCSV,
     roundIsComplete, tableScored, parseScore,
