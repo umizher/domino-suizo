@@ -4,44 +4,66 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>Torneo Suizo – Vista Pública</title>
   <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    body { margin: 0; background: #0b1220; color: #e8eefc; }
-    header { padding: 16px 18px; background: #121a2b; border-bottom: 1px solid #22304f; }
-    header h1 { margin: 0 0 8px; font-size: 18px; }
+    :root {
+      --bg: #0b1220; --card: #121a2b; --card2: #0f1830; --border: #22304f;
+      --pri: #2b65ff; --muted: #a8b9e0; --text: #e8eefc; --ok: #6fcf6f;
+      --radius: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.4; }
+    header { padding: clamp(12px, 1.6vw, 22px) clamp(14px, 2vw, 28px); background: var(--card); border-bottom: 1px solid var(--border); }
+    header h1 { margin: 0 0 8px; font-size: clamp(18px, 2.4vw, 32px); letter-spacing: -.3px; }
     .header-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    main { padding: 16px 18px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-    .card { background: #121a2b; border: 1px solid #22304f; border-radius: 14px; padding: 14px; }
-    .card h2 { margin: 0 0 10px; font-size: 15px; }
+    main { padding: clamp(14px, 2vw, 26px); max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: clamp(14px, 1.6vw, 22px); }
+    .card h2 { margin: 0 0 12px; font-size: clamp(15px, 1.7vw, 24px); }
     table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #22304f; padding: 10px; text-align: left; font-size: 13px; }
-    th { background: #0f1830; }
+    th, td { border-bottom: 1px solid var(--border); padding: clamp(8px, 1vw, 14px); text-align: left; font-size: clamp(13px, 1.4vw, 20px); }
+    thead th { background: var(--card2); font-size: clamp(11px, 1.1vw, 15px); color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+    tbody tr:nth-child(even) { background: rgba(255, 255, 255, .025); }
     tr.top3 td:first-child { font-weight: bold; color: #ffd700; }
-    tr.retired td { opacity:.45; }
-    .muted { color: #9fb1db; font-size: 12px; }
-    .pill { display: inline-block; padding: 3px 8px; border: 1px solid #22304f; border-radius: 999px; font-size: 12px; color: #cfe0ff; }
+    tr.retired td { opacity: .45; }
+    .muted { color: var(--muted); font-size: clamp(12px, 1.2vw, 16px); }
+    .pill { display: inline-block; padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: clamp(12px, 1.3vw, 18px); color: #cfe0ff; }
     .flex-between { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
-    .matches { display: flex; flex-direction: column; gap: 10px; }
-    .match { border: 1px solid #22304f; border-radius: 12px; padding: 12px; background: #0f1830; }
-    .mesa-label { color: #9fb1db; font-size: 12px; margin-bottom: 6px; }
-    .teams { display: flex; flex-direction: column; gap: 6px; }
-    .team-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .team-name { font-size: 14px; font-weight: bold; }
-    .team-score { font-size: 20px; font-weight: bold; color: #7ea8ff; min-width: 40px; text-align: right; }
-    .team-score.winner { color: #6fcf6f; }
-    .vs-line { text-align: center; color: #9fb1db; font-size: 11px; margin: 2px 0; }
-    .pending { color: #9fb1db; font-size: 13px; font-style: italic; }
-    .refresh-note { color: #9fb1db; font-size: 11px; }
-    .no-data { text-align: center; padding: 40px 20px; color: #9fb1db; }
-    .no-data .big { font-size: 40px; margin-bottom: 10px; }
-    .bench-note { color:#ffd86e; font-size:13px; margin-bottom:8px; }
+    .matches { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 1000px) { .matches { grid-template-columns: 1fr 1fr; } }
+    .match { border: 1px solid var(--border); border-radius: 12px; padding: clamp(12px, 1.4vw, 18px); background: var(--card2); }
+    .mesa-label { color: var(--muted); font-size: clamp(11px, 1.1vw, 15px); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+    .teams { display: flex; flex-direction: column; gap: 8px; }
+    .team-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .team-name { font-size: clamp(15px, 1.8vw, 26px); font-weight: bold; }
+    .team-score { font-size: clamp(20px, 2.4vw, 36px); font-weight: bold; color: #7ea8ff; min-width: 48px; text-align: right; }
+    .team-score.winner { color: var(--ok); }
+    .vs-line { text-align: center; color: var(--muted); font-size: clamp(10px, 1vw, 14px); margin: 2px 0; }
+    .pending { color: var(--muted); font-size: clamp(12px, 1.3vw, 17px); font-style: italic; }
+    .refresh-note { color: var(--muted); font-size: clamp(11px, 1.1vw, 14px); }
+    .no-data { text-align: center; padding: 50px 20px; color: var(--muted); font-size: clamp(14px, 1.6vw, 22px); }
+    .no-data .big { font-size: clamp(40px, 5vw, 72px); margin-bottom: 10px; }
+    .bench-note { color: #ffd86e; font-size: clamp(13px, 1.4vw, 19px); grid-column: 1 / -1; }
     .nav-tabs { display: flex; gap: 4px; margin-top: 10px; }
-    .nav-tab { padding: 5px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid #22304f; color: #9fb1db; text-decoration: none; }
-    .nav-tab.active { background: #2b65ff; border-color: #2b65ff; color: #fff; }
-    a.nav-tab:hover { color: #e8eefc; }
+    .nav-tab { padding: 6px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border); color: var(--muted); text-decoration: none; }
+    .nav-tab.active { background: var(--pri); border-color: var(--pri); color: #fff; }
+    a.nav-tab:hover { color: var(--text); }
+
+    /* ---- Podio TV ---- */
+    #podiumCard { text-align: center; }
+    .podium { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px, 1.5vw, 20px); margin: 12px 0 4px; flex-wrap: wrap; }
+    .podium-block { flex: 1; max-width: 320px; min-width: 160px; border-radius: var(--radius) var(--radius) 0 0; padding: clamp(14px, 1.6vw, 24px) 12px; }
+    .podium-block .pd-medal { font-size: clamp(38px, 4.5vw, 66px); }
+    .podium-block .pd-name { font-weight: 800; font-size: clamp(16px, 2vw, 30px); margin: 8px 0 4px; word-break: break-word; }
+    .podium-block .pd-stats { font-size: clamp(12px, 1.3vw, 18px); color: var(--muted); }
+    .podium-1 { background: linear-gradient(180deg, rgba(255, 215, 0, .22), rgba(255, 215, 0, .06)); border: 1px solid #6b5900; min-height: clamp(170px, 20vw, 260px); order: 2; }
+    .podium-2 { background: linear-gradient(180deg, rgba(192, 198, 214, .18), rgba(192, 198, 214, .05)); border: 1px solid #4a5568; min-height: clamp(135px, 16vw, 205px); order: 1; }
+    .podium-3 { background: linear-gradient(180deg, rgba(205, 127, 50, .18), rgba(205, 127, 50, .05)); border: 1px solid #7a4a1e; min-height: clamp(115px, 14vw, 175px); order: 3; }
+
     #pinOverlay{position:fixed;inset:0;background:#0b1220;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
     #pinInput{text-align:center;font-size:28px;letter-spacing:10px;width:150px;padding:10px;background:#121a2b;color:#fff;border:2px solid #22304f;border-radius:12px;outline:none}
     #pinInput:focus{border-color:#2b65ff}
@@ -68,6 +90,11 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="5050"){sessionSt
 
 <main>
 
+  <div class="card" id="podiumCard" style="display:none;">
+    <h2>🏆 Torneo finalizado</h2>
+    <div class="podium" id="podium"></div>
+  </div>
+
   <div class="card" id="matchesCard">
     <div class="flex-between" style="margin-bottom:10px;">
       <h2 id="matchesTitle">Ronda actual</h2>
@@ -79,7 +106,7 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="5050"){sessionSt
 
   <div class="card" id="byeRoundCard" style="display:none;">
     <h2 style="margin-bottom:10px;">Ronda Bye</h2>
-    <p class="muted" style="margin:0 0 10px;font-size:12px;">Quienes descansaron juegan su partida pendiente. El resultado cuenta en la tabla.</p>
+    <p class="muted" style="margin:0 0 10px;">Quienes descansaron juegan su partida pendiente. El resultado cuenta en la tabla.</p>
     <div class="matches" id="byeMatchesEl"></div>
   </div>
 
@@ -88,7 +115,7 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="5050"){sessionSt
       <h2>Posiciones</h2>
       <span class="muted" id="tiebreakLabel"></span>
     </div>
-    <div style="overflow:auto; border-radius:12px; border:1px solid #22304f;">
+    <div style="overflow:auto; border-radius:12px; border:1px solid var(--border);">
       <table>
         <thead>
           <tr><th>#</th><th id="thName">Nombre</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th><th title="Buchholz: suma de victorias de rivales únicos">BUC</th><th>Pts</th></tr>
@@ -105,16 +132,23 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="5050"){sessionSt
 "use strict";
 const E = SwissEngine;
 
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 }
 
-function loadState() {
-  let raw = null;
-  try { raw = JSON.parse(localStorage.getItem(E.STORAGE_KEY) || "null"); } catch {}
+let lastRaw = null; // re-render solo si el estado cambió (sin parpadeo en TV)
+
+function loadRaw() {
+  try { return localStorage.getItem(E.STORAGE_KEY); } catch { return null; }
+}
+function parseState(raw) {
   if (!raw) return null;
-  const v = E.validateState(raw);
+  let obj = null;
+  try { obj = JSON.parse(raw); } catch { return null; }
+  const v = E.validateState(obj);
   return v.ok ? v.state : null;
 }
 
@@ -145,19 +179,27 @@ function matchCard(state, t, byeTag) {
   return div;
 }
 
-function render() {
+function renderClock() {
   const now = new Date();
   document.getElementById("refreshNote").textContent =
     `Actualizado: ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-  document.getElementById("tiebreakLabel").textContent = E.TIEBREAK_LABEL;
+}
 
-  const state = loadState();
+function render(force) {
+  renderClock();
+  const raw = loadRaw();
+  if (!force && raw === lastRaw) return; // nada cambió: no parpadear
+  lastRaw = raw;
+
+  document.getElementById("tiebreakLabel").textContent = E.TIEBREAK_LABEL;
+  const state = parseState(raw);
   const matchesEl = document.getElementById("matches");
   if (!state) {
     document.getElementById("roundPill").textContent = "Ronda: –";
     matchesEl.innerHTML = `<div class="no-data"><div class="big">🁫</div>Esperando que el árbitro inicie el torneo…</div>`;
     document.getElementById("tableBody").innerHTML = "";
     document.getElementById("byeRoundCard").style.display = "none";
+    document.getElementById("podiumCard").style.display = "none";
     return;
   }
 
@@ -167,6 +209,27 @@ function render() {
   const rn = state.rounds.length;
   document.getElementById("roundPill").textContent = `Ronda: ${rn}/${state.maxRounds}${state.byeRound ? " + bye" : ""}`;
   document.getElementById("matchesTitle").textContent = rn > 0 ? `Ronda ${rn}` : "Sin rondas aún";
+
+  // Podio al finalizar
+  const podiumCard = document.getElementById("podiumCard");
+  if (E.tournamentPhase(state) === "finished") {
+    podiumCard.style.display = "";
+    const el = document.getElementById("podium");
+    el.innerHTML = "";
+    const medals = ["🥇", "🥈", "🥉"];
+    E.computeStandings(state).filter(r => !r.retired).slice(0, 3).forEach((r, i) => {
+      const div = document.createElement("div");
+      div.className = `podium-block podium-${i + 1}`;
+      div.innerHTML = `
+        <div class="pd-medal">${medals[i]}</div>
+        <div class="pd-name">${esc(r.name)}</div>
+        <div class="pd-stats">${r.G} ganadas · BUC ${r.BUC} · DIF ${r.DIF > 0 ? "+" : ""}${r.DIF}</div>
+      `;
+      el.appendChild(div);
+    });
+  } else {
+    podiumCard.style.display = "none";
+  }
 
   matchesEl.innerHTML = "";
   const round = state.rounds[rn - 1];
@@ -205,8 +268,10 @@ function render() {
   });
 }
 
-render();
-setInterval(render, 15000);
+render(true);
+setInterval(() => render(false), 15000);
+// El árbitro puede estar en otra pestaña del mismo navegador: refresco inmediato
+window.addEventListener("storage", e => { if (e.key === E.STORAGE_KEY) render(true); });
 </script>
 <div style="text-align:center;font-size:11px;color:#2a3a55;padding:1rem 0">Creado por Usama Mizher</div>
 </body>

@@ -215,22 +215,26 @@
     checkNoRepeats(state, label);
 
     if (E.canGenerateByeRound(state).ok) {
-      const orderBefore = new Map(E.computeStandings(state).map((r, i) => [r.id, i]));
-      const restedSorted = E.restedIds(state).slice().sort((a, b) => orderBefore.get(a) - orderBefore.get(b));
+      const restedBefore = E.restedIds(state);
       const { byeRound } = E.generateByeRound(state, rng);
       const cfg = E.MODES[mode];
-      // Regla del usuario: si la bye no completa mesa, queda fuera el PEOR clasificado
-      const expectedExcluded = byeRound.excluded.length ? restedSorted.slice(-byeRound.excluded.length) : [];
-      assert(JSON.stringify([...byeRound.excluded].sort()) === JSON.stringify([...expectedExcluded].sort()),
-        `${label}: la exclusión de la bye no es el peor clasificado`);
       assert(byeRound.tables.length >= 1, `${label}: bye sin mesas`);
       const seated = byeRound.tables.flatMap(t => [...t.teamA, ...t.teamB]);
       assert(new Set(seated).size === seated.length, `${label}: bye con duplicados`);
       assert(seated.length % cfg.unitsPerTable === 0, `${label}: bye no múltiplo de mesa`);
-      for (const id of seated)
-        assert((state.benchHistory[id] || 0) > 0, `${label}: en bye juega alguien que nunca descansó`);
-      for (const id of byeRound.excluded)
-        assert(!seated.includes(id), `${label}: excluido del bye está sentado`);
+      // Regla del usuario: NADIE queda fuera — todos los descansados juegan,
+      // y la mesa incompleta se rellena con invitados A/B/C
+      for (const id of restedBefore)
+        assert(seated.includes(id), `${label}: descansado fuera de la bye`);
+      const ghosts = state.participants.filter(p => p.ghost).map(p => p.id);
+      const expectedGhosts = (cfg.unitsPerTable - (restedBefore.length % cfg.unitsPerTable)) % cfg.unitsPerTable;
+      assert(ghosts.length === expectedGhosts, `${label}: nº de invitados incorrecto (${ghosts.length} vs ${expectedGhosts})`);
+      for (const id of ghosts)
+        assert(seated.includes(id), `${label}: invitado creado pero no sentado`);
+      assert(seated.length === restedBefore.length + ghosts.length, `${label}: en la bye juega alguien que no descansó`);
+      assert(!E.computeStandings(state).some(r => ghosts.includes(r.id)), `${label}: invitado aparece en standings`);
+      if (ghosts.length)
+        assert(byeRound.warnings.some(w => w.type === "ghost_fill"), `${label}: faltó warning ghost_fill`);
       checkNoRepeats(state, label + " (con bye)");
       scoreAllTables(byeRound.tables, rng);
       assert(E.tournamentPhase(state) === "finished", `${label}: fase no es finished tras puntuar bye`);
@@ -398,20 +402,64 @@
     assert(E.tournamentPhase(s2) === "finished", "sin descansados: fase ≠ finished");
   }
 
-  section("byeForecast: pronóstico de exclusión y sugerencias");
+  section("byeForecast: pronóstico de invitados y sugerencias");
   {
     let f = E.byeForecast("individual", 25, 5);
-    assert(f.perRound === 1 && f.restedCount === 5 && f.excludedCount === 1, "25j/5r: pronóstico incorrecto");
+    assert(f.perRound === 1 && f.restedCount === 5 && f.ghostCount === 3, "25j/5r: pronóstico incorrecto");
     assert(f.suggestedRounds.includes(4) && f.suggestedRounds.includes(8), "25j/5r: sugerencias deben incluir 4 y 8");
     f = E.byeForecast("individual", 25, 4);
-    assert(f.excludedCount === 0 && f.restedCount === 4, "25j/4r: la bye debería ser exacta");
+    assert(f.ghostCount === 0 && f.restedCount === 4, "25j/4r: la bye debería ser exacta");
     f = E.byeForecast("individual", 24, 6);
-    assert(f.perRound === 0 && f.excludedCount === 0, "24j: sin banco no hay bye");
+    assert(f.perRound === 0 && f.ghostCount === 0, "24j: sin banco no hay bye");
     // 5 parejas: a partir de la R5 todas han descansado (5, impar), así que
     // solo 4 rondas dejan la bye exacta — 6+ rondas no ayudan.
     f = E.byeForecast("parejas", 5, 5);
-    assert(f.excludedCount === 1 && f.suggestedRounds.length === 1 && f.suggestedRounds[0] === 4,
+    assert(f.ghostCount === 1 && f.suggestedRounds.length === 1 && f.suggestedRounds[0] === 4,
       "5 parejas/5r: pronóstico incorrecto");
+  }
+
+  section("Bye con invitados A/B/C: nombres, conflicto y limpieza al deshacer");
+  {
+    // individual 9 jugadores a 5 rondas → 5 descansados → 3 invitados (A, B, C)
+    const rng = E._mulberry32(41);
+    const state = E.createTournament({ mode: "individual", maxRounds: 5, participants: mkParticipants("individual", 9) }, rng);
+    while (E.canGenerateNextRound(state).ok) {
+      const { round } = E.generateNextRound(state, rng);
+      scoreAllTables(round.tables, rng);
+    }
+    E.generateByeRound(state, rng);
+    const ghostNames = state.participants.filter(p => p.ghost).map(p => p.name).sort();
+    assert(JSON.stringify(ghostNames) === JSON.stringify(["A", "B", "C"]), `invitados mal nombrados: ${ghostNames}`);
+    assert(state.byeRound.tables.length === 2, "9j/5r: la bye debería tener 2 mesas");
+    assert(E.computeStandings(state).length === 9, "standings deben tener solo los 9 reales");
+    // deshacer la bye elimina a los invitados
+    E.undoLastRound(state);
+    assert(!state.participants.some(p => p.ghost), "deshacer la bye no eliminó a los invitados");
+    assert(E.canGenerateByeRound(state).ok, "tras deshacer no se puede regenerar la bye");
+    // conflicto de nombre: jugador real llamado "A"
+    const rng2 = E._mulberry32(43);
+    const parts = mkParticipants("individual", 9);
+    parts[0] = { name: "A", members: ["A"] };
+    const s2 = E.createTournament({ mode: "individual", maxRounds: 5, participants: parts }, rng2);
+    while (E.canGenerateNextRound(s2).ok) {
+      const { round } = E.generateNextRound(s2, rng2);
+      scoreAllTables(round.tables, rng2);
+    }
+    E.generateByeRound(s2, rng2);
+    const names2 = s2.participants.filter(p => p.ghost).map(p => p.name);
+    assert(names2.includes("Invitado A") && !names2.filter(n => n === "A").length,
+      `conflicto de nombre no resuelto: ${names2}`);
+    // parejas: 5 parejas a 5 rondas → 5 descansadas → 1 pareja invitada "A"
+    const rng3 = E._mulberry32(47);
+    const s3 = E.createTournament({ mode: "parejas", maxRounds: 5, participants: mkParticipants("parejas", 5) }, rng3);
+    while (E.canGenerateNextRound(s3).ok) {
+      const { round } = E.generateNextRound(s3, rng3);
+      scoreAllTables(round.tables, rng3);
+    }
+    E.generateByeRound(s3, rng3);
+    const g3 = s3.participants.filter(p => p.ghost);
+    assert(g3.length === 1 && g3[0].name === "A", "parejas: invitada única 'A' esperada");
+    assert(s3.byeRound.tables.length === 3, "5 parejas/5r: la bye debería tener 3 mesas");
   }
 
   section("createTournament: mínimo 4 rondas, acepta impares");
