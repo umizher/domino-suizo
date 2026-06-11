@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>Dominó – Inicio</title>
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
@@ -75,6 +79,7 @@
   <div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div>
 </div>
 <script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
 (function(){ if(sessionStorage.getItem("domino_pin_ok")==="1") document.getElementById("pinOverlay").style.display="none"; })();
 function checkPin(inp){
   if(inp.value.length>=4){

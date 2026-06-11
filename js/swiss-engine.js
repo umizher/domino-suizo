@@ -201,7 +201,7 @@
 
   function computeStandings(state) {
     const stats = new Map(state.participants.map(p => [p.id, {
-      id: p.id, name: p.name, retired: !p.active,
+      id: p.id, name: p.name, retired: !p.active, ghost: !!p.ghost,
       PJ: 0, G: 0, P: 0, PF: 0, PC: 0, DIF: 0, BUC: 0, PTS: 0, _opps: new Set()
     }]));
     for (const t of allTables(state)) {
@@ -227,7 +227,8 @@
       for (const opp of s._opps) buc += stats.get(opp) ? stats.get(opp).G : 0;
       s.BUC = buc;
     }
-    const rows = [...stats.values()];
+    // Los invitados de relleno de la bye no clasifican
+    const rows = [...stats.values()].filter(s => !s.ghost);
     rows.sort((x, y) =>
       y.PTS !== x.PTS ? y.PTS - x.PTS :
       y.BUC !== x.BUC ? y.BUC - x.BUC :
@@ -509,15 +510,14 @@
   }
 
   function canGenerateByeRound(state) {
-    const cfg = MODES[state.mode];
     if (state.byeRound !== null) return { ok: false, reason: "La ronda bye ya fue generada." };
     if (state.rounds.length < state.maxRounds)
       return { ok: false, reason: "La ronda bye solo se genera al completar todas las rondas." };
     const last = state.rounds[state.rounds.length - 1];
     if (!last || !roundIsComplete(last))
       return { ok: false, reason: "Completa los puntos de la última ronda primero." };
-    if (restedIds(state).length < cfg.unitsPerTable)
-      return { ok: false, reason: `No hay suficientes ${MODES[state.mode].unitLabelPlural} con descansos para una mesa.` };
+    if (restedIds(state).length < 1)
+      return { ok: false, reason: "Nadie descansó durante el torneo: no hace falta ronda bye." };
     return { ok: true, reason: "" };
   }
 
@@ -528,47 +528,64 @@
     const standingOrder = new Map(computeStandings(state).map((r, i) => [r.id, i]));
     const rested = restedIds(state).sort((a, b) => standingOrder.get(a) - standingOrder.get(b));
 
-    // Sobrantes: queda fuera el PEOR clasificado de los descansados.
-    // La clasificación es por victorias totales, así que perder la partida
-    // extra debe caer donde menos afecta el resultado final.
-    const excessCount = rested.length % cfg.unitsPerTable;
-    const excluded = excessCount ? rested.slice(-excessCount) : [];
-    const eligible = rested.slice(0, rested.length - excessCount);
+    // Nadie queda fuera: si los descansados no completan la última mesa,
+    // se crean invitados de relleno "A", "B", "C" (voluntarios en la sala).
+    const missing = (cfg.unitsPerTable - (rested.length % cfg.unitsPerTable)) % cfg.unitsPerTable;
+    const letters = ["A", "B", "C"];
+    const ghosts = [];
+    for (let i = 0; i < missing; i++) {
+      let name = letters[i];
+      if (state.participants.some(p => p.name.trim().toLowerCase() === name.toLowerCase()))
+        name = "Invitado " + letters[i];
+      const id = "u" + state.nextId++;
+      state.participants.push({ id, name, members: [name], active: false, addedAtRound: state.rounds.length, ghost: true });
+      state.benchHistory[id] = 0;
+      state.benchQueue.push(id);
+      ghosts.push(id);
+    }
 
+    // Los invitados se sientan al final (mesa del peor clasificado descansado)
+    const eligible = rested.concat(ghosts);
     const history = pairingHistory(state);
     const { tables, warnings } = buildTables(state, eligible, history, rng);
-    if (excluded.length) warnings.push({ type: "excluded_bye", ids: excluded });
-    state.byeRound = { tables, excluded, warnings };
+    if (ghosts.length) warnings.push({ type: "ghost_fill", ids: ghosts });
+    state.byeRound = { tables, excluded: [], warnings };
     return { byeRound: state.byeRound, warnings };
   }
 
   // Pronóstico de la ronda bye al configurar el torneo: con n participantes
   // y R rondas descansan (n % tamañoMesa) unidades por ronda, todas distintas
-  // hasta completar el ciclo de rotación. Permite avisar al organizador si la
-  // bye dejará a alguien fuera y sugerir números de rondas que la dejan exacta.
+  // hasta completar el ciclo de rotación. Permite avisar al organizador
+  // cuántos invitados de relleno necesitará la bye y qué números de rondas
+  // la dejan exacta.
   function byeForecast(mode, n, maxRounds) {
     const cfg = MODES[mode];
     const per = n % cfg.unitsPerTable;
     if (!per || n < cfg.unitsPerTable)
-      return { perRound: 0, restedCount: 0, excludedCount: 0, suggestedRounds: [] };
+      return { perRound: 0, restedCount: 0, ghostCount: 0, suggestedRounds: [] };
     const restedFor = r => Math.min(per * r, n);
     const rested = restedFor(maxRounds);
-    const excludedCount = rested < cfg.unitsPerTable ? rested : rested % cfg.unitsPerTable;
+    const ghostCount = (cfg.unitsPerTable - (rested % cfg.unitsPerTable)) % cfg.unitsPerTable;
     const suggestedRounds = [];
-    if (excludedCount > 0) {
+    if (ghostCount > 0) {
       for (let r = Math.max(4, maxRounds - 3); r <= maxRounds + 4 && suggestedRounds.length < 3; r++) {
         const rr = restedFor(r);
         if (r !== maxRounds && rr >= cfg.unitsPerTable && rr % cfg.unitsPerTable === 0)
           suggestedRounds.push(r);
       }
     }
-    return { perRound: per, restedCount: rested, excludedCount, suggestedRounds };
+    return { perRound: per, restedCount: rested, ghostCount, suggestedRounds };
   }
 
   // Deshacer la última ronda generada (o la bye). Revierte también el banco:
   // historial y posición en la cola vuelven a su estado previo.
   function undoLastRound(state) {
     if (state.byeRound) {
+      // Los invitados de relleno solo existen para la bye: se eliminan con ella
+      const ghostIds = new Set(state.participants.filter(p => p.ghost).map(p => p.id));
+      state.participants = state.participants.filter(p => !p.ghost);
+      for (const id of ghostIds) delete state.benchHistory[id];
+      state.benchQueue = state.benchQueue.filter(id => !ghostIds.has(id));
       state.byeRound = null;
       return { undone: "bye" };
     }
