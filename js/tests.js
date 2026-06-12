@@ -533,6 +533,109 @@
     assert(csv.split("\n").some(l => l.includes("banco")), "CSV sin fila de banco");
   }
 
+  section("Config: puntos por partida y reloj (v4)");
+  {
+    const rng = E._mulberry32(31);
+    const s1 = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 8) }, rng);
+    assert(s1.schemaVersion === 4, "schemaVersion debe ser 4");
+    assert(s1.config.targetPoints === 200, "targetPoints default debe ser 200");
+    assert(s1.config.timerMinutes === null, "timerMinutes default debe ser null");
+    const s2 = E.createTournament({ mode: "parejas", maxRounds: 4, targetPoints: 150, timerMinutes: 40, participants: mkParticipants("parejas", 4) }, rng);
+    assert(s2.config.targetPoints === 150 && s2.config.timerMinutes === 40, "config personalizada no respetada");
+    // strings de inputs HTML también valen
+    const s3 = E.createTournament({ mode: "individual", maxRounds: 4, targetPoints: "200", timerMinutes: "", participants: mkParticipants("individual", 8) }, rng);
+    assert(s3.config.targetPoints === 200 && s3.config.timerMinutes === null, "config desde strings no normalizada");
+    for (const bad of [{ targetPoints: 10 }, { targetPoints: 5000 }, { targetPoints: 100.5 }, { timerMinutes: 2 }, { timerMinutes: 999 }]) {
+      let err = false;
+      try { E.createTournament({ mode: "individual", maxRounds: 4, ...bad, participants: mkParticipants("individual", 8) }, rng); }
+      catch { err = true; }
+      assert(err, "aceptó config inválida: " + JSON.stringify(bad));
+    }
+  }
+
+  section("Migración v3 → v4 en validateState");
+  {
+    const rng = E._mulberry32(33);
+    const st = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 9) }, rng);
+    const { round } = E.generateNextRound(st, rng);
+    scoreAllTables(round.tables, rng);
+    const raw = JSON.parse(JSON.stringify(st));
+    raw.schemaVersion = 3;
+    delete raw.config;
+    for (const r of raw.rounds) delete r.timer;
+    const v = E.validateState(raw);
+    assert(v.ok, "estado v3 debe migrar: " + (v.errors || []).join(" "));
+    assert(v.state.schemaVersion === 4, "migración no actualizó schemaVersion");
+    assert(v.state.config && v.state.config.targetPoints === 200 && v.state.config.timerMinutes === null,
+      "migración sin config default");
+    assert(v.state.rounds[0].timer === null, "migración sin timer null en rondas");
+    assert(v.state.rounds.length === 1 && E.computeStandings(v.state).length === 9,
+      "migración perdió rondas o participantes");
+    // config corrupta guardada → defaults, no fallo
+    const raw2 = JSON.parse(JSON.stringify(st));
+    raw2.config = { targetPoints: -5, timerMinutes: "x" };
+    const v2 = E.validateState(raw2);
+    assert(v2.ok && v2.state.config.targetPoints === 200, "config corrupta no cayó a defaults");
+    // v2 sigue rechazado
+    const raw3 = JSON.parse(JSON.stringify(st));
+    raw3.schemaVersion = 2;
+    assert(!E.validateState(raw3).ok, "aceptó schemaVersion 2");
+  }
+
+  section("Temporizador de ronda");
+  {
+    const rng = E._mulberry32(35);
+    const T0 = 1000000;
+    const st = E.createTournament({ mode: "individual", maxRounds: 4, timerMinutes: 10, participants: mkParticipants("individual", 8) }, rng);
+    const { round } = E.generateNextRound(st, rng, T0);
+    assert(round.timer && round.timer.startedAt === T0 && round.timer.pausedAt === null,
+      "la ronda no arrancó con reloj");
+    assert(E.timerRemaining(st, round, T0 + 60000) === 9 * 60000, "restante incorrecto tras 1 min");
+    assert(!E.timerPaused(round), "no debería estar pausado");
+    E.timerPause(round, T0 + 120000);
+    assert(E.timerPaused(round), "pausa no aplicada");
+    assert(E.timerRemaining(st, round, T0 + 300000) === 8 * 60000, "el reloj avanzó estando pausado");
+    E.timerResume(round, T0 + 300000);
+    assert(!E.timerPaused(round), "reanudar no aplicado");
+    assert(E.timerRemaining(st, round, T0 + 300000) === 8 * 60000, "reanudar alteró el restante");
+    E.timerRestart(st, round, T0 + 400000);
+    assert(E.timerRemaining(st, round, T0 + 400000) === 10 * 60000, "reiniciar no devolvió el tiempo completo");
+    assert(E.timerRemaining(st, round, T0 + 60 * 60000) < 0, "agotado debe ser negativo");
+    // deshacer ronda con timer no rompe
+    E.undoLastRound(st);
+    assert(st.rounds.length === 0, "undo con timer falló");
+    // sin timerMinutes: rondas sin reloj y remaining null
+    const st2 = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 8) }, rng);
+    const r2 = E.generateNextRound(st2, rng).round;
+    assert(r2.timer === null, "ronda con reloj sin configurarlo");
+    assert(E.timerRemaining(st2, r2) === null, "remaining debe ser null sin reloj");
+  }
+
+  section("scoreStatus: meta 200, pasarse anota completo, fin por tiempo");
+  {
+    const rng = E._mulberry32(37);
+    const st = E.createTournament({ mode: "parejas", maxRounds: 4, participants: mkParticipants("parejas", 4) }, rng);
+    E.generateNextRound(st, rng);
+    const t = st.rounds[0].tables[0];
+    assert(E.scoreStatus(st, t) === "pending", "mesa sin puntos debe ser pending");
+    E.setResult(st, 1, t.table, 200, 180);
+    assert(E.scoreStatus(st, t) === "complete", "200 exacto debe ser complete");
+    E.setResult(st, 1, t.table, 220, 195);
+    assert(t.ptsA === 220, "pasarse de 200 debe anotarse completo (220)");
+    assert(E.scoreStatus(st, t) === "complete", "220 debe ser complete");
+    E.setResult(st, 1, t.table, 150, 120);
+    assert(E.scoreStatus(st, t) === "time_win", "ganador con 150 debe ser time_win");
+    let err = false;
+    try { E.setResult(st, 1, t.table, 150, 150); } catch { err = true; }
+    assert(err, "el empate debe seguir bloqueado");
+    // meta personalizada
+    const st2 = E.createTournament({ mode: "parejas", maxRounds: 4, targetPoints: 100, participants: mkParticipants("parejas", 4) }, rng);
+    E.generateNextRound(st2, rng);
+    const t2 = st2.rounds[0].tables[0];
+    E.setResult(st2, 1, t2.table, 110, 80);
+    assert(E.scoreStatus(st2, t2) === "complete", "meta 100: 110 debe ser complete");
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);

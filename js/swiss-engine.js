@@ -14,9 +14,14 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
+  // La clave no cambia entre v3 y v4: los torneos v3 guardados se migran al cargar.
   const STORAGE_KEY = "domino_torneo_v3";
   const TIEBREAK_LABEL = "Ganadas → Buchholz → DIF → Puntos";
+
+  // Reglas profesionales (FID): partidas a 200 puntos — si se pasan, se anotan
+  // completos — con límite de tiempo opcional por ronda (gana quien va arriba).
+  const DEFAULT_CONFIG = { targetPoints: 200, timerMinutes: null };
 
   const MODES = {
     individual: { teamSize: 2, unitsPerTable: 4, unitLabel: "jugador", unitLabelPlural: "jugadores" },
@@ -92,8 +97,27 @@
 
   function pairName(members) { return members.map(s => s.trim()).filter(Boolean).join(" & "); }
 
+  function normalizeConfig(raw) {
+    const cfg = { ...DEFAULT_CONFIG };
+    if (raw && typeof raw === "object") {
+      if (raw.targetPoints !== undefined && raw.targetPoints !== null && raw.targetPoints !== "") {
+        const tp = Number(raw.targetPoints);
+        if (!Number.isInteger(tp) || tp < 50 || tp > 1000)
+          throw new Error("Los puntos por partida deben ser un entero entre 50 y 1000.");
+        cfg.targetPoints = tp;
+      }
+      if (raw.timerMinutes !== undefined && raw.timerMinutes !== null && raw.timerMinutes !== "") {
+        const tm = Number(raw.timerMinutes);
+        if (!Number.isInteger(tm) || tm < 5 || tm > 180)
+          throw new Error("El tiempo por ronda debe ser un entero entre 5 y 180 minutos.");
+        cfg.timerMinutes = tm;
+      }
+    }
+    return cfg;
+  }
+
   function createTournament(opts, rng = Math.random) {
-    const { mode, maxRounds, participants } = opts || {};
+    const { mode, maxRounds, participants, targetPoints, timerMinutes } = opts || {};
     if (!MODES[mode]) throw new Error("Modalidad inválida.");
     const cfg = MODES[mode];
     if (!Number.isInteger(maxRounds) || maxRounds < 4 || maxRounds > 50)
@@ -105,6 +129,7 @@
       mode,
       createdAt: new Date().toISOString(),
       maxRounds,
+      config: normalizeConfig({ targetPoints, timerMinutes }),
       nextId: 1,
       participants: [],
       rounds: [],
@@ -125,7 +150,9 @@
     const errors = [];
     const fail = msg => { errors.push(msg); };
     if (!raw || typeof raw !== "object") return { ok: false, errors: ["No hay datos de torneo."] };
-    if (raw.schemaVersion !== SCHEMA_VERSION) fail("Versión de datos incompatible.");
+    // v3 se migra en sitio: solo le faltan config y los timers de ronda.
+    if (raw.schemaVersion !== SCHEMA_VERSION && raw.schemaVersion !== 3)
+      fail("Versión de datos incompatible.");
     if (!MODES[raw.mode]) fail("Modalidad desconocida.");
     if (!Number.isInteger(raw.maxRounds) || raw.maxRounds < 1) fail("maxRounds inválido.");
     if (!Array.isArray(raw.participants) || raw.participants.length === 0) fail("Participantes inválidos.");
@@ -153,13 +180,18 @@
       t.teamA.every(id => !t.teamB.includes(id)) &&
       !Number.isNaN(parseScore(t.ptsA)) && !Number.isNaN(parseScore(t.ptsB));
 
+    const validTimer = (t) =>
+      t === null || t === undefined ||
+      (typeof t === "object" && Number.isFinite(t.startedAt) &&
+       (t.pausedAt === null || Number.isFinite(t.pausedAt)));
+
     if (!Array.isArray(raw.rounds)) fail("Rondas inválidas.");
     else {
       for (let i = 0; i < raw.rounds.length; i++) {
         const r = raw.rounds[i];
         if (!r || r.round !== i + 1 || !Array.isArray(r.tables) || !r.tables.every(validTable) ||
             !Array.isArray(r.bench) || !r.bench.every(id => ids.has(id)) ||
-            !Array.isArray(r.warnings)) {
+            !Array.isArray(r.warnings) || !validTimer(r.timer)) {
           fail(`Ronda ${i + 1} con formato inválido.`); break;
         }
       }
@@ -168,7 +200,7 @@
       const b = raw.byeRound;
       if (!b || typeof b !== "object" || !Array.isArray(b.tables) || !b.tables.every(validTable) ||
           !Array.isArray(b.excluded) || !b.excluded.every(id => ids.has(id)) ||
-          !Array.isArray(b.warnings) || b.tables.length === 0)
+          !Array.isArray(b.warnings) || b.tables.length === 0 || !validTimer(b.timer))
         fail("Ronda bye con formato inválido.");
     }
     if (errors.length) return { ok: false, errors };
@@ -177,6 +209,12 @@
     // benchHistory y aparece exactamente una vez en benchQueue.
     const state = raw;
     state.byeRound = state.byeRound || null;
+    // Migración v3 → v4 y saneo de config (si la guardada es inválida, defaults)
+    state.schemaVersion = SCHEMA_VERSION;
+    try { state.config = normalizeConfig(state.config); }
+    catch { state.config = { ...DEFAULT_CONFIG }; }
+    for (const r of state.rounds) if (r.timer === undefined) r.timer = null;
+    if (state.byeRound && state.byeRound.timer === undefined) state.byeRound.timer = null;
     const hist = {};
     for (const p of state.participants) {
       const h = state.benchHistory && state.benchHistory[p.id];
@@ -491,14 +529,14 @@
     return { tables: matches.map(([a, b], i) => ({ table: i + 1, teamA: [a], teamB: [b], ptsA: "", ptsB: "" })), warnings };
   }
 
-  function generateNextRound(state, rng = Math.random) {
+  function generateNextRound(state, rng = Math.random, now = Date.now()) {
     const can = canGenerateNextRound(state);
     if (!can.ok) throw new Error(can.reason);
     const ranked = rankedActiveIds(state, rng);
     const { bench, active } = _selectBench(state, ranked);
     const history = pairingHistory(state);
     const { tables, warnings } = buildTables(state, active, history, rng);
-    const round = { round: state.rounds.length + 1, tables, bench, warnings };
+    const round = { round: state.rounds.length + 1, tables, bench, warnings, timer: newTimer(state, now) };
     state.rounds.push(round);
     return { round, warnings };
   }
@@ -549,7 +587,7 @@
     const history = pairingHistory(state);
     const { tables, warnings } = buildTables(state, eligible, history, rng);
     if (ghosts.length) warnings.push({ type: "ghost_fill", ids: ghosts });
-    state.byeRound = { tables, excluded: [], warnings };
+    state.byeRound = { tables, excluded: [], warnings, timer: newTimer(state) };
     return { byeRound: state.byeRound, warnings };
   }
 
@@ -598,6 +636,52 @@
       state.benchQueue.unshift(id);
     }
     return { undone: round.round };
+  }
+
+  /* ===================== temporizador de ronda ===================== */
+
+  // El reloj de cada ronda vive en el estado (timestamps absolutos): así
+  // sobrevive recargas y la vista pública lo lee desde localStorage.
+  function newTimer(state, now = Date.now()) {
+    return state.config && state.config.timerMinutes ? { startedAt: now, pausedAt: null } : null;
+  }
+
+  // ms restantes de la ronda, o null si la ronda no tiene reloj.
+  function timerRemaining(state, roundObj, now = Date.now()) {
+    if (!roundObj || !roundObj.timer || !state.config || !state.config.timerMinutes) return null;
+    const t = roundObj.timer;
+    const elapsed = (t.pausedAt === null ? now : t.pausedAt) - t.startedAt;
+    return state.config.timerMinutes * 60000 - elapsed;
+  }
+
+  function timerPaused(roundObj) {
+    return !!(roundObj && roundObj.timer && roundObj.timer.pausedAt !== null);
+  }
+
+  function timerPause(roundObj, now = Date.now()) {
+    if (!roundObj || !roundObj.timer) throw new Error("Esta ronda no tiene reloj.");
+    if (roundObj.timer.pausedAt === null) roundObj.timer.pausedAt = now;
+  }
+
+  function timerResume(roundObj, now = Date.now()) {
+    if (!roundObj || !roundObj.timer) throw new Error("Esta ronda no tiene reloj.");
+    const t = roundObj.timer;
+    if (t.pausedAt !== null) { t.startedAt += now - t.pausedAt; t.pausedAt = null; }
+  }
+
+  function timerRestart(state, roundObj, now = Date.now()) {
+    if (!roundObj) throw new Error("Ronda inexistente.");
+    roundObj.timer = newTimer(state, now);
+  }
+
+  // Estado de una mesa respecto a la meta de puntos: "complete" si el ganador
+  // alcanzó la meta (puede pasarse: se anota completo), "time_win" si hay
+  // ganador por debajo de la meta (fin por tiempo: gana quien va arriba).
+  function scoreStatus(state, table) {
+    if (!tableScored(table)) return "pending";
+    const win = Math.max(parseScore(table.ptsA), parseScore(table.ptsB));
+    const target = (state.config && state.config.targetPoints) || DEFAULT_CONFIG.targetPoints;
+    return win >= target ? "complete" : "time_win";
   }
 
   /* ===================== resultados ===================== */
@@ -710,6 +794,9 @@
     const teamLabel = team => team.map(id => nameOf(state, id)).join(" + ");
     const lines = [];
     lines.push(["modalidad", state.mode].join(","));
+    const cfg = state.config || DEFAULT_CONFIG;
+    lines.push(["puntos_por_partida", cfg.targetPoints].join(","));
+    lines.push(["tiempo_por_ronda_min", cfg.timerMinutes ?? "sin límite"].join(","));
     lines.push(["ronda", "mesa", "equipoA", "equipoB", "ptsA", "ptsB"].join(","));
     for (const r of state.rounds) {
       for (const t of r.tables)
@@ -732,13 +819,14 @@
   /* ===================== API pública ===================== */
 
   return {
-    SCHEMA_VERSION, STORAGE_KEY, TIEBREAK_LABEL, MODES,
+    SCHEMA_VERSION, STORAGE_KEY, TIEBREAK_LABEL, MODES, DEFAULT_CONFIG,
     createTournament, validateState,
     addParticipant, renameParticipant, setParticipantActive,
     generateNextRound, generateByeRound, undoLastRound, byeForecast,
     canGenerateNextRound, canGenerateByeRound,
     setResult, computeStandings, tournamentPhase, toCSV,
-    roundIsComplete, tableScored, parseScore,
+    roundIsComplete, tableScored, parseScore, scoreStatus,
+    timerRemaining, timerPaused, timerPause, timerResume, timerRestart,
     getParticipant, nameOf, activeIds, restedIds, pairingHistory, betweenRounds,
     _selectBench, _pairIndividual, _pairParejas, _mulberry32: mulberry32, _shuffle: shuffle, _pairKey: pairKey
   };

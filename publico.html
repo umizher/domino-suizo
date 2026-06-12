@@ -79,6 +79,14 @@
     .vs-line { text-align: center; color: #5d6f9e; font-size: clamp(10px, 1vw, 14px); font-weight: 700; letter-spacing: 1px; margin: 2px 0; }
     .pending { color: var(--muted); font-size: clamp(12px, 1.3vw, 17px); font-style: italic; }
     .refresh-note { color: var(--muted); font-size: clamp(11px, 1.1vw, 14px); }
+    /* ---- Reloj de ronda (TV) ---- */
+    .timer-pill {
+      font-variant-numeric: tabular-nums; font-weight: 800;
+      font-size: clamp(16px, 2.2vw, 32px); padding: 6px 20px;
+    }
+    .timer-pill.t-warn { border-color: rgba(251, 191, 36, .6); color: var(--gold); background: rgba(251, 191, 36, .1); }
+    .timer-pill.t-over { border-color: rgba(239, 68, 68, .7); color: #ff8a8a; background: rgba(239, 68, 68, .12); animation: timerPulse 1.1s ease-in-out infinite; }
+    @keyframes timerPulse { 50% { box-shadow: 0 0 16px rgba(239, 68, 68, .55); } }
     .no-data { text-align: center; padding: 50px 20px; color: var(--muted); font-size: clamp(14px, 1.6vw, 22px); }
     .no-data .big { font-size: clamp(40px, 5vw, 72px); margin-bottom: 10px; }
     .bench-note { color: #fcd34d; font-size: clamp(13px, 1.4vw, 19px); grid-column: 1 / -1; }
@@ -123,6 +131,7 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="5050"){sessionSt
   </div>
   <div class="header-row">
     <span class="pill" id="roundPill">Ronda: –</span>
+    <span class="pill timer-pill" id="timerPill" style="display:none;">⏱ --:--</span>
     <span class="refresh-note" id="refreshNote">Actualiza cada 15s</span>
   </div>
   <div class="nav-tabs">
@@ -183,7 +192,8 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 }
 
-let lastRaw = null; // re-render solo si el estado cambió (sin parpadeo en TV)
+let lastRaw = null;   // re-render solo si el estado cambió (sin parpadeo en TV)
+let lastState = null; // estado parseado en caché para el tick del reloj (1s)
 
 function loadRaw() {
   try { return localStorage.getItem(E.STORAGE_KEY); } catch { return null; }
@@ -203,6 +213,7 @@ function teamLabel(state, team) {
 function matchCard(state, t, byeTag) {
   const a = E.parseScore(t.ptsA), b = E.parseScore(t.ptsB);
   const hasScores = E.tableScored(t);
+  const timeWin = hasScores && E.scoreStatus(state, t) === "time_win";
   const div = document.createElement("div");
   div.className = "match";
   div.innerHTML = `
@@ -218,10 +229,37 @@ function matchCard(state, t, byeTag) {
         <span class="team-score ${hasScores && b > a ? "winner" : ""}">${hasScores ? b : "—"}</span>
       </div>
       ${!hasScores ? `<div class="pending">En juego…</div>` : ""}
+      ${timeWin ? `<div class="pending">Fin por tiempo</div>` : ""}
     </div>
   `;
   return div;
 }
+
+/* ===== reloj de ronda (tick local de 1s; el estado llega por localStorage) ===== */
+function timingRound(state) {
+  if (!state) return null;
+  if (state.byeRound) return state.byeRound.tables.every(E.tableScored) ? null : state.byeRound;
+  const last = state.rounds[state.rounds.length - 1];
+  return last && !E.roundIsComplete(last) ? last : null;
+}
+function fmtMs(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+function tickTimer() {
+  const pill = document.getElementById("timerPill");
+  const r = timingRound(lastState);
+  const rem = r ? E.timerRemaining(lastState, r) : null;
+  if (rem === null) { pill.style.display = "none"; return; }
+  pill.style.display = "";
+  const over = rem <= 0;
+  pill.textContent = over
+    ? "⏱ Tiempo agotado"
+    : "⏱ " + fmtMs(rem) + (E.timerPaused(r) ? " · pausado" : "");
+  pill.classList.toggle("t-warn", !over && rem < 5 * 60000);
+  pill.classList.toggle("t-over", over);
+}
+setInterval(tickTimer, 1000);
 
 function renderClock() {
   const now = new Date();
@@ -237,6 +275,8 @@ function render(force) {
 
   document.getElementById("tiebreakLabel").textContent = E.TIEBREAK_LABEL;
   const state = parseState(raw);
+  lastState = state;
+  tickTimer();
   const matchesEl = document.getElementById("matches");
   if (!state) {
     document.getElementById("roundPill").textContent = "Ronda: –";
@@ -251,7 +291,8 @@ function render(force) {
     `Torneo Suizo – ${state.mode === "individual" ? "Individual" : "Parejas"}`;
   document.getElementById("thName").textContent = state.mode === "individual" ? "Jugador" : "Pareja";
   const rn = state.rounds.length;
-  document.getElementById("roundPill").textContent = `Ronda: ${rn}/${state.maxRounds}${state.byeRound ? " + bye" : ""}`;
+  document.getElementById("roundPill").textContent =
+    `Ronda: ${rn}/${state.maxRounds}${state.byeRound ? " + bye" : ""} · a ${state.config.targetPoints} pts`;
   document.getElementById("matchesTitle").textContent = rn > 0 ? `Ronda ${rn}` : "Sin rondas aún";
 
   // Podio al finalizar
