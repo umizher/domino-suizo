@@ -520,6 +520,112 @@
         simulate(mode, n, r, seed * 7777 + n * 31 + r);
   }
 
+  /* ---------- escenarios impares complicados ---------- */
+
+  section("Impares complicados estáticos: nº impar + rondas impares (individual y parejas)");
+  {
+    // Cada combinación deja banco todas las rondas (n no múltiplo del tamaño de mesa)
+    // y termina en ronda bye con invitados. simulate() verifica todos los invariantes.
+    const odd = [
+      ["individual", 5, 5], ["individual", 7, 7], ["individual", 9, 9],
+      ["individual", 11, 7], ["individual", 15, 9], ["individual", 21, 7], ["individual", 23, 9],
+      ["parejas", 3, 5], ["parejas", 5, 7], ["parejas", 7, 9],
+      ["parejas", 9, 7], ["parejas", 11, 9], ["parejas", 13, 7], ["parejas", 15, 9]
+    ];
+    for (const [mode, n, r] of odd)
+      for (const seed of [1, 2, 3])
+        simulate(mode, n, r, seed * 9001 + n * 17 + r);
+  }
+
+  // Helper dirigido: corre un torneo aplicando una mutación entre rondas (retiro/alta)
+  // y verifica los mismos invariantes que simulate(), tolerando que la paridad cambie.
+  function simulateDynamic(mode, n, maxRounds, seed, mutate, label) {
+    const rng = E._mulberry32(seed);
+    const cfg = E.MODES[mode];
+    const state = E.createTournament({ mode, maxRounds, participants: mkParticipants(mode, n) }, rng);
+    let crashed = null;
+    try {
+      while (E.canGenerateNextRound(state).ok) {
+        const { round } = E.generateNextRound(state, rng);
+        checkRoundInvariants(state, round, `${label} R${round.round}`);
+        scoreAllTables(round.tables, rng);
+        checkBenchEquity(state, `${label} R${round.round}`);
+        checkStandingsOrder(state, `${label} R${round.round}`);
+        if (mutate) mutate(state, round.round, rng); // siempre entre rondas (ronda ya puntuada)
+      }
+      checkNoRepeats(state, label);
+      if (E.canGenerateByeRound(state).ok) {
+        const restedBefore = E.restedIds(state);
+        const { byeRound } = E.generateByeRound(state, rng);
+        const seated = byeRound.tables.flatMap(t => [...t.teamA, ...t.teamB]);
+        assert(new Set(seated).size === seated.length, `${label}: bye con duplicados`);
+        assert(seated.length % cfg.unitsPerTable === 0, `${label}: bye no múltiplo de mesa`);
+        for (const id of restedBefore)
+          assert(seated.includes(id), `${label}: descansado fuera de la bye`);
+        const ghosts = state.participants.filter(p => p.ghost).map(p => p.id);
+        assert(!E.computeStandings(state).some(r => ghosts.includes(r.id)), `${label}: invitado en standings`);
+        scoreAllTables(byeRound.tables, rng);
+        assert(E.tournamentPhase(state) === "finished", `${label}: fase ≠ finished tras bye`);
+        checkStandingsOrder(state, `${label} final`);
+      } else {
+        assert(E.tournamentPhase(state) === "finished", `${label}: fase ≠ finished sin bye`);
+      }
+      const v = E.validateState(JSON.parse(JSON.stringify(state)));
+      assert(v.ok, `${label}: validateState rechaza estado válido: ${v.errors.join("; ")}`);
+    } catch (e) {
+      crashed = e;
+    }
+    assert(!crashed, `${label}: lanzó excepción: ${crashed && crashed.message}`);
+    return state;
+  }
+
+  section("Impar por retiro: empieza par (sin banco) y un retiro lo vuelve impar");
+  {
+    // Individual: 8 jugadores (2 mesas exactas) → retirar 1 en R2 deja 7 → banco cada ronda.
+    simulateDynamic("individual", 8, 7, 31011, (state, roundNo) => {
+      if (roundNo === 2 && state.participants.find(p => p.id === "u1" && p.active))
+        E.setParticipantActive(state, "u1", false);
+    }, "individual retiro 8→7");
+    // Parejas: 6 parejas (3 mesas exactas) → retirar 1 en R2 deja 5 → banco cada ronda.
+    simulateDynamic("parejas", 6, 7, 31022, (state, roundNo) => {
+      if (roundNo === 2 && state.participants.find(p => p.id === "u3" && p.active))
+        E.setParticipantActive(state, "u3", false);
+    }, "parejas retiro 6→5");
+  }
+
+  section("Par por alta tardía: empieza impar (con banco) y un alta lo vuelve par");
+  {
+    // Individual: 5 jugadores (banco) → alta en R2 deja 6, sigue con banco; avisa late_join.
+    simulateDynamic("individual", 5, 6, 32011, (state, roundNo) => {
+      if (roundNo === 2 && state.participants.length === 5) {
+        const { id, warnings } = E.addParticipant(state, { name: "Tarde J", members: ["Tarde J"] });
+        assert(warnings.some(w => w.type === "late_join"), "individual alta: faltó late_join");
+        assert(state.benchQueue.includes(id), "individual alta: nuevo fuera de benchQueue");
+      }
+    }, "individual alta 5→6");
+    // Parejas: 5 parejas (banco) → alta en R2 deja 6 (3 mesas exactas).
+    simulateDynamic("parejas", 5, 6, 32022, (state, roundNo) => {
+      if (roundNo === 2 && state.participants.length === 5) {
+        const { id, warnings } = E.addParticipant(state, { name: "Tarde A & Tarde B", members: ["Tarde A", "Tarde B"] });
+        assert(warnings.some(w => w.type === "late_join"), "parejas alta: faltó late_join");
+        assert(state.benchQueue.includes(id), "parejas alta: nuevo fuera de benchQueue");
+      }
+    }, "parejas alta 5→6");
+  }
+
+  section("Combinado retiro + alta: paridad cambia dos veces, bye sigue sentando a todos");
+  {
+    // Individual: 9 → R2 retira 1 (8, exacto) → R4 alta 1 (9, banco) hasta el final + bye.
+    simulateDynamic("individual", 9, 7, 33011, (state, roundNo) => {
+      if (roundNo === 2 && state.participants.find(p => p.id === "u2" && p.active))
+        E.setParticipantActive(state, "u2", false);
+      if (roundNo === 4 && state.participants.length === 9) {
+        const { warnings } = E.addParticipant(state, { name: "Refuerzo", members: ["Refuerzo"] });
+        assert(warnings.some(w => w.type === "late_join"), "combinado: faltó late_join");
+      }
+    }, "individual retiro+alta 9");
+  }
+
   section("CSV");
   {
     const rng = E._mulberry32(29);
