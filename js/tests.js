@@ -411,11 +411,15 @@
     assert(f.ghostCount === 0 && f.restedCount === 4, "25j/4r: la bye debería ser exacta");
     f = E.byeForecast("individual", 24, 6);
     assert(f.perRound === 0 && f.ghostCount === 0, "24j: sin banco no hay bye");
-    // 5 parejas: a partir de la R5 todas han descansado (5, impar), así que
-    // solo 4 rondas dejan la bye exacta — 6+ rondas no ayudan.
+    // 5 parejas, 5 rondas: las 5 descansan una vez cada una → todas quedan con
+    // 4 partidas y no hace falta bye (antes pedía una pareja voluntaria que no existía)
     f = E.byeForecast("parejas", 5, 5);
-    assert(f.ghostCount === 1 && f.suggestedRounds.length === 1 && f.suggestedRounds[0] === 4,
+    assert(f.restedCount === 0 && f.ghostCount === 0 && f.gamesEach === 4,
       "5 parejas/5r: pronóstico incorrecto");
+    // 5 parejas, 6 rondas: 1 pareja queda atrás → bye de 1 + 1 voluntaria (hay 4 libres)
+    f = E.byeForecast("parejas", 5, 6);
+    assert(f.restedCount === 1 && f.ghostCount === 1 && !f.volunteersShort && f.suggestedRounds.includes(5),
+      "5 parejas/6r: pronóstico incorrecto");
   }
 
   section("Bye con invitados A/B/C: nombres, conflicto y limpieza al deshacer");
@@ -449,9 +453,11 @@
     const names2 = s2.participants.filter(p => p.ghost).map(p => p.name);
     assert(names2.includes("Invitado A") && !names2.filter(n => n === "A").length,
       `conflicto de nombre no resuelto: ${names2}`);
-    // parejas: 5 parejas a 5 rondas → 5 descansadas → 1 pareja invitada "A"
+    // parejas: 5 parejas a 6 rondas → 1 pareja queda con una partida menos
+    // → bye de 1 mesa con 1 pareja invitada "A"
+    // (con 5 rondas las 5 descansan igual y ya no hace falta bye)
     const rng3 = E._mulberry32(47);
-    const s3 = E.createTournament({ mode: "parejas", maxRounds: 5, participants: mkParticipants("parejas", 5) }, rng3);
+    const s3 = E.createTournament({ mode: "parejas", maxRounds: 6, participants: mkParticipants("parejas", 5) }, rng3);
     while (E.canGenerateNextRound(s3).ok) {
       const { round } = E.generateNextRound(s3, rng3);
       scoreAllTables(round.tables, rng3);
@@ -459,7 +465,7 @@
     E.generateByeRound(s3, rng3);
     const g3 = s3.participants.filter(p => p.ghost);
     assert(g3.length === 1 && g3[0].name === "A", "parejas: invitada única 'A' esperada");
-    assert(s3.byeRound.tables.length === 3, "5 parejas/5r: la bye debería tener 3 mesas");
+    assert(s3.byeRound.tables.length === 1, "5 parejas/6r: la bye debería tener 1 mesa");
   }
 
   section("createTournament: mínimo 4 rondas, acepta impares");
@@ -788,30 +794,44 @@
     assert(E.tournamentPhase(st) !== "finished", "torneo finalizado con una mesa pasada vacía");
   }
 
-  section("byeForecast: aviso de partidas de menos y rondas justas");
+  section("byeForecast coincide con la realidad: partidas iguales, tamaño de la bye y voluntarios");
   {
-    const cases = [
-      ["individual", 6, 4, 2], ["individual", 10, 6, 2], ["individual", 7, 5, 1],
-      ["parejas", 5, 6, 1], ["parejas", 3, 4, 1], ["individual", 9, 4, 0], ["individual", 6, 6, 0]
-    ];
-    for (const [mode, n, R, expShort] of cases) {
-      const f = E.byeForecast(mode, n, R);
-      assert(f.shortCount === expShort, `${mode} ${n}/${R}: shortCount ${f.shortCount} ≠ ${expShort}`);
-      for (const r of f.fairRounds)
-        assert(E.byeForecast(mode, n, r).shortCount === 0 && r >= 4, `${mode} ${n}: ronda sugerida ${r} no es justa`);
-      if (expShort) assert(f.fairRounds.length > 0, `${mode} ${n}/${R}: faltan rondas sugeridas`);
-      // Verificación contra una simulación real: PJ máx − mín al terminar
-      const rng = E._mulberry32(n * 31 + R);
-      const st = E.createTournament({ mode, maxRounds: R, participants: mkParticipants(mode, n) }, rng);
-      while (E.canGenerateNextRound(st).ok) {
-        const { round } = E.generateNextRound(st, rng);
-        scoreAllTables(round.tables, rng);
+    let checked = 0;
+    for (const mode of ["individual", "parejas"]) {
+      for (let n = mode === "individual" ? 4 : 2; n <= 17; n++) {
+        for (let R = 4; R <= 9; R++) {
+          const f = E.byeForecast(mode, n, R);
+          const rng = E._mulberry32(n * 131 + R * 7 + (mode === "parejas" ? 1 : 0));
+          const st = E.createTournament({ mode, maxRounds: R, participants: mkParticipants(mode, n) }, rng);
+          while (E.canGenerateNextRound(st).ok) {
+            const { round } = E.generateNextRound(st, rng);
+            scoreAllTables(round.tables, rng);
+          }
+          const byeSize = E.restedIds(st).length;
+          let ghosts = 0;
+          if (E.canGenerateByeRound(st).ok) {
+            E.generateByeRound(st, rng);
+            ghosts = st.participants.filter(p => p.ghost).length;
+            scoreAllTables(st.byeRound.tables, rng);
+          }
+          assert(E.tournamentPhase(st) === "finished", `${mode} ${n}/${R}: el torneo debe terminar`);
+          const pj = E.computeStandings(st).map(s => s.PJ);
+          assert(Math.min(...pj) === Math.max(...pj), `${mode} ${n}/${R}: todos deben terminar con las mismas partidas (${pj.join(",")})`);
+          assert(pj[0] === f.gamesEach, `${mode} ${n}/${R}: pronóstico ${f.gamesEach} partidas, real ${pj[0]}`);
+          assert(byeSize === f.restedCount, `${mode} ${n}/${R}: bye pronosticada para ${f.restedCount}, real ${byeSize}`);
+          assert(ghosts === f.ghostCount, `${mode} ${n}/${R}: voluntarios pronosticados ${f.ghostCount}, reales ${ghosts}`);
+          assert(f.volunteersShort === (f.ghostCount > n - f.restedCount), `${mode} ${n}/${R}: aviso de voluntarios incoherente`);
+          for (const r of f.suggestedRounds)
+            assert(E.byeForecast(mode, n, r).ghostCount === 0 && r >= 4, `${mode} ${n}: ronda sugerida ${r} igual necesita voluntarios`);
+          checked++;
+        }
       }
-      if (E.canGenerateByeRound(st).ok) { E.generateByeRound(st, rng); scoreAllTables(st.byeRound.tables, rng); }
-      const pj = E.computeStandings(st).map(s => s.PJ);
-      const maxPJ = Math.max(...pj);
-      const short = pj.filter(x => x < maxPJ).length;
-      assert(short === expShort, `${mode} ${n}/${R}: simulación da ${short} con menos partidas, pronóstico ${expShort}`);
+    }
+    assert(checked > 150, "pocas combinaciones verificadas");
+    // Casos concretos que antes fallaban: todos descansan lo mismo → sin bye
+    for (const [mode, n, R] of [["parejas", 5, 5], ["individual", 5, 5], ["parejas", 3, 6]]) {
+      const f = E.byeForecast(mode, n, R);
+      assert(f.restedCount === 0 && f.ghostCount === 0, `${mode} ${n}/${R}: no debería haber bye`);
     }
   }
 
@@ -843,7 +863,7 @@
     const rows = E.computeStandings(st);
     assert(rows.every(r => txt.includes(r.name)), "todos los participantes aparecen en posiciones");
     // Parejas con invitado en la bye
-    const s2 = E.createTournament({ mode: "parejas", maxRounds: 5, participants: mkParticipants("parejas", 5) }, rng);
+    const s2 = E.createTournament({ mode: "parejas", maxRounds: 6, participants: mkParticipants("parejas", 5) }, rng);
     while (E.canGenerateNextRound(s2).ok) { const { round } = E.generateNextRound(s2, rng); scoreAllTables(round.tables, rng); }
     E.generateByeRound(s2, rng);
     assert(E.toShareText(s2).includes("(invitado)"), "los invitados de la bye deben marcarse");

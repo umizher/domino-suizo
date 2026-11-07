@@ -458,7 +458,7 @@
     <div id="byeForecast" class="info-banner" style="display:none; margin-top:12px;"></div>
     <div class="notice">
       <span class="pill">Reglas</span>
-      <span class="muted small"><b>Sin empates</b>. Partidas a la meta de puntos (estándar profesional: 200); si se pasan, <b>se anotan los puntos completos</b>. Con reloj activo, al agotarse el tiempo gana quien va arriba. Clasificación: <b id="tiebreakLabel1"></b>. Banco rotativo equitativo si el número no es exacto. Ronda bye final para quienes descansaron.</span>
+      <span class="muted small"><b>Sin empates</b>. Partidas a la meta de puntos (estándar profesional: 200); si se pasan, <b>se anotan los puntos completos</b>. Con reloj activo, al agotarse el tiempo gana quien va arriba. Clasificación: <b id="tiebreakLabel1"></b>. Banco rotativo equitativo si el número no es exacto. Ronda bye final para quienes quedaron con menos partidas (por descansar o llegar tarde), así todos terminan parejos.</span>
     </div>
     <div id="v2Notice" class="info-banner" style="display:none; margin-top:12px;">
       Se detectaron datos de un torneo del formato anterior (suizo.html / arbitro.html). Este panel usa un formato nuevo y no migra esos datos; tampoco los borra.
@@ -731,8 +731,17 @@ function warningText(st, w) {
     case "rematch":        return `Ya no quedan cruces nuevos posibles. Se repiten: ${pairTxt(w.pairs, "vs")}.`;
     case "partner_repeat": return `Ya no quedan combinaciones de compañeros nuevas. Se repiten: ${pairTxt(w.pairs, "+")}.`;
     case "rival_repeat":   return `Ya no quedan rivales nuevos posibles para todos. Se repiten (al mínimo): ${pairTxt(w.pairs, "vs")}.`;
-    case "ghost_fill":     return `La última mesa de la bye se completa con invitado(s): ${w.ids.map(id => E.nameOf(st, id)).join(", ")} — asigna voluntarios a esos puestos.`;
-    case "late_join":      return `${w.ids.map(id => E.nameOf(st, id)).join(", ")} entra en la ronda ${w.round}: jugará la ronda bye para recuperar una partida (si se perdió más de una ronda, recupera solo una).`;
+    case "ghost_fill": {
+      // Libres = activos que no juegan la bye. Si no alcanzan, siempre hay
+      // salida: jugar la bye por turnos (la mesa 1 primero; sus jugadores
+      // sirven luego de voluntarios: el resultado del voluntario no le cuenta).
+      const seatedBye = new Set((st.byeRound ? st.byeRound.tables : []).flatMap(t => [...t.teamA, ...t.teamB]));
+      const free = E.activeIds(st).filter(id => !seatedBye.has(id)).length;
+      const base = `La última mesa de la bye se completa con invitado(s): ${w.ids.map(id => E.nameOf(st, id)).join(", ")} — asigna voluntarios a esos puestos (su resultado no les cuenta).`;
+      return free >= w.ids.length ? base
+        : `${base} Solo hay ${free} persona(s) libre(s): jueguen primero la mesa 1 y, al terminar, usen a jugadores de esa mesa como voluntarios de la última.`;
+    }
+    case "late_join":      return `${w.ids.map(id => E.nameOf(st, id)).join(", ")} entra en la ronda ${w.round}: si queda con menos partidas que los demás, jugará la ronda bye para recuperar una (si se perdió más de una ronda, recupera solo una).`;
     case "past_edit":      return `Editaste la ronda ${w.round}: las rondas posteriores se emparejaron con la clasificación previa (los emparejamientos no cambian, la tabla sí).`;
     default: return "";
   }
@@ -802,24 +811,24 @@ function updateByeForecast() {
   const f = E.byeForecast(setupMode, n, maxRounds);
   const unit = n => `${n} ${n === 1 ? cfg.unitLabel : cfg.unitLabelPlural}`;
   el.style.display = "";
-  el.classList.toggle("warn-banner", f.shortCount > 0);
-  el.classList.toggle("info-banner", !(f.shortCount > 0));
+  el.classList.toggle("warn-banner", f.volunteersShort);
+  el.classList.toggle("info-banner", !f.volunteersShort);
   if (f.perRound === 0) {
-    el.textContent = `Con ${unit(n)} nadie descansa: mesas exactas todas las rondas, sin ronda bye.`;
+    el.textContent = `Con ${unit(n)} nadie descansa: mesas exactas todas las rondas, sin ronda bye. Todos jugarán ${maxRounds} partidas.`;
+    return;
+  }
+  const games = `Todos terminarán con ${f.gamesEach} partidas${f.gamesEach < maxRounds ? ` (de ${maxRounds} rondas)` : ""}.`;
+  let bye;
+  if (f.restedCount === 0) {
+    bye = "No hará falta ronda bye: todos descansan lo mismo.";
   } else if (f.ghostCount === 0) {
-    el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansará(n) ${unit(f.restedCount)}: la ronda bye quedará exacta.`;
+    bye = `Ronda bye para ${unit(f.restedCount)}: quedará exacta, sin voluntarios.`;
   } else {
-    const sug = f.suggestedRounds.length && !f.shortCount
-      ? ` Con ${f.suggestedRounds.join(" o ")} rondas la bye queda exacta.`
-      : "";
-    el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansará(n) ${unit(f.restedCount)}; la última mesa de la bye se completará con ${f.ghostCount} invitado(s) (${["A", "B", "C"].slice(0, f.ghostCount).join(", ")}).${sug}`;
+    const sug = f.suggestedRounds.length ? ` Con ${f.suggestedRounds.join(" o ")} rondas no hacen falta voluntarios.` : "";
+    bye = `Ronda bye para ${unit(f.restedCount)}: necesitará ${f.ghostCount} voluntario(s) (${["A", "B", "C"].slice(0, f.ghostCount).join(", ")}).` +
+      (f.volunteersShort ? ` ⚠ Solo habrá ${f.volunteersFree} libre(s): la bye se jugará por turnos (primero una mesa y sus jugadores sirven de voluntarios para la otra).` : "") + sug;
   }
-  if (f.shortCount > 0) {
-    const fair = f.fairRounds.length
-      ? ` Para que todos jueguen lo mismo usa ${f.fairRounds.join(" o ")} rondas.`
-      : "";
-    el.textContent = `⚠ ${el.textContent} Ojo: ${unit(f.shortCount)} descansará(n) una vez más y terminará(n) con 1 partida menos.${fair}`;
-  }
+  el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansa(n) ${f.perRound} por ronda. ${games} ${bye}`;
 }
 document.getElementById("setupCard").addEventListener("input", updateByeForecast);
 // Clicks (cambiar modalidad, quitar pareja) también alteran el pronóstico
@@ -1341,9 +1350,16 @@ async function withBusy(btn, label, fn) {
   const prev = btn.textContent;
   btn.disabled = true; btn.textContent = label;
   toast(label, 60000);
-  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 30)));
+  // Mientras se genera, los marcadores de la ronda anterior quedan bloqueados:
+  // un puntaje escrito en ese momento caería en la ronda equivocada.
+  const locked = [...document.querySelectorAll("#matches .score-input")];
+  locked.forEach(i => { i.disabled = true; });
+  // setTimeout (no requestAnimationFrame): rAF se pausa si la pestaña queda
+  // en segundo plano (p. ej. al cambiar a WhatsApp) y la generación se colgaría.
+  await new Promise(r => setTimeout(r, 50));
   try { return await fn(); }
   finally {
+    locked.forEach(i => { if (i.isConnected) i.disabled = false; });
     btn.textContent = prev;
     btn.disabled = false; // renderButtons vuelve a bloquear lo que corresponda
     hideBusyToast(label);

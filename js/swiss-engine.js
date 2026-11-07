@@ -562,8 +562,12 @@
       for (const t of r.tables)
         for (const id of [...t.teamA, ...t.teamB])
           seatedRounds.set(id, (seatedRounds.get(id) || 0) + 1);
-    return activeIds(state).filter(id =>
-      (state.benchHistory[id] || 0) > 0 || (seatedRounds.get(id) || 0) < state.rounds.length);
+    // Solo juegan la bye quienes van con MENOS partidas que los que más
+    // jugaron: si todos descansaron lo mismo, ya están parejos y no hace falta
+    // bye (antes los metía a todos y pedía voluntarios que no existían).
+    const act = activeIds(state);
+    const most = Math.max(0, ...act.map(id => seatedRounds.get(id) || 0));
+    return act.filter(id => (seatedRounds.get(id) || 0) < most);
   }
 
   function canGenerateByeRound(state) {
@@ -574,7 +578,7 @@
     if (!last || !roundIsComplete(last))
       return { ok: false, reason: "Completa los puntos de la última ronda primero." };
     if (restedIds(state).length < 1)
-      return { ok: false, reason: "Nadie descansó ni llegó tarde: no hace falta ronda bye." };
+      return { ok: false, reason: "Todos jugaron la misma cantidad de partidas: no hace falta ronda bye." };
     return { ok: true, reason: "" };
   }
 
@@ -615,40 +619,34 @@
   // hasta completar el ciclo de rotación. Permite avisar al organizador
   // cuántos invitados de relleno necesitará la bye y qué números de rondas
   // la dejan exacta.
-  // Además, la bye repone UNA partida: si las rondas superan el ciclo de
-  // rotación (per·R > n), (per·R mod n) unidades descansan una vez más que
-  // el resto y terminan con una partida menos. shortCount lo cuantifica y
-  // fairRounds sugiere rondas (≥4) donde nadie queda corto.
+  // Pronóstico al configurar (sin altas ni retiros). El banco rota parejo:
+  // tras R rondas, (per·R mod n) unidades descansaron una vez más que el resto
+  // y son las que juegan la bye; así todos terminan con las mismas partidas:
+  // gamesEach = R − ⌊per·R / n⌋. Si per·R es múltiplo de n, nadie queda atrás
+  // y no hay bye. ghostCount = invitados para completar la última mesa;
+  // volunteersShort avisa si no hay suficientes personas libres para ocuparlos.
   function byeForecast(mode, n, maxRounds) {
     const cfg = MODES[mode];
-    const per = n % cfg.unitsPerTable;
-    if (!per || n < cfg.unitsPerTable)
-      return { perRound: 0, restedCount: 0, ghostCount: 0, suggestedRounds: [], shortCount: 0, fairRounds: [] };
-    const restedFor = r => Math.min(per * r, n);
-    const shortFor = r => (per * r > n ? (per * r) % n : 0);
-    const ghostFor = r => (cfg.unitsPerTable - (restedFor(r) % cfg.unitsPerTable)) % cfg.unitsPerTable;
-    const shortCount = shortFor(maxRounds);
-    const fairRounds = [];
-    if (shortCount > 0) {
-      const cands = [];
-      for (let r = 4; r <= maxRounds + 6; r++)
-        if (r !== maxRounds && shortFor(r) === 0) cands.push(r);
-      // Preferir las que además dejan la bye exacta, luego las más cercanas
-      cands.sort((x, y) => (ghostFor(x) > 0) - (ghostFor(y) > 0) ||
-                           Math.abs(x - maxRounds) - Math.abs(y - maxRounds));
-      fairRounds.push(...cands.slice(0, 3).sort((x, y) => x - y));
-    }
+    const U = cfg.unitsPerTable;
+    const per = n % U;
+    if (!per || n < U)
+      return { perRound: 0, restedCount: 0, ghostCount: 0, suggestedRounds: [],
+               gamesEach: maxRounds, volunteersFree: n, volunteersShort: false };
+    const restedFor = r => (per * r) % n;
+    const ghostFor = r => { const k = restedFor(r); return k ? (U - (k % U)) % U : 0; };
     const rested = restedFor(maxRounds);
     const ghostCount = ghostFor(maxRounds);
+    const volunteersFree = n - rested;
     const suggestedRounds = [];
     if (ghostCount > 0) {
-      for (let r = Math.max(4, maxRounds - 3); r <= maxRounds + 4 && suggestedRounds.length < 3; r++) {
-        const rr = restedFor(r);
-        if (r !== maxRounds && rr >= cfg.unitsPerTable && rr % cfg.unitsPerTable === 0)
-          suggestedRounds.push(r);
-      }
+      for (let r = Math.max(4, maxRounds - 3); r <= maxRounds + 4 && suggestedRounds.length < 3; r++)
+        if (r !== maxRounds && ghostFor(r) === 0) suggestedRounds.push(r);
     }
-    return { perRound: per, restedCount: rested, ghostCount, suggestedRounds, shortCount, fairRounds };
+    return {
+      perRound: per, restedCount: rested, ghostCount, suggestedRounds,
+      gamesEach: maxRounds - Math.floor(per * maxRounds / n),
+      volunteersFree, volunteersShort: ghostCount > volunteersFree
+    };
   }
 
   // Deshacer la última ronda generada (o la bye). Revierte también el banco:
