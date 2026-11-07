@@ -549,8 +549,19 @@
 
   /* ===================== ronda bye ===================== */
 
+  // Quienes se perdieron al menos una ronda y por eso juegan la bye: los que
+  // descansaron en el banco Y los que llegaron tarde (o estuvieron retirados
+  // y volvieron). Se deriva de las mesas jugadas, no solo del banco: antes una
+  // pareja que entraba tarde quedaba fuera de la bye y se rellenaba con un
+  // invitado aunque a ella también le faltaba una partida.
   function restedIds(state) {
-    return activeIds(state).filter(id => (state.benchHistory[id] || 0) > 0);
+    const seatedRounds = new Map();
+    for (const r of state.rounds)
+      for (const t of r.tables)
+        for (const id of [...t.teamA, ...t.teamB])
+          seatedRounds.set(id, (seatedRounds.get(id) || 0) + 1);
+    return activeIds(state).filter(id =>
+      (state.benchHistory[id] || 0) > 0 || (seatedRounds.get(id) || 0) < state.rounds.length);
   }
 
   function canGenerateByeRound(state) {
@@ -561,7 +572,7 @@
     if (!last || !roundIsComplete(last))
       return { ok: false, reason: "Completa los puntos de la última ronda primero." };
     if (restedIds(state).length < 1)
-      return { ok: false, reason: "Nadie descansó durante el torneo: no hace falta ronda bye." };
+      return { ok: false, reason: "Nadie descansó ni llegó tarde: no hace falta ronda bye." };
     return { ok: true, reason: "" };
   }
 

@@ -732,7 +732,7 @@ function warningText(st, w) {
     case "partner_repeat": return `Ya no quedan combinaciones de compañeros nuevas. Se repiten: ${pairTxt(w.pairs, "+")}.`;
     case "rival_repeat":   return `Ya no quedan rivales nuevos posibles para todos. Se repiten (al mínimo): ${pairTxt(w.pairs, "vs")}.`;
     case "ghost_fill":     return `La última mesa de la bye se completa con invitado(s): ${w.ids.map(id => E.nameOf(st, id)).join(", ")} — asigna voluntarios a esos puestos.`;
-    case "late_join":      return `${w.ids.map(id => E.nameOf(st, id)).join(", ")} entra en la ronda ${w.round}: tendrá menos partidas jugadas.`;
+    case "late_join":      return `${w.ids.map(id => E.nameOf(st, id)).join(", ")} entra en la ronda ${w.round}: jugará la ronda bye para recuperar una partida (si se perdió más de una ronda, recupera solo una).`;
     case "past_edit":      return `Editaste la ronda ${w.round}: las rondas posteriores se emparejaron con la clasificación previa (los emparejamientos no cambian, la tabla sí).`;
     default: return "";
   }

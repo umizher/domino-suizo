@@ -849,6 +849,36 @@
     assert(E.toShareText(s2).includes("(invitado)"), "los invitados de la bye deben marcarse");
   }
 
+  section("Llegada tarde: entra a la bye y recupera su partida");
+  {
+    // Caso real: parejas, 5 al inicio (1 descansa), una pareja llega en la R2
+    const rng = E._mulberry32(67);
+    const st = E.createTournament({ mode: "parejas", maxRounds: 4, participants: mkParticipants("parejas", 5) }, rng);
+    let { round } = E.generateNextRound(st, rng); scoreAllTables(round.tables, rng);
+    const { id: lateId } = E.addParticipant(st, { name: "Tarde & Tarde2", members: ["Tarde", "Tarde2"] });
+    while (E.canGenerateNextRound(st).ok) { ({ round } = E.generateNextRound(st, rng)); scoreAllTables(round.tables, rng); }
+    assert(E.restedIds(st).includes(lateId), "la pareja que llegó tarde debe contar para la bye");
+    const { warnings } = E.generateByeRound(st, rng);
+    assert(!warnings.some(w => w.type === "ghost_fill"), "no debería hacer falta invitado: la bye cuadra con la pareja tardía");
+    const seated = st.byeRound.tables.flatMap(t => [...t.teamA, ...t.teamB]);
+    assert(seated.includes(lateId), "la pareja tardía debe jugar la bye");
+    scoreAllTables(st.byeRound.tables, rng);
+    const pj = E.computeStandings(st).map(s => s.PJ);
+    assert(Math.min(...pj) === Math.max(...pj), `todas deben terminar con las mismas partidas (PJ ${pj.join(",")})`);
+    // Sin banco ni llegadas tarde sigue sin haber bye
+    const s2 = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 8) }, rng);
+    while (E.canGenerateNextRound(s2).ok) { ({ round } = E.generateNextRound(s2, rng)); scoreAllTables(round.tables, rng); }
+    assert(!E.canGenerateByeRound(s2).ok && E.tournamentPhase(s2) === "finished", "8 jugadores exactos: no debe haber bye");
+    // Individual: llega tarde un jugador → entra a la bye
+    const s3 = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 9) }, rng);
+    ({ round } = E.generateNextRound(s3, rng)); scoreAllTables(round.tables, rng);
+    ({ round } = E.generateNextRound(s3, rng)); scoreAllTables(round.tables, rng);
+    const { id: late3 } = E.addParticipant(s3, { name: "Tardío", members: ["Tardío"] });
+    while (E.canGenerateNextRound(s3).ok) { ({ round } = E.generateNextRound(s3, rng)); scoreAllTables(round.tables, rng); }
+    E.generateByeRound(s3, rng);
+    assert(st.byeRound && s3.byeRound.tables.some(t => [...t.teamA, ...t.teamB].includes(late3)), "individual: el tardío debe jugar la bye");
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);
