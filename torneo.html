@@ -462,7 +462,7 @@
     <div id="byeForecast" class="info-banner" style="display:none; margin-top:12px;"></div>
     <div class="notice">
       <span class="pill">Reglas</span>
-      <span class="muted small"><b>Sin empates</b>. Partidas a la meta de puntos (estándar profesional: 200); si se pasan, <b>se anotan los puntos completos</b>. Con reloj activo, al agotarse el tiempo gana quien va arriba. Clasificación: <b id="tiebreakLabel1"></b>. Banco rotativo equitativo si el número no es exacto. Ronda bye final para quienes quedaron con menos partidas (por descansar o llegar tarde), así todos terminan parejos.</span>
+      <span class="muted small"><b>Sin empates</b>. Partidas a la meta de puntos (estándar profesional: 200); si se pasan, <b>se anotan los puntos completos</b>. Con reloj activo, al agotarse el tiempo gana quien va arriba. Clasificación: <b id="tiebreakLabel1"></b> (Buchholz = suma de las victorias de tus rivales). Si el número no es exacto, descansan por turnos: primero quien menos rondas se ha perdido. Ronda bye final para quienes quedaron con menos partidas (por descansar o llegar tarde), así todos terminan parejos.</span>
     </div>
     <div id="v2Notice" class="info-banner" style="display:none; margin-top:12px;">
       Se detectaron datos de un torneo del formato anterior (suizo.html / arbitro.html). Este panel usa un formato nuevo y no migra esos datos; tampoco los borra.
@@ -509,7 +509,7 @@
       </div>
       <div class="notice">
         <span class="pill">Reglas</span>
-        <span class="muted small">Partidas a <b id="targetLabel">200</b> puntos (si se pasan, se anotan completos) · <span id="timerLabel"></span> · <b>Sin empates</b>. Clasificación: <b id="tiebreakLabel2"></b>. Los puntos se guardan automáticamente al escribirlos.</span>
+        <span class="muted small">Partidas a <b id="targetLabel">200</b> puntos (si se pasan, se anotan completos) · <span id="timerLabel"></span> · <b>Sin empates</b>. Clasificación: <b id="tiebreakLabel2"></b> (Buchholz = suma de las victorias de tus rivales). Los puntos se guardan automáticamente al escribirlos.</span>
       </div>
     </section>
 
@@ -833,10 +833,20 @@ document.getElementById("btnAddPair").addEventListener("click", () => {
 });
 
 // Pronóstico en vivo de la ronda bye según participantes y rondas elegidas
+// Nombres repetidos (sin distinguir mayúsculas), tal como se escribieron
+function repeatedNames(list) {
+  const seen = new Map(), dups = [];
+  for (const n of list) {
+    const k = n.toLowerCase();
+    if (seen.has(k)) { if (!dups.includes(seen.get(k))) dups.push(seen.get(k)); }
+    else seen.set(k, n);
+  }
+  return dups;
+}
 function setupParticipantCount() {
   if (setupMode === "individual")
-    return new Set(document.getElementById("playersInput").value
-      .split("\n").map(s => s.trim()).filter(Boolean)).size;
+    return document.getElementById("playersInput").value
+      .split("\n").map(s => s.trim()).filter(Boolean).length;
   return pairsBuilder.filter(p => p.a.trim() && p.b.trim()).length;
 }
 function updateByeForecast() {
@@ -894,15 +904,19 @@ document.getElementById("btnStart").addEventListener("click", async () => {
     return toast("Las rondas deben ser un número entre 4 y 50.");
   let participants;
   if (setupMode === "individual") {
-    const names = [...new Set(document.getElementById("playersInput").value
-      .split("\n").map(s => s.trim()).filter(Boolean))];
+    // Antes los nombres repetidos se descartaban en silencio (dos "Carlos" →
+    // el torneo empezaba con uno menos). Ahora se avisa cuáles son.
+    const names = document.getElementById("playersInput").value
+      .split("\n").map(s => s.trim()).filter(Boolean);
+    const dups = repeatedNames(names);
+    if (dups.length) return toast(`Nombre repetido: ${dups.join(", ")}. Si son personas distintas, agrega una inicial (ej. "${dups[0]} M.").`, 7000);
     if (names.length < 4) return toast("Necesitas mínimo 4 jugadores.");
     participants = names.map(n => ({ name: n, members: [n] }));
   } else {
     const valid = pairsBuilder.filter(p => p.a.trim() && p.b.trim());
     if (valid.length < 2) return toast("Necesitas mínimo 2 parejas completas.");
-    const allNames = valid.flatMap(p => [p.a.trim().toLowerCase(), p.b.trim().toLowerCase()]);
-    if (new Set(allNames).size !== allNames.length) return toast("Hay nombres repetidos.");
+    const dups = repeatedNames(valid.flatMap(p => [p.a.trim(), p.b.trim()]));
+    if (dups.length) return toast(`Nombre repetido: ${dups.join(", ")}. Si son personas distintas, agrega una inicial (ej. "${dups[0]} M.").`, 7000);
     participants = valid.map(p => ({ name: `${p.a.trim()} & ${p.b.trim()}`, members: [p.a.trim(), p.b.trim()] }));
   }
   const targetPoints = document.getElementById("targetInput").value;
