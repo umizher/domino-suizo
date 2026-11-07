@@ -554,7 +554,7 @@ const E = SwissEngine;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 /* ===== PIN ===== */
-const PIN = "5050";
+const PIN = "1810";
 const PIN_SESSION_KEY = "domino_pin_ok";
 const digits = [0, 1, 2, 3].map(i => document.getElementById(`d${i}`));
 function getPin() { return digits.map(d => d.value).join(""); }

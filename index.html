@@ -111,7 +111,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 (function(){ if(sessionStorage.getItem("domino_pin_ok")==="1") document.getElementById("pinOverlay").style.display="none"; })();
 function checkPin(inp){
   if(inp.value.length>=4){
-    if(inp.value==="5050"){ sessionStorage.setItem("domino_pin_ok","1"); document.getElementById("pinOverlay").style.display="none"; }
+    if(inp.value==="1810"){ sessionStorage.setItem("domino_pin_ok","1"); document.getElementById("pinOverlay").style.display="none"; }
     else { document.getElementById("pinError").textContent="Clave incorrecta"; inp.value=""; setTimeout(function(){ document.getElementById("pinError").textContent=""; },2000); }
   }
 }
