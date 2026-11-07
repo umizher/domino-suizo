@@ -815,6 +815,40 @@
     }
   }
 
+  section("Mensaje para WhatsApp");
+  {
+    const rng = E._mulberry32(61);
+    const st = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 9) }, rng);
+    E.generateNextRound(st, rng);
+    let txt = E.toShareText(st);
+    assert(txt.includes("Mesas – Ronda 1") && !txt.includes("Posiciones"), "R1 sin jugar: debe mostrar mesas y no posiciones");
+    assert(txt.includes("Descansa: "), "debe decir quién descansa");
+    scoreAllTables(st.rounds[0].tables, rng);
+    txt = E.toShareText(st);
+    assert(txt.includes("Resultados – Ronda 1") && txt.includes("Posiciones"), "R1 jugada: resultados y posiciones");
+    const t = st.rounds[0].tables[0];
+    const win = Math.max(t.ptsA, t.ptsB);
+    assert(txt.includes(` ${win}*`), "el ganador de la mesa va en negrita");
+    E.generateNextRound(st, rng);
+    txt = E.toShareText(st);
+    assert(txt.includes("Resultados – Ronda 1") && txt.includes("Mesas – Ronda 2"), "tras generar R2: resultados R1 + mesas R2");
+    while (E.canGenerateNextRound(st).ok || !E.roundIsComplete(st.rounds[st.rounds.length - 1])) {
+      scoreAllTables(st.rounds[st.rounds.length - 1].tables, rng);
+      if (E.canGenerateNextRound(st).ok) E.generateNextRound(st, rng); else break;
+    }
+    E.generateByeRound(st, rng);
+    scoreAllTables(st.byeRound.tables, rng);
+    txt = E.toShareText(st);
+    assert(txt.includes("Podio final") && txt.includes("🥇") && txt.includes("Resultados – Ronda Bye"), "final: podio y resultados de la bye");
+    const rows = E.computeStandings(st);
+    assert(rows.every(r => txt.includes(r.name)), "todos los participantes aparecen en posiciones");
+    // Parejas con invitado en la bye
+    const s2 = E.createTournament({ mode: "parejas", maxRounds: 5, participants: mkParticipants("parejas", 5) }, rng);
+    while (E.canGenerateNextRound(s2).ok) { const { round } = E.generateNextRound(s2, rng); scoreAllTables(round.tables, rng); }
+    E.generateByeRound(s2, rng);
+    assert(E.toShareText(s2).includes("(invitado)"), "los invitados de la bye deben marcarse");
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);

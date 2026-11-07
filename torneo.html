@@ -501,6 +501,7 @@
         <button id="btnNextRound">Siguiente ronda</button>
         <button class="secondary" id="btnByeRound" style="display:none;">Generar ronda bye</button>
         <button class="secondary" id="btnUndoRound" style="display:none;">↩ Deshacer ronda</button>
+        <button class="secondary" id="btnShareWA">💬 Compartir en WhatsApp</button>
       </div>
       <div class="notice">
         <span class="pill">Reglas</span>
@@ -1369,6 +1370,18 @@ document.getElementById("btnByeRound").addEventListener("click", async e => {
   const ok = await withBusy(e.currentTarget, "Generando ronda bye…",
     () => applyWithConfirm(trial => E.generateByeRound(trial)));
   if (ok) { viewRound = "bye"; snapshot("Ronda bye generada"); renderAll(); toast("Ronda bye generada ✅"); }
+});
+
+/* ===== compartir en WhatsApp ===== */
+// Abre WhatsApp con el mensaje ya escrito; el árbitro elige el grupo y envía.
+document.getElementById("btnShareWA").addEventListener("click", () => {
+  if (!state) return toast("No hay torneo.");
+  // Si hay un marcador a medio escribir, que se guarde antes de armar el mensaje
+  if (document.activeElement && document.activeElement.classList.contains("score-input"))
+    document.activeElement.blur();
+  const url = "https://wa.me/?text=" + encodeURIComponent(E.toShareText(state));
+  const win = window.open(url, "_blank");
+  if (!win) location.href = url;
 });
 
 /* ===== export / respaldo / reset ===== */

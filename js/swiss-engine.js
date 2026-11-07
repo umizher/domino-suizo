@@ -850,6 +850,70 @@
     return lines.join("\n");
   }
 
+  /* ===================== mensaje para WhatsApp ===================== */
+
+  // Texto listo para pegar en un grupo de WhatsApp (*negrita* de WhatsApp):
+  // resultados de la última ronda terminada, mesas de la ronda en juego
+  // (si la hay), podio al finalizar y tabla de posiciones.
+  function toShareText(state) {
+    const isGhost = id => { const p = getParticipant(state, id); return !!(p && p.ghost); };
+    const who = id => nameOf(state, id) + (isGhost(id) ? " (invitado)" : "");
+    const team = ids => ids.map(who).join(" + ");
+    const tableLine = t => {
+      const A = team(t.teamA), B = team(t.teamB);
+      if (!tableScored(t)) {
+        const a = parseScore(t.ptsA), b = parseScore(t.ptsB);
+        const partial = a !== null || b !== null ? ` (${a ?? "–"} – ${b ?? "–"})` : "";
+        return `Mesa ${t.table}: ${A} vs ${B}${partial}`;
+      }
+      const a = parseScore(t.ptsA), b = parseScore(t.ptsB);
+      const left = a > b ? `*${A} ${a}*` : `${A} ${a}`;
+      const right = b > a ? `*${B} ${b}*` : `${B} ${b}`;
+      return `Mesa ${t.table}: ${left} – ${right}`;
+    };
+    const blocks = state.rounds.map(r => ({ label: `Ronda ${r.round}`, tables: r.tables, bench: r.bench }));
+    if (state.byeRound) blocks.push({ label: "Ronda Bye", tables: state.byeRound.tables, bench: [] });
+
+    const lines = [];
+    const rn = state.rounds.length;
+    lines.push(`*Torneo de Dominó – ${state.mode === "individual" ? "Individual" : "Parejas"}*`);
+    lines.push(`Ronda ${rn} de ${state.maxRounds}${state.byeRound ? " + bye" : ""} · partidas a ${state.config.targetPoints}`);
+
+    const results = (b, verb) => {
+      lines.push("", `✅ *Resultados – ${b.label}*`);
+      for (const t of b.tables) lines.push(tableLine(t));
+      if (b.bench.length) lines.push(`💤 ${verb}: ${b.bench.map(who).join(", ")}`);
+    };
+    const last = blocks[blocks.length - 1];
+    if (last) {
+      const lastDone = last.tables.every(tableScored);
+      if (lastDone) results(last, "Descansó");
+      else {
+        const prev = blocks[blocks.length - 2];
+        if (prev) results(prev, "Descansó");
+        lines.push("", `🎯 *Mesas – ${last.label}*`);
+        for (const t of last.tables) lines.push(tableLine(t));
+        if (last.bench.length) lines.push(`💤 Descansa: ${last.bench.map(who).join(", ")}`);
+      }
+    }
+
+    const rows = computeStandings(state);
+    if (rows.some(r => r.PJ > 0)) {
+      if (tournamentPhase(state) === "finished") {
+        const medals = ["🥇", "🥈", "🥉"];
+        lines.push("", "🏆 *Podio final*");
+        rows.filter(r => !r.retired).slice(0, 3).forEach((r, i) =>
+          lines.push(`${medals[i]} ${r.name} – ${r.G} ganada${r.G === 1 ? "" : "s"}`));
+      }
+      lines.push("", "📊 *Posiciones*");
+      rows.forEach((r, i) => {
+        const dif = (r.DIF > 0 ? "+" : "") + r.DIF;
+        lines.push(`${i + 1}. ${r.name}${r.retired ? " (retirado)" : ""} – ${r.G}G ${r.P}P · DIF ${dif}`);
+      });
+    }
+    return lines.join("\n");
+  }
+
   /* ===================== API pública ===================== */
 
   return {
@@ -858,7 +922,7 @@
     addParticipant, renameParticipant, setParticipantActive,
     generateNextRound, generateByeRound, undoLastRound, byeForecast,
     canGenerateNextRound, canGenerateByeRound,
-    setResult, computeStandings, tournamentPhase, toCSV,
+    setResult, computeStandings, tournamentPhase, toCSV, toShareText,
     roundIsComplete, tableScored, parseScore, scoreStatus,
     timerRemaining, timerPaused, timerPause, timerResume, timerRestart,
     getParticipant, nameOf, activeIds, restedIds, pairingHistory, betweenRounds,
