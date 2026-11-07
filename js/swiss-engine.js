@@ -235,9 +235,10 @@
     for (const p of state.participants)
       if (!seen.has(p.id)) { seen.add(p.id); queue.push(p.id); }
     state.benchQueue = queue;
-    if (!Number.isInteger(state.nextId)) {
-      state.nextId = 1 + Math.max(0, ...state.participants.map(p => Number(String(p.id).replace(/\D/g, "")) || 0));
-    }
+    // El contador de IDs debe quedar por encima de todos los existentes: un
+    // respaldo dañado con un contador bajo haría repetir IDs al agregar a alguien.
+    const minNext = 1 + Math.max(0, ...state.participants.map(p => Number(String(p.id).replace(/\D/g, "")) || 0));
+    if (!Number.isInteger(state.nextId) || state.nextId < minNext) state.nextId = minNext;
     return { ok: true, state, errors: [] };
   }
 

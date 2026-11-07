@@ -275,6 +275,10 @@
     td.dif-zer { color: var(--muted); }
     tr.retired td { opacity: .45; }
 
+    /* Nombres largos sin espacios (apodos) se parten en vez de ensanchar la
+       página y sacar los botones de la pantalla del teléfono. */
+    .p-name, .team-names, .pd-name, td, .match-label, .bench-notice, .info-banner, .warn-banner { overflow-wrap: anywhere; }
+    .p-row > *, .team-line > * { min-width: 0; }
     .p-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
     .p-row .p-name { flex: 1; font-size: 13px; }
     .p-row .p-meta { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 1px; }
@@ -670,7 +674,41 @@ let viewRound = 0;      // ronda visible: número o "bye"
 let loadError = null;
 let pastEditNotified = false;
 
-function save() { localStorage.setItem(E.STORAGE_KEY, JSON.stringify(state)); }
+// Varias pestañas del árbitro comparten el mismo almacenamiento. Cada pestaña
+// recuerda lo último que leyó o guardó (syncedJson); si al guardar descubre que
+// otra pestaña cambió el torneo, NO lo pisa: carga la versión nueva y avisa.
+// Sin esto, una pestaña vieja podía borrar rondas generadas en otra.
+let syncedJson = null;
+function save() {
+  const stored = localStorage.getItem(E.STORAGE_KEY);
+  if (stored !== syncedJson) {
+    adoptExternal("Este torneo cambió en otra pestaña o ventana: se cargó la versión más nueva. Revisa lo último que anotaste aquí.");
+    return false;
+  }
+  const json = JSON.stringify(state);
+  localStorage.setItem(E.STORAGE_KEY, json);
+  syncedJson = json;
+  return true;
+}
+function clearStored() {
+  localStorage.removeItem(E.STORAGE_KEY);
+  syncedJson = null;
+}
+function adoptExternal(msg) {
+  load();
+  viewRound = 0;
+  renderAll();
+  if (msg) toast(msg, 7000);
+}
+// Otra pestaña guardó: actualizar esta al instante (o al volver a ella)
+window.addEventListener("storage", e => {
+  if ((e.key === E.STORAGE_KEY || e.key === null) && localStorage.getItem(E.STORAGE_KEY) !== syncedJson)
+    adoptExternal("El torneo se actualizó con los cambios de otra pestaña.");
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && localStorage.getItem(E.STORAGE_KEY) !== syncedJson)
+    adoptExternal("El torneo se actualizó con los cambios de otra pestaña.");
+});
 
 /* Instantáneas automáticas: anillo de 5 copias en cambios estructurales
    (generar/deshacer ronda, altas/bajas). Red de seguridad ante errores. */
@@ -693,7 +731,8 @@ function snapshot(label) {
 function load() {
   loadError = null;
   let raw = null;
-  try { raw = JSON.parse(localStorage.getItem(E.STORAGE_KEY) || "null"); } catch {}
+  syncedJson = localStorage.getItem(E.STORAGE_KEY);
+  try { raw = JSON.parse(syncedJson || "null"); } catch {}
   if (raw === null) { state = null; return; }
   const v = E.validateState(raw);
   if (v.ok) { state = v.state; }
@@ -1486,7 +1525,7 @@ document.getElementById("btnReset").addEventListener("click", async () => {
   const ok = await confirmDialog("Borrar torneo",
     "¿Borrar todo el torneo? Esta acción no se puede deshacer.\nConsejo: descarga un respaldo antes.", { danger: true, confirmText: "Borrar todo" });
   if (!ok) return;
-  localStorage.removeItem(E.STORAGE_KEY);
+  clearStored();
   state = null; viewRound = 0;
   clearSetup();
   renderAll();
@@ -1495,7 +1534,7 @@ document.getElementById("btnReset").addEventListener("click", async () => {
 document.getElementById("btnErrorReset").addEventListener("click", async () => {
   const ok = await confirmDialog("Borrar datos dañados", "¿Borrar los datos dañados y empezar de nuevo?", { danger: true, confirmText: "Borrar" });
   if (!ok) return;
-  localStorage.removeItem(E.STORAGE_KEY);
+  clearStored();
   loadError = null;
   clearSetup();
   renderAll();
@@ -1545,7 +1584,7 @@ function boot() {
     history.replaceState(null, "", location.pathname);
     const ok = await confirmDialog("Borrar datos", "¿Borrar todos los datos del torneo?", { danger: true, confirmText: "Borrar" });
     if (ok) {
-      localStorage.removeItem(E.STORAGE_KEY);
+      clearStored();
       sessionStorage.removeItem(PIN_SESSION_KEY);
       toast("Datos borrados. Ya puedes iniciar un torneo nuevo.");
       location.reload();
