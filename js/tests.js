@@ -928,6 +928,46 @@
     assert(repeatedSeen > 0, "la prueba debe incluir rivales repetidos");
   }
 
+  section("Banco: nunca descansa quien ya perdió más rondas que alguien que juega");
+  {
+    let lateBenchedWhileOthersAhead = 0, checks = 0;
+    for (let k = 0; k < 600; k++) {
+      const rng = E._mulberry32(7000 + k);
+      const mode = k % 2 ? "individual" : "parejas";
+      const U = E.MODES[mode].unitsPerTable;
+      const n = U + (k % 9);
+      const st = E.createTournament({ mode, maxRounds: 6, participants: mkParticipants(mode, n) }, rng);
+      let late = 0;
+      for (let r = 1; r <= 6; r++) {
+        if (r > 1 && rng() < .4) E.addParticipant(st, mode === "individual"
+          ? { name: `Tarde${++late}`, members: [`Tarde${late}`] }
+          : { name: `Tarde${++late}`, members: [`T${late}a`, `T${late}b`] });
+        if (r > 2 && rng() < .15) {
+          const act = E.activeIds(st);
+          if (act.length > U + 1) E.setParticipantActive(st, act[0], false);
+        }
+        if (r > 3 && rng() < .2) {
+          const ret = st.participants.find(p => !p.active && !p.ghost);
+          if (ret) E.setParticipantActive(st, ret.id, true);
+        }
+        if (!E.canGenerateNextRound(st).ok) break;
+        const seatedBefore = new Map();
+        for (const rr of st.rounds) for (const t of rr.tables) for (const id of [...t.teamA, ...t.teamB])
+          seatedBefore.set(id, (seatedBefore.get(id) || 0) + 1);
+        const missed = id => st.rounds.length - (seatedBefore.get(id) || 0);
+        const { round } = E.generateNextRound(st, rng);
+        const playing = round.tables.flatMap(t => [...t.teamA, ...t.teamB]);
+        if (round.bench.length) {
+          const minPlaying = Math.min(...playing.map(missed));
+          for (const b of round.bench) { checks++; if (missed(b) > minPlaying) lateBenchedWhileOthersAhead++; }
+        }
+        scoreAllTables(round.tables, rng);
+      }
+    }
+    assert(checks > 300, "pocos descansos verificados");
+    assert(lateBenchedWhileOthersAhead === 0, `${lateBenchedWhileOthersAhead} descansos injustos (descansó alguien que ya iba atrás)`);
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);

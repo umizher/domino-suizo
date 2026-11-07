@@ -313,11 +313,18 @@
     const cfg = MODES[state.mode];
     const k = rankedPool.length % cfg.unitsPerTable;
     if (k === 0) return { bench: [], active: rankedPool.slice() };
-    // Cola estabilizada: menos descansos primero; a igualdad, orden de cola (FIFO).
-    // Garantiza equidad max−min ≤ 1 incluso tras altas/bajas a mitad de torneo.
+    // Descansa primero quien MENOS rondas se ha perdido. "Perdidas" cuenta los
+    // descansos y también las rondas en que no estaba (llegó tarde o estuvo
+    // retirado): así nunca descansa alguien que ya va atrás en partidas mientras
+    // juega otro que va adelante. A igualdad, orden de cola (FIFO).
     const inPool = new Set(rankedPool);
+    const seated = new Map();
+    for (const r of state.rounds)
+      for (const t of r.tables)
+        for (const id of [...t.teamA, ...t.teamB]) seated.set(id, (seated.get(id) || 0) + 1);
+    const missed = id => state.rounds.length - (seated.get(id) || 0);
     const candidates = state.benchQueue.filter(id => inPool.has(id));
-    candidates.sort((a, b) => (state.benchHistory[a] || 0) - (state.benchHistory[b] || 0) ||
+    candidates.sort((a, b) => missed(a) - missed(b) ||
                               state.benchQueue.indexOf(a) - state.benchQueue.indexOf(b));
     const bench = candidates.slice(0, k);
     for (const id of bench) {
