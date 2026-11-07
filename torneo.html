@@ -121,8 +121,10 @@
     @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
 
     main { padding: 18px 18px 48px; max-width: 1100px; margin: 0 auto; }
-    .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-    @media (min-width: 900px) { .grid { grid-template-columns: 1.1fr 1fr; } }
+    /* minmax(0, …): sin esto la tabla de posiciones ensancha la columna y en el
+       teléfono la página se sale de la pantalla (botones fuera de alcance). */
+    .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 900px) { .grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); } }
     .card {
       position: relative;
       background: linear-gradient(180deg, var(--card-a), var(--card-b));
@@ -707,6 +709,7 @@ async function applyWithConfirm(mutator, confirmTitle) {
   const blocking = (result.warnings || []).filter(w =>
     w.type === "rematch" || w.type === "partner_repeat" || w.type === "rival_repeat");
   if (blocking.length) {
+    if (document.getElementById("toast").textContent.startsWith("Generando")) hideBusyToast();
     const txt = blocking.map(w => warningText(trial, w)).join("\n\n");
     const ok = await showDialog({
       title: confirmTitle || "⚠ Repeticiones inevitables",
@@ -798,15 +801,23 @@ function updateByeForecast() {
   const f = E.byeForecast(setupMode, n, maxRounds);
   const unit = n => `${n} ${n === 1 ? cfg.unitLabel : cfg.unitLabelPlural}`;
   el.style.display = "";
+  el.classList.toggle("warn-banner", f.shortCount > 0);
+  el.classList.toggle("info-banner", !(f.shortCount > 0));
   if (f.perRound === 0) {
     el.textContent = `Con ${unit(n)} nadie descansa: mesas exactas todas las rondas, sin ronda bye.`;
   } else if (f.ghostCount === 0) {
     el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansará(n) ${unit(f.restedCount)}: la ronda bye quedará exacta.`;
   } else {
-    const sug = f.suggestedRounds.length
+    const sug = f.suggestedRounds.length && !f.shortCount
       ? ` Con ${f.suggestedRounds.join(" o ")} rondas la bye queda exacta.`
       : "";
     el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansará(n) ${unit(f.restedCount)}; la última mesa de la bye se completará con ${f.ghostCount} invitado(s) (${["A", "B", "C"].slice(0, f.ghostCount).join(", ")}).${sug}`;
+  }
+  if (f.shortCount > 0) {
+    const fair = f.fairRounds.length
+      ? ` Para que todos jueguen lo mismo usa ${f.fairRounds.join(" o ")} rondas.`
+      : "";
+    el.textContent = `⚠ ${el.textContent} Ojo: ${unit(f.shortCount)} descansará(n) una vez más y terminará(n) con 1 partida menos.${fair}`;
   }
 }
 document.getElementById("setupCard").addEventListener("input", updateByeForecast);
@@ -1169,14 +1180,41 @@ function buildMatchCard(m, roundNo) {
   }
 
   let timer = null;
-  function commit() {
+  let asking = false;
+  const closedRound = () => roundNo !== "bye" && (roundNo < state.rounds.length || state.byeRound !== null);
+  const restoreSaved = () => {
+    A.input.value = m.ptsA ?? ""; B.input.value = m.ptsB ?? "";
+  };
+  // Mientras se escribe (sin salir del campo) no se interrumpe: los casos
+  // dudosos se resuelven al salir del campo (blur).
+  async function commit(final) {
     const a = A.input.value, b = B.input.value;
     if (a !== "" && b !== "" && Number(a) === Number(b)) { refreshVisual(false); return; }
+    if ((a === "" || b === "") && closedRound()) {
+      if (!final) { refreshVisual(false); return; }
+      restoreSaved(); refreshVisual(E.tableScored(m));
+      toast("Esta ronda ya está cerrada: puedes corregir el marcador, pero no dejarlo vacío.", 5000);
+      return;
+    }
+    const limit = 2 * state.config.targetPoints;
+    const big = [a, b].filter(v => v !== "" && Number(v) > limit);
+    if (big.length) {
+      if (!final) { status.className = "save-status tie"; status.textContent = `⚠ ¿${big[0]} puntos? Revisa`; return; }
+      if (asking) return;
+      asking = true;
+      const ok = await confirmDialog("¿Marcador correcto?",
+        `Anotaste ${big.join(" y ")} puntos en la mesa ${m.table}, y la partida es a ${state.config.targetPoints}. ¿Es correcto o fue un error de dedo?`,
+        { confirmText: "Sí, es correcto" });
+      asking = false;
+      if (!ok) { restoreSaved(); refreshVisual(E.tableScored(m)); return; }
+    }
     try {
       const { warnings } = E.setResult(state, roundNo, m.table, a, b);
       save();
       refreshVisual(a !== "" && b !== "");
-      renderHeader(); renderStandings(); renderButtons(); renderPodium();
+      // renderParticipants: al completar/vaciar la ronda se habilitan o
+      // bloquean Retirar y + Agregar (antes quedaban con el estado viejo)
+      renderHeader(); renderStandings(); renderButtons(); renderPodium(); renderParticipants();
       const pastEdit = warnings.find(w => w.type === "past_edit");
       if (pastEdit && !pastEditNotified) {
         pastEditNotified = true;
@@ -1190,12 +1228,19 @@ function buildMatchCard(m, roundNo) {
   function onInput() {
     refreshVisual(false);
     clearTimeout(timer);
-    timer = setTimeout(commit, 400);
+    timer = setTimeout(() => commit(false), 400);
   }
   A.input.addEventListener("input", onInput);
   B.input.addEventListener("input", onInput);
-  A.input.addEventListener("blur", () => { clearTimeout(timer); commit(); });
-  B.input.addEventListener("blur", () => { clearTimeout(timer); commit(); });
+  // Al salir del campo: si el foco pasa al otro campo de la MISMA mesa, aún
+  // no es definitivo (se está anotando el segundo marcador).
+  const onBlur = e => {
+    clearTimeout(timer);
+    const sameCard = e.relatedTarget && card.contains(e.relatedTarget);
+    commit(!sameCard);
+  };
+  A.input.addEventListener("blur", onBlur);
+  B.input.addEventListener("blur", onBlur);
   // Captura rápida: Enter salta de A a B y de B a la siguiente mesa
   A.input.addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); B.input.focus(); }
@@ -1218,13 +1263,16 @@ function renderStandings() {
   const tb = document.getElementById("tableBody");
   tb.innerHTML = "";
   const medals = ["🥇", "🥈", "🥉"];
+  // Sin partidas jugadas el orden es alfabético: no hay a quién dar medalla
+  const anyPlayed = rows.some(r => r.PJ > 0);
   rows.forEach((r, i) => {
     const tr = document.createElement("tr");
+    const podium = anyPlayed && i < 3 && !r.retired;
     if (r.retired) tr.className = "retired";
-    else if (i < 3) tr.className = `rank-${i + 1}`;
+    else if (podium) tr.className = `rank-${i + 1}`;
     const difCls = r.DIF > 0 ? "dif-pos" : r.DIF < 0 ? "dif-neg" : "dif-zer";
     tr.innerHTML = `
-      <td class="medal">${i < 3 && !r.retired ? medals[i] : (i + 1)}</td>
+      <td class="medal">${podium ? medals[i] : (i + 1)}</td>
       <td><b>${esc(r.name)}</b>${r.retired ? ' <span class="muted">(ret.)</span>' : ""}</td>
       <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td>
       <td>${r.PF}</td><td>${r.PC}</td>
@@ -1281,10 +1329,32 @@ document.getElementById("btnUndoRound").addEventListener("click", async () => {
   toast(`Se deshizo ${target} ✅`);
 });
 
-document.getElementById("btnNextRound").addEventListener("click", async () => {
+// Con muchos jugadores el emparejamiento puede tardar unos segundos (más en
+// teléfono): se muestra "Generando…" y se deja pintar la pantalla antes de calcular.
+// Oculta el aviso "Generando…" sin tapar otro mensaje (p. ej. un error)
+function hideBusyToast(label) {
+  const el = document.getElementById("toast");
+  if (!label || el.textContent === label) el.classList.remove("show");
+}
+async function withBusy(btn, label, fn) {
+  const prev = btn.textContent;
+  btn.disabled = true; btn.textContent = label;
+  toast(label, 60000);
+  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 30)));
+  try { return await fn(); }
+  finally {
+    btn.textContent = prev;
+    btn.disabled = false; // renderButtons vuelve a bloquear lo que corresponda
+    hideBusyToast(label);
+    if (state) renderButtons();
+  }
+}
+
+document.getElementById("btnNextRound").addEventListener("click", async e => {
   const can = E.canGenerateNextRound(state);
   if (!can.ok) return toast(can.reason);
-  const ok = await applyWithConfirm(trial => E.generateNextRound(trial));
+  const ok = await withBusy(e.currentTarget, "Generando ronda…",
+    () => applyWithConfirm(trial => E.generateNextRound(trial)));
   if (ok) {
     viewRound = currentRoundNo();
     snapshot(`Ronda ${currentRoundNo()} generada`);
@@ -1293,10 +1363,11 @@ document.getElementById("btnNextRound").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("btnByeRound").addEventListener("click", async () => {
+document.getElementById("btnByeRound").addEventListener("click", async e => {
   const can = E.canGenerateByeRound(state);
   if (!can.ok) return toast(can.reason);
-  const ok = await applyWithConfirm(trial => E.generateByeRound(trial));
+  const ok = await withBusy(e.currentTarget, "Generando ronda bye…",
+    () => applyWithConfirm(trial => E.generateByeRound(trial)));
   if (ok) { viewRound = "bye"; snapshot("Ronda bye generada"); renderAll(); toast("Ronda bye generada ✅"); }
 });
 

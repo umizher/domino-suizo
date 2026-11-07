@@ -58,10 +58,16 @@
 
   function pairKey(a, b) { return a < b ? a + "|" + b : b + "|" + a; }
 
+  // Solo enteros ≥ 0: rechaza decimales ("150.5") y notación científica ("1e3"),
+  // típicos errores de dedo que distorsionan la DIF.
   function parseScore(v) {
     if (v === "" || v === null || v === undefined) return null;
+    if (typeof v === "string") {
+      if (v.trim() === "") return null;
+      if (!/^\s*\d+\s*$/.test(v)) return NaN;
+    }
     const n = Number(v);
-    return Number.isFinite(n) && n >= 0 ? n : NaN;
+    return Number.isInteger(n) && n >= 0 ? n : NaN;
   }
 
   function tableScored(t) {
@@ -596,14 +602,31 @@
   // hasta completar el ciclo de rotación. Permite avisar al organizador
   // cuántos invitados de relleno necesitará la bye y qué números de rondas
   // la dejan exacta.
+  // Además, la bye repone UNA partida: si las rondas superan el ciclo de
+  // rotación (per·R > n), (per·R mod n) unidades descansan una vez más que
+  // el resto y terminan con una partida menos. shortCount lo cuantifica y
+  // fairRounds sugiere rondas (≥4) donde nadie queda corto.
   function byeForecast(mode, n, maxRounds) {
     const cfg = MODES[mode];
     const per = n % cfg.unitsPerTable;
     if (!per || n < cfg.unitsPerTable)
-      return { perRound: 0, restedCount: 0, ghostCount: 0, suggestedRounds: [] };
+      return { perRound: 0, restedCount: 0, ghostCount: 0, suggestedRounds: [], shortCount: 0, fairRounds: [] };
     const restedFor = r => Math.min(per * r, n);
+    const shortFor = r => (per * r > n ? (per * r) % n : 0);
+    const ghostFor = r => (cfg.unitsPerTable - (restedFor(r) % cfg.unitsPerTable)) % cfg.unitsPerTable;
+    const shortCount = shortFor(maxRounds);
+    const fairRounds = [];
+    if (shortCount > 0) {
+      const cands = [];
+      for (let r = 4; r <= maxRounds + 6; r++)
+        if (r !== maxRounds && shortFor(r) === 0) cands.push(r);
+      // Preferir las que además dejan la bye exacta, luego las más cercanas
+      cands.sort((x, y) => (ghostFor(x) > 0) - (ghostFor(y) > 0) ||
+                           Math.abs(x - maxRounds) - Math.abs(y - maxRounds));
+      fairRounds.push(...cands.slice(0, 3).sort((x, y) => x - y));
+    }
     const rested = restedFor(maxRounds);
-    const ghostCount = (cfg.unitsPerTable - (rested % cfg.unitsPerTable)) % cfg.unitsPerTable;
+    const ghostCount = ghostFor(maxRounds);
     const suggestedRounds = [];
     if (ghostCount > 0) {
       for (let r = Math.max(4, maxRounds - 3); r <= maxRounds + 4 && suggestedRounds.length < 3; r++) {
@@ -612,7 +635,7 @@
           suggestedRounds.push(r);
       }
     }
-    return { perRound: per, restedCount: rested, ghostCount, suggestedRounds };
+    return { perRound: per, restedCount: rested, ghostCount, suggestedRounds, shortCount, fairRounds };
   }
 
   // Deshacer la última ronda generada (o la bye). Revierte también el banco:
@@ -686,6 +709,11 @@
 
   /* ===================== resultados ===================== */
 
+  function isClosedRound(state, roundNo) {
+    if (roundNo === "bye") return false;
+    return roundNo < state.rounds.length || state.byeRound !== null;
+  }
+
   function setResult(state, roundNo, tableNo, ptsA, ptsB) {
     let tables;
     if (roundNo === "bye") {
@@ -699,8 +727,12 @@
     const t = tables.find(x => x.table === tableNo);
     if (!t) throw new Error("Mesa inexistente.");
     const a = parseScore(ptsA), b = parseScore(ptsB);
-    if (Number.isNaN(a) || Number.isNaN(b)) throw new Error("Puntos inválidos.");
+    if (Number.isNaN(a) || Number.isNaN(b)) throw new Error("Puntos inválidos: usa números enteros.");
     if (a !== null && b !== null && a === b) throw new Error("No se permiten empates.");
+    // Una ronda cerrada (ya hay otra después, o la bye) puede corregirse pero
+    // no quedar vacía: dejaría el torneo "finalizado" con una mesa sin resultado.
+    if ((a === null || b === null) && isClosedRound(state, roundNo))
+      throw new Error("Esta ronda ya está cerrada: puedes corregir el marcador, pero no dejarlo vacío.");
     t.ptsA = a === null ? "" : a;
     t.ptsB = b === null ? "" : b;
     const warnings = [];
@@ -714,10 +746,12 @@
   function tournamentPhase(state) {
     if (state.rounds.length === 0) return "config";
     if (state.byeRound) {
-      return state.byeRound.tables.every(tableScored) ? "finished" : "bye_playing";
+      return state.byeRound.tables.every(tableScored) && state.rounds.every(roundIsComplete)
+        ? "finished" : "bye_playing";
     }
+    // Todas las rondas (no solo la última) deben tener resultado
     const allDone = state.rounds.length >= state.maxRounds &&
-                    roundIsComplete(state.rounds[state.rounds.length - 1]);
+                    state.rounds.every(roundIsComplete);
     if (!allDone) return "playing";
     return canGenerateByeRound(state).ok ? "bye_pending" : "finished";
   }

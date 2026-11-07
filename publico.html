@@ -364,9 +364,10 @@ function render(force) {
   const rows = E.computeStandings(state);
   const tb = document.getElementById("tableBody");
   tb.innerHTML = "";
+  const anyPlayed = rows.some(r => r.PJ > 0);
   rows.forEach((r, i) => {
     const tr = document.createElement("tr");
-    if (i < 3 && !r.retired) tr.className = `rank-${i + 1}`;
+    if (anyPlayed && i < 3 && !r.retired) tr.className = `rank-${i + 1}`;
     if (r.retired) tr.className = "retired";
     tr.innerHTML = `<td>${i + 1}</td><td><b>${esc(r.name)}</b>${r.retired ? ' <span class="muted">(ret.)</span>' : ""}</td>
       <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td><td>${r.BUC}</td><td><b>${r.PTS}</b></td>`;

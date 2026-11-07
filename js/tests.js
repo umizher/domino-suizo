@@ -742,6 +742,79 @@
     assert(E.scoreStatus(st2, t2) === "complete", "meta 100: 110 debe ser complete");
   }
 
+  section("Puntajes: solo enteros (sin decimales ni notación científica)");
+  {
+    const rng = E._mulberry32(53);
+    const st = E.createTournament({ mode: "parejas", maxRounds: 4, participants: mkParticipants("parejas", 4) }, rng);
+    E.generateNextRound(st, rng);
+    for (const bad of [[150.5, 20], ["1e3", 5], ["12abc", 3], [-5, 10], ["0x10", 1]]) {
+      let err = false;
+      try { E.setResult(st, 1, 1, bad[0], bad[1]); } catch { err = true; }
+      assert(err, `aceptó puntaje inválido ${JSON.stringify(bad)}`);
+    }
+    E.setResult(st, 1, 1, " 210 ", "95");
+    assert(st.rounds[0].tables[0].ptsA === 210 && st.rounds[0].tables[0].ptsB === 95, "entero con espacios debe aceptarse");
+    E.setResult(st, 1, 1, "", "");
+    assert(!E.tableScored(st.rounds[0].tables[0]), "la ronda actual sí puede quedar vacía");
+  }
+
+  section("Ronda cerrada: se corrige pero no se vacía; fase coherente");
+  {
+    const rng = E._mulberry32(59);
+    const st = E.createTournament({ mode: "individual", maxRounds: 4, participants: mkParticipants("individual", 9) }, rng);
+    while (E.canGenerateNextRound(st).ok) {
+      const { round } = E.generateNextRound(st, rng);
+      scoreAllTables(round.tables, rng);
+    }
+    for (const [a, b] of [["", ""], [210, ""], ["", 50]]) {
+      let err = false;
+      try { E.setResult(st, 2, 1, a, b); } catch { err = true; }
+      assert(err, `permitió vaciar ronda cerrada con ${JSON.stringify([a, b])}`);
+    }
+    assert(E.roundIsComplete(st.rounds[1]), "la ronda cerrada perdió su resultado");
+    E.setResult(st, 2, 1, 230, 120); // corregir sí se puede
+    // La última ronda antes de la bye se puede vaciar; tras generar la bye, ya no
+    E.setResult(st, 4, 1, "", "");
+    assert(E.tournamentPhase(st) === "playing", "con la última ronda vacía la fase debe ser playing");
+    scoreAllTables(st.rounds[3].tables, rng);
+    E.generateByeRound(st, rng);
+    let err = false;
+    try { E.setResult(st, 4, 1, "", ""); } catch { err = true; }
+    assert(err, "permitió vaciar la última ronda con la bye ya generada");
+    // Datos viejos con una ronda pasada vacía: nunca "finalizado"
+    scoreAllTables(st.byeRound.tables, rng);
+    assert(E.tournamentPhase(st) === "finished", "bye completa debe finalizar");
+    st.rounds[1].tables[0].ptsA = "";
+    assert(E.tournamentPhase(st) !== "finished", "torneo finalizado con una mesa pasada vacía");
+  }
+
+  section("byeForecast: aviso de partidas de menos y rondas justas");
+  {
+    const cases = [
+      ["individual", 6, 4, 2], ["individual", 10, 6, 2], ["individual", 7, 5, 1],
+      ["parejas", 5, 6, 1], ["parejas", 3, 4, 1], ["individual", 9, 4, 0], ["individual", 6, 6, 0]
+    ];
+    for (const [mode, n, R, expShort] of cases) {
+      const f = E.byeForecast(mode, n, R);
+      assert(f.shortCount === expShort, `${mode} ${n}/${R}: shortCount ${f.shortCount} ≠ ${expShort}`);
+      for (const r of f.fairRounds)
+        assert(E.byeForecast(mode, n, r).shortCount === 0 && r >= 4, `${mode} ${n}: ronda sugerida ${r} no es justa`);
+      if (expShort) assert(f.fairRounds.length > 0, `${mode} ${n}/${R}: faltan rondas sugeridas`);
+      // Verificación contra una simulación real: PJ máx − mín al terminar
+      const rng = E._mulberry32(n * 31 + R);
+      const st = E.createTournament({ mode, maxRounds: R, participants: mkParticipants(mode, n) }, rng);
+      while (E.canGenerateNextRound(st).ok) {
+        const { round } = E.generateNextRound(st, rng);
+        scoreAllTables(round.tables, rng);
+      }
+      if (E.canGenerateByeRound(st).ok) { E.generateByeRound(st, rng); scoreAllTables(st.byeRound.tables, rng); }
+      const pj = E.computeStandings(st).map(s => s.PJ);
+      const maxPJ = Math.max(...pj);
+      const short = pj.filter(x => x < maxPJ).length;
+      assert(short === expShort, `${mode} ${n}/${R}: simulación da ${short} con menos partidas, pronóstico ${expShort}`);
+    }
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);
