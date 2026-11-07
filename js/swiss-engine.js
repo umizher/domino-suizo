@@ -246,7 +246,7 @@
   function computeStandings(state) {
     const stats = new Map(state.participants.map(p => [p.id, {
       id: p.id, name: p.name, retired: !p.active, ghost: !!p.ghost,
-      PJ: 0, G: 0, P: 0, PF: 0, PC: 0, DIF: 0, BUC: 0, PTS: 0, _opps: new Set()
+      PJ: 0, G: 0, P: 0, PF: 0, PC: 0, DIF: 0, BUC: 0, PTS: 0, _opps: []
     }]));
     for (const t of allTables(state)) {
       if (!tableScored(t)) continue;
@@ -256,16 +256,18 @@
       for (const id of winTeam) {
         const s = stats.get(id); if (!s) continue;
         s.PJ++; s.G++; s.PTS++; s.PF += winPts; s.PC += losPts;
-        for (const opp of losTeam) s._opps.add(opp);
+        for (const opp of losTeam) s._opps.push(opp);
       }
       for (const id of losTeam) {
         const s = stats.get(id); if (!s) continue;
         s.PJ++; s.P++; s.PF += losPts; s.PC += winPts;
-        for (const opp of winTeam) s._opps.add(opp);
+        for (const opp of winTeam) s._opps.push(opp);
       }
     }
     for (const s of stats.values()) s.DIF = s.PF - s.PC;
-    // Buchholz: victorias de rivales únicos (un rival enfrentado dos veces cuenta una vez)
+    // Buchholz: suma de las victorias de cada rival, una vez por partida jugada
+    // contra él (si un rival se repite, cuenta dos veces). Antes contaba rivales
+    // únicos y castigaba a quien el sorteo le repitió rival.
     for (const s of stats.values()) {
       let buc = 0;
       for (const opp of s._opps) buc += stats.get(opp) ? stats.get(opp).G : 0;

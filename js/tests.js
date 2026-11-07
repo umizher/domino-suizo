@@ -879,6 +879,35 @@
     assert(st.byeRound && s3.byeRound.tables.some(t => [...t.teamA, ...t.teamB].includes(late3)), "individual: el tardío debe jugar la bye");
   }
 
+  section("Buchholz cuenta cada partida (rival repetido suma dos veces)");
+  {
+    let repeatedSeen = 0;
+    for (const [mode, n, R] of [["individual", 8, 6], ["individual", 9, 5], ["parejas", 4, 5], ["parejas", 5, 6]]) {
+      const rng = E._mulberry32(n * 7 + R);
+      const st = E.createTournament({ mode, maxRounds: R, participants: mkParticipants(mode, n) }, rng);
+      while (E.canGenerateNextRound(st).ok) {
+        const { round } = E.generateNextRound(st, rng, { /* acepta repeticiones forzadas */ });
+        scoreAllTables(round.tables, rng);
+      }
+      if (E.canGenerateByeRound(st).ok) { E.generateByeRound(st, rng); scoreAllTables(st.byeRound.tables, rng); }
+      const rows = E.computeStandings(st);
+      const G = Object.fromEntries(st.participants.map(p => [p.id, 0]));
+      const tables = [...st.rounds.flatMap(r => r.tables), ...(st.byeRound ? st.byeRound.tables : [])];
+      for (const t of tables) for (const id of (t.ptsA > t.ptsB ? t.teamA : t.teamB)) G[id]++;
+      for (const r of rows) {
+        let buc = 0; const seen = new Set(); let rep = false;
+        for (const t of tables) {
+          const mine = t.teamA.includes(r.id) ? t.teamB : t.teamB.includes(r.id) ? t.teamA : null;
+          if (!mine) continue;
+          for (const o of mine) { buc += G[o]; if (seen.has(o)) rep = true; seen.add(o); }
+        }
+        if (rep) repeatedSeen++;
+        assert(r.BUC === buc, `${mode} ${n}/${R}: BUC de ${r.name} = ${r.BUC}, esperado ${buc} (por partida)`);
+      }
+    }
+    assert(repeatedSeen > 0, "la prueba debe incluir rivales repetidos");
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);
