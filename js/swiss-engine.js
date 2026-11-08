@@ -19,7 +19,7 @@
   const STORAGE_KEY = "domino_torneo_v3";
   // Versión del motor: las páginas cargan js/swiss-engine.js?v=N y comprueban
   // que coincida, para no mezclar una pantalla nueva con cálculos viejos en caché.
-  const ENGINE_VERSION = 15;
+  const ENGINE_VERSION = 16;
   const TIEBREAK_LABEL = "Ganadas → Buchholz → DIF → Puntos";
 
   // Reglas profesionales (FID): partidas a 200 puntos — si se pasan, se anotan
@@ -593,6 +593,63 @@
     return { ok: true, reason: "" };
   }
 
+  // Arma la última mesa de la bye: los jugadores reales que sobran + invitados.
+  // Individual (2 vs 2):
+  //   1 real  → real + invitado  vs  invitado + invitado
+  //   2 reales → cada uno con un invitado de compañero, uno contra el otro
+  //             (la partida se decide entre los dos reales, en igualdad);
+  //             si ya se enfrentaron, juntos contra dos invitados
+  //   3 reales → dos juntos contra el tercero + invitado
+  // Parejas: pareja real vs pareja invitada.
+  // Devuelve también su costo de repeticiones (compañero repetido pesa 100,
+  // cada rival repetido 1) para elegir la mejor combinación.
+  function ghostTable(state, reals, ghosts, history) {
+    const rival = (a, b) => (history.rivalCounts.get(pairKey(a, b)) || 0) > 0 ? 1 : 0;
+    if (state.mode !== "individual") {
+      const cost = history.playedKeys.has(pairKey(reals[0], ghosts[0])) ? 1 : 0;
+      return { teamA: [reals[0]], teamB: [ghosts[0]], cost };
+    }
+    if (reals.length === 1) return { teamA: [reals[0], ghosts[0]], teamB: [ghosts[1], ghosts[2]], cost: 0 };
+    if (reals.length === 2) {
+      // Preferido: uno contra otro (cada uno con un invitado). Si ya se
+      // enfrentaron y nunca fueron compañeros, juntos contra dos invitados.
+      const vs = { teamA: [reals[0], ghosts[0]], teamB: [reals[1], ghosts[1]], cost: rival(reals[0], reals[1]) };
+      if (vs.cost === 0 || history.partnerKeys.has(pairKey(reals[0], reals[1]))) return vs;
+      return { teamA: [reals[0], reals[1]], teamB: [ghosts[0], ghosts[1]], cost: 0 };
+    }
+    let best = null;
+    for (let solo = 0; solo < 3; solo++) {
+      const pair = reals.filter((_, i) => i !== solo);
+      const cost = (history.partnerKeys.has(pairKey(pair[0], pair[1])) ? 100 : 0) +
+                   pair.reduce((a, id) => a + rival(id, reals[solo]), 0);
+      if (!best || cost < best.cost) best = { teamA: pair, teamB: [reals[solo], ghosts[0]], cost };
+    }
+    return best;
+  }
+
+  // Costo de repeticiones de un conjunto de mesas ya armado (según sus avisos)
+  function repeatCost(warnings) {
+    let c = 0;
+    for (const w of warnings) {
+      if (w.type === "partner_repeat") c += 100 * w.pairs.length;
+      else if (w.type === "rival_repeat" || w.type === "rematch") c += w.pairs.length;
+    }
+    return c;
+  }
+
+  function combinationsCount(n, k) { let c = 1; for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1); return c; }
+
+  // Combinaciones de k elementos de una lista (en orden)
+  function combinations(list, k) {
+    const out = [];
+    const rec = (start, acc) => {
+      if (acc.length === k) { out.push(acc.slice()); return; }
+      for (let i = start; i < list.length; i++) { acc.push(list[i]); rec(i + 1, acc); acc.pop(); }
+    };
+    rec(0, []);
+    return out;
+  }
+
   function generateByeRound(state, rng = Math.random) {
     const can = canGenerateByeRound(state);
     if (!can.ok) throw new Error(can.reason);
@@ -616,11 +673,60 @@
       ghosts.push(id);
     }
 
-    // Los invitados se sientan al final (mesa del peor clasificado descansado)
-    const eligible = rested.concat(ghosts);
+    // Mesas completas primero, solo con jugadores reales; los invitados van
+    // TODOS en la última mesa, con los peor clasificados de la bye. Antes se
+    // emparejaba a todos juntos y los invitados podían quedar repartidos en
+    // varias mesas (más voluntarios sentados de los necesarios y la bye "por
+    // turnos" no funcionaba).
     const history = pairingHistory(state);
-    const { tables, warnings } = buildTables(state, eligible, history, rng);
-    if (ghosts.length) warnings.push({ type: "ghost_fill", ids: ghosts });
+    let tables, warnings;
+    if (!missing) {
+      ({ tables, warnings } = buildTables(state, rested, history, rng));
+    } else {
+      // ¿Quiénes juegan la mesa con invitados? Se prueban combinaciones entre
+      // los peor clasificados de la bye y se elige la que menos repite
+      // compañeros/rivales (en la mesa de invitados y en las mesas completas).
+      // A igualdad, la de los peor clasificados.
+      const leftover = rested.length % cfg.unitsPerTable;
+      // Si son pocas combinaciones se prueban todas; si no, entre los 9 peor
+      // clasificados (máximo 84 combinaciones, se detiene al hallar una sin repeticiones).
+      const pool = combinationsCount(rested.length, leftover) <= 120 ? rested : rested.slice(rested.length - 9);
+      const cands = combinations(pool, leftover).map(c => {
+        const rankSum = c.reduce((a, id) => a + standingOrder.get(id), 0);
+        return { reals: c, gt: ghostTable(state, c, ghosts, history), rankSum };
+      });
+      cands.sort((a, b) => a.gt.cost - b.gt.cost || b.rankSum - a.rankSum);
+      let best = null;
+      for (const c of cands) {
+        if (best && c.gt.cost >= best.cost) break;          // ya no puede mejorar
+        const inLast = new Set(c.reals);
+        const fullIds = rested.filter(id => !inLast.has(id));
+        const built = fullIds.length ? buildTables(state, fullIds, history, rng) : { tables: [], warnings: [] };
+        const cost = c.gt.cost + repeatCost(built.warnings);
+        if (!best || cost < best.cost) best = { cost, built, gt: c.gt };
+        if (best.cost === 0) break;
+      }
+      tables = best.built.tables;
+      warnings = best.built.warnings;
+      const last = { table: tables.length + 1, teamA: best.gt.teamA, teamB: best.gt.teamB, ptsA: "", ptsB: "" };
+      tables.push(last);
+      // Como en las demás mesas, toda repetición se avisa
+      const addPairs = (type, pairs) => {
+        if (!pairs.length) return;
+        const w = warnings.find(x => x.type === type);
+        if (w) w.pairs.push(...pairs); else warnings.push({ type, pairs });
+      };
+      if (state.mode === "individual") {
+        addPairs("partner_repeat", [last.teamA, last.teamB].filter(t => history.partnerKeys.has(pairKey(t[0], t[1]))).map(t => [t[0], t[1]]));
+        const rr = [];
+        for (const x of last.teamA) for (const y of last.teamB)
+          if ((history.rivalCounts.get(pairKey(x, y)) || 0) > 0) rr.push([x, y]);
+        addPairs("rival_repeat", rr);
+      } else if (history.playedKeys.has(pairKey(last.teamA[0], last.teamB[0]))) {
+        addPairs("rematch", [[last.teamA[0], last.teamB[0]]]);
+      }
+      warnings.push({ type: "ghost_fill", ids: ghosts });
+    }
     state.byeRound = { tables, excluded: [], warnings, timer: newTimer(state) };
     return { byeRound: state.byeRound, warnings };
   }

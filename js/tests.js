@@ -968,6 +968,37 @@
     assert(lateBenchedWhileOthersAhead === 0, `${lateBenchedWhileOthersAhead} descansos injustos (descansó alguien que ya iba atrás)`);
   }
 
+  section("Bye: mesas completas primero, invitados todos en la última mesa");
+  {
+    let byesWithGhosts = 0;
+    for (const mode of ["individual", "parejas"]) {
+      const U = E.MODES[mode].unitsPerTable;
+      for (let n = U + 1; n <= (mode === "individual" ? 30 : 15); n++) for (const R of [4, 5, 6]) {
+        const rng = E._mulberry32(n * 4099 + R);
+        const st = E.createTournament({ mode, maxRounds: R, participants: mkParticipants(mode, n) }, rng);
+        while (E.canGenerateNextRound(st).ok) { const { round } = E.generateNextRound(st, rng); scoreAllTables(round.tables, rng); }
+        if (!E.canGenerateByeRound(st).ok) continue;
+        E.generateByeRound(st, rng);
+        const ghosts = new Set(st.participants.filter(p => p.ghost).map(p => p.id));
+        if (!ghosts.size) continue;
+        byesWithGhosts++;
+        const tbls = st.byeRound.tables;
+        const last = tbls[tbls.length - 1];
+        tbls.slice(0, -1).forEach(t => assert(![...t.teamA, ...t.teamB].some(id => ghosts.has(id)),
+          `${mode} ${n}/${R}: invitado fuera de la última mesa (mesa ${t.table})`));
+        const lastIds = [...last.teamA, ...last.teamB];
+        assert(lastIds.filter(id => ghosts.has(id)).length === ghosts.size, `${mode} ${n}/${R}: no todos los invitados están en la última mesa`);
+        if (mode === "individual" && ghosts.size === 2) {
+          // 2 reales: uno contra otro (cada uno con un invitado) o, si ya se
+          // enfrentaron, juntos contra los dos invitados
+          const realsA = last.teamA.filter(id => !ghosts.has(id)).length, realsB = last.teamB.filter(id => !ghosts.has(id)).length;
+          assert((realsA === 1 && realsB === 1) || realsA + realsB === 2, `${n}/${R}: mesa de invitados mal armada`);
+        }
+      }
+    }
+    assert(byesWithGhosts > 15, "pocas byes con invitados verificadas");
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);
