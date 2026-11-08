@@ -206,9 +206,28 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionSt
 
 </main>
 
-<script src="js/swiss-engine.js"></script>
+<script src="js/swiss-engine.js?v=15"></script>
+<script>
+// Pantalla y motor deben ser de la misma versión. Si el teléfono trajo un
+// motor viejo guardado, se recarga una vez pidiendo los archivos nuevos.
+(function () {
+  var EXPECTED = 15, key = "domino_engine_reload";
+  var got = window.SwissEngine && SwissEngine.ENGINE_VERSION;
+  if (got !== EXPECTED) {
+    var tried = false; try { tried = sessionStorage.getItem(key) === String(EXPECTED); } catch (e) {}
+    if (!tried) {
+      try { sessionStorage.setItem(key, String(EXPECTED)); } catch (e) {}
+      var go = function () { location.reload(); };
+      if (window.caches && caches.keys) caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }).then(go, go); else go();
+      window.__appOutdated = true;
+      throw new Error("Actualizando la app…");
+    }
+  }
+})();
+</script>
 <script>
 "use strict";
+if (window.__appOutdated) throw new Error("Actualizando la app…");
 const E = SwissEngine;
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

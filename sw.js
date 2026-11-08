@@ -1,12 +1,12 @@
-/* Service worker: network-first con fallback a caché.
+/* Service worker: network-first (sin caché del navegador) con fallback a caché.
  * Online siempre sirve lo último; sin internet la app sigue funcionando. */
-const CACHE = "domino-torneo-v14";
+const CACHE = "domino-torneo-v15";
 const ASSETS = [
   "./",
   "index.html",
   "torneo.html",
   "publico.html",
-  "js/swiss-engine.js",
+  "js/swiss-engine.js?v=15",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png"
@@ -30,7 +30,9 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req)
+    // cache: "no-cache" → siempre pregunta al servidor si hay versión nueva
+    // (antes podía usar una copia guardada por el navegador hasta 10 minutos).
+    fetch(req.url, { cache: "no-cache", credentials: "same-origin" })
       .then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy));

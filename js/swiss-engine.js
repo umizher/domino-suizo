@@ -17,6 +17,9 @@
   const SCHEMA_VERSION = 4;
   // La clave no cambia entre v3 y v4: los torneos v3 guardados se migran al cargar.
   const STORAGE_KEY = "domino_torneo_v3";
+  // Versión del motor: las páginas cargan js/swiss-engine.js?v=N y comprueban
+  // que coincida, para no mezclar una pantalla nueva con cálculos viejos en caché.
+  const ENGINE_VERSION = 15;
   const TIEBREAK_LABEL = "Ganadas → Buchholz → DIF → Puntos";
 
   // Reglas profesionales (FID): partidas a 200 puntos — si se pasan, se anotan
@@ -936,7 +939,7 @@
   /* ===================== API pública ===================== */
 
   return {
-    SCHEMA_VERSION, STORAGE_KEY, TIEBREAK_LABEL, MODES, DEFAULT_CONFIG,
+    SCHEMA_VERSION, STORAGE_KEY, ENGINE_VERSION, TIEBREAK_LABEL, MODES, DEFAULT_CONFIG,
     createTournament, validateState,
     addParticipant, renameParticipant, setParticipantActive,
     generateNextRound, generateByeRound, undoLastRound, byeForecast,
