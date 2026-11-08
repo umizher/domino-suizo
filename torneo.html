@@ -277,7 +277,10 @@
 
     /* Nombres largos sin espacios (apodos) se parten en vez de ensanchar la
        página y sacar los botones de la pantalla del teléfono. */
-    .p-name, .team-names, .pd-name, td, .match-label, .bench-notice, .info-banner, .warn-banner { overflow-wrap: anywhere; }
+    .p-name, .team-names, .pd-name, td:nth-child(2), .match-label, .bench-notice, .info-banner, .warn-banner { overflow-wrap: anywhere; }
+    /* Los números de la tabla nunca se parten (870 no debe verse como 8/7/0):
+       si no caben, la tabla se desliza de lado dentro de su recuadro. */
+    td:not(:nth-child(2)), th { white-space: nowrap; }
     .p-row > *, .team-line > * { min-width: 0; }
     .p-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
     .p-row .p-name { flex: 1; font-size: 13px; }

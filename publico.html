@@ -93,7 +93,8 @@
     .team-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; }
     .team-name { font-size: clamp(15px, 1.8vw, 26px); font-weight: bold; }
     /* Nombres largos sin espacios se parten en vez de ensanchar la página */
-    .team-name, td, .pd-name { overflow-wrap: anywhere; }
+    .team-name, td:nth-child(2), .pd-name { overflow-wrap: anywhere; }
+    td:not(:nth-child(2)), th { white-space: nowrap; }
     .team-row > *, .match, .teams { min-width: 0; }
     .grid > * { min-width: 0; }
     .team-score { font-size: clamp(22px, 2.7vw, 40px); font-weight: 900; color: #7ff0ff; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
