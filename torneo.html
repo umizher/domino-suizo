@@ -24,7 +24,13 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; }
+    html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+    /* Sin el destello gris del iPhone al tocar ni la lupa/menú al dejar el dedo:
+       los botones se sienten de app y no de página web */
+    button, a, summary, .mode-opt, .p-row, .pad-key { touch-action: manipulation; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    /* Íconos de línea (en vez de emojis, que cambian según el teléfono) */
+    .ic { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+    .ic.fill { fill: currentColor; stroke: none; }
     body {
       margin: 0; color: var(--text); line-height: 1.45; position: relative;
       background:
@@ -59,20 +65,33 @@
     /* ---- PIN ---- */
     #pinScreen {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      min-height: 100vh; gap: 20px; padding: 20px;
+      min-height: 100vh; gap: 16px; padding: 20px;
     }
     #pinScreen h2 { margin: 0; font-size: 24px; letter-spacing: -.4px; }
     #pinScreen p  { margin: 0; color: var(--muted); font-size: 14px; }
     .pin-box { display: flex; gap: 12px; }
     .pin-digit {
-      width: 56px; height: 68px; font-size: 28px; font-weight: 700;
+      width: 50px; height: 58px; font-size: 26px; font-weight: 700;
       text-align: center; background: rgba(18, 26, 48, .7); color: var(--text);
       border: 2px solid var(--border); border-radius: 14px; caret-color: var(--acc1);
       transition: border-color var(--tr), box-shadow var(--tr), transform var(--tr);
     }
-    .pin-digit:focus { border-color: var(--acc1); outline: none; box-shadow: 0 0 0 4px rgba(34, 211, 238, .16), 0 0 26px rgba(34, 211, 238, .35); transform: translateY(-2px); }
+    .pin-digit:focus { border-color: var(--acc1); outline: none; box-shadow: 0 0 0 3px rgba(34, 211, 238, .16); }
+    /* Teclado de la clave, como el de desbloqueo del iPhone */
+    .pin-pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px 24px; margin-top: 4px; }
+    button.pad-key {
+      width: 72px; height: 72px; min-height: 0; padding: 0; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(125, 211, 252, .08); border: 1px solid var(--border-soft); box-shadow: none;
+      color: var(--text); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums;
+    }
+    button.pad-key:hover { filter: none; box-shadow: none; }
+    button.pad-key:active { background: rgba(34, 211, 238, .28); transform: scale(.94); }
+    button.pad-key.pad-del { background: transparent; border-color: transparent; color: var(--muted); }
+    button.pad-key .ic { width: 26px; height: 26px; }
     .pin-error { color: #ff7b7b; font-size: 14px; min-height: 20px; }
-    .pin-note { color: #fcd34d; font-size: 13px; font-weight: 600; text-align: center; }
+    .pin-note { color: #fcd34d; font-size: 13px; font-weight: 600; text-align: center; display: inline-flex; align-items: center; gap: 6px; }
+    .pin-note .ic { width: 15px; height: 15px; }
 
     #app { display: none; }
 
@@ -81,45 +100,45 @@
       position: sticky; top: 0; z-index: 100;
       background: rgba(6, 10, 22, .72); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
       border-bottom: 1px solid var(--border-soft); padding: 12px 18px 0;
-      box-shadow: 0 8px 30px rgba(1, 4, 14, .4);
     }
-    .header-top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-    .header-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    .header-top { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+    /* Una sola línea de datos: estado · modo · ronda · jugadores (y el reloj) */
+    .header-meta { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; font-size: 13px; color: #b9c6e6; }
+    .header-meta .meta-text { min-width: 0; }
+    .header-meta .sep { color: #4b5a80; margin: 0 2px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .status.playing { color: var(--ok); }
+    .status.done { color: var(--gold); }
     /* ---- Menú ⋯ (CSV, Respaldar, Restaurar, Reset): lo que se usa poco
        queda guardado y deja la pantalla libre para las mesas ---- */
     .menu-wrap { position: relative; flex: none; }
-    #btnMenu { min-width: 46px; min-height: 44px; padding: 0 14px; font-size: 22px; line-height: 1; letter-spacing: 1px; }
+    #btnMenu { min-width: 46px; min-height: 44px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; }
+    #btnMenu .ic { width: 22px; height: 22px; }
     #btnMenu[aria-expanded="true"] { border-color: var(--acc1); color: #fff; }
     .menu-panel {
-      position: absolute; right: 0; top: calc(100% + 8px); z-index: 300; min-width: 230px;
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 300; min-width: 250px;
       display: none; flex-direction: column; gap: 6px; padding: 8px;
       background: #0d1426; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
     }
     .menu-panel.open { display: flex; }
-    .menu-panel button { width: 100%; text-align: left; border-radius: 12px; min-height: 44px; font-size: 14px; }
+    .menu-panel button { width: 100%; text-align: left; border-radius: 12px; min-height: 44px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
     .menu-sep { height: 1px; background: var(--border-soft); margin: 4px 2px; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 5px 13px; border-radius: 999px; font-size: 12px; font-weight: 700;
-      border: 1px solid var(--border);
-    }
-    .badge.playing { background: rgba(52, 211, 153, .12); color: var(--ok); border-color: rgba(52, 211, 153, .4); }
-    .badge.done    { background: rgba(251, 191, 36, .12); color: var(--gold); border-color: rgba(251, 191, 36, .4); }
     .pill { display: inline-block; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: #cdd9ff; background: rgba(35, 48, 85, .3); }
-    .nav-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .nav-tabs { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
     .nav-tab {
       padding: 7px 18px; font-size: 13px; font-weight: 600; border-radius: 999px;
       border: 1px solid var(--border-soft); color: var(--muted); text-decoration: none; cursor: pointer;
       transition: color var(--tr), background var(--tr), border-color var(--tr);
     }
-    .nav-tab.active { background: var(--grad); border-color: transparent; color: #fff; box-shadow: var(--shadow-acc); }
+    .nav-tab.active { background: var(--grad); border-color: transparent; color: #04131a; font-weight: 700; }
     a.nav-tab:hover { color: var(--text); border-color: var(--acc1); }
     /* ---- Temporizador de ronda ---- */
-    .timer-chip { display: inline-flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; font-weight: 800; font-size: 13px; }
+    .timer-chip { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; font-weight: 800; font-size: 13px; margin-left: auto; padding: 3px 4px 3px 10px; }
+    .timer-chip .ic { width: 15px; height: 15px; }
     .timer-chip .t-btn {
-      background: transparent; border: 0; box-shadow: none; border-radius: 6px;
-      padding: 0 3px; min-height: 0; font-size: 13px; cursor: pointer; color: #cdd9ff;
+      background: transparent; border: 0; box-shadow: none; border-radius: 8px;
+      padding: 0; width: 30px; min-height: 28px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #cdd9ff;
     }
     .timer-chip .t-btn:hover { filter: none; color: #fff; transform: none; }
     .timer-chip.t-warn { border-color: rgba(251, 191, 36, .6); color: var(--gold); background: rgba(251, 191, 36, .1); }
@@ -127,13 +146,7 @@
     @keyframes timerPulse { 50% { box-shadow: 0 0 14px rgba(239, 68, 68, .55); } }
 
     .progress-bar { height: 4px; background: rgba(125, 211, 252, .1); border-radius: 3px; overflow: hidden; }
-    .progress-fill { position: relative; height: 100%; background: var(--grad); transition: width .5s cubic-bezier(.2,.8,.2,1); border-radius: 3px; box-shadow: 0 0 14px rgba(34, 211, 238, .7); }
-    .progress-fill::after {
-      content: ""; position: absolute; inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
-      animation: shimmer 2.2s linear infinite;
-    }
-    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+    .progress-fill { position: relative; height: 100%; background: var(--grad); transition: width .5s cubic-bezier(.2,.8,.2,1); border-radius: 3px; }
 
     main { padding: 18px 18px 48px; max-width: 1100px; margin: 0 auto; }
     /* minmax(0, …): sin esto la tabla de posiciones ensancha la columna y en el
@@ -149,7 +162,7 @@
     }
     .card::before {
       content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: var(--grad); box-shadow: 0 0 16px rgba(34, 211, 238, .6);
+      background: var(--grad); opacity: .85;
       border-radius: var(--radius) var(--radius) 0 0;
     }
     .card h2 { margin: 0 0 14px; font-size: 16px; letter-spacing: -.2px; }
@@ -159,7 +172,7 @@
       border-radius: var(--radius-sm); padding: 11px 13px; font: inherit;
       transition: border-color var(--tr), box-shadow var(--tr);
     }
-    input:focus, textarea:focus, select:focus { border-color: var(--acc1); outline: none; box-shadow: 0 0 0 3px rgba(34, 211, 238, .18), 0 0 18px rgba(34, 211, 238, .22); }
+    input:focus, textarea:focus, select:focus { border-color: var(--acc1); outline: none; box-shadow: 0 0 0 3px rgba(34, 211, 238, .18); }
     textarea { width: 100%; min-height: 150px; resize: vertical; }
 
     /* ---- Selector de modalidad: control compacto de dos opciones ----
@@ -175,11 +188,10 @@
       color: var(--muted); font-weight: 800; font-size: 15px;
       transition: background var(--tr), color var(--tr), box-shadow var(--tr), border-color var(--tr);
     }
-    .mode-opt .mo-icon { font-size: 20px; line-height: 1; }
+    .mode-opt .ic { width: 20px; height: 20px; }
     .mode-opt.selected {
       color: var(--text); border-color: rgba(34, 211, 238, .55);
       background: linear-gradient(180deg, rgba(34, 211, 238, .2), rgba(167, 139, 250, .14));
-      box-shadow: 0 0 18px rgba(34, 211, 238, .18);
     }
     .mode-desc { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0 2px 16px; }
 
@@ -195,7 +207,7 @@
     }
     #pairsBuilder .pair-num { grid-column: 1 / -1; min-width: 0; }
     #pairsBuilder .pair-row input { min-width: 0; width: 100%; }
-    #pairsBuilder button.rm { min-height: 44px; min-width: 44px; padding: 0; font-size: 14px; }
+    #pairsBuilder button.rm { min-height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
     .pair-num { color: var(--muted); font-size: 12px; min-width: 64px; }
     .pair-row input { flex: 1; min-width: 100px; }
     .pair-sep { color: var(--muted); }
@@ -206,14 +218,15 @@
     button {
       background: var(--grad); color: #04131a; border: 0; border-radius: 999px;
       padding: 11px 20px; min-height: 42px; cursor: pointer; font-weight: 800; font-size: 13px; font-family: inherit;
-      box-shadow: var(--shadow-acc);
+      box-shadow: 0 4px 14px rgba(34, 211, 238, .22);
       transition: filter var(--tr), transform .08s ease, opacity var(--tr), box-shadow var(--tr);
     }
-    button:hover { filter: brightness(1.1); box-shadow: 0 8px 30px rgba(34, 211, 238, .5); }
+    button:hover { filter: brightness(1.08); }
     button:active { transform: scale(.96); }
     button.secondary { background: rgba(125, 211, 252, .07); border: 1px solid var(--border-soft); color: #cfe6ff; box-shadow: none; }
-    button.secondary:hover { border-color: rgba(34, 211, 238, .6); filter: none; color: #fff; box-shadow: 0 0 18px rgba(34, 211, 238, .18); }
-    button.danger { background: linear-gradient(135deg, #f43f5e, #b91c45); color: #fff; box-shadow: 0 6px 22px rgba(244, 63, 94, .35); }
+    button.secondary:hover { border-color: rgba(34, 211, 238, .6); filter: none; color: #fff; }
+    button.danger { background: linear-gradient(135deg, #f43f5e, #b91c45); color: #fff; box-shadow: none; }
+    button.with-ic { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     button:disabled { opacity: .4; cursor: not-allowed; filter: none; transform: none; box-shadow: none; }
 
     .footer { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -223,18 +236,25 @@
     .notice { padding: 13px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: #0c1322; margin-top: 16px; }
 
     .bench-notice {
-      background: rgba(251, 191, 36, .08); border: 1px solid rgba(251, 191, 36, .35); border-radius: var(--radius-sm);
-      padding: 11px 14px; margin-bottom: 10px; color: #fcd34d; font-size: 13px;
+      background: rgba(251, 191, 36, .08); border: 1px solid rgba(251, 191, 36, .3); border-radius: var(--radius-sm);
+      padding: 9px 12px; margin-bottom: 8px; color: #fcd34d; font-size: 13px;
     }
     .bench-notice strong { color: var(--gold); }
     .warn-banner {
-      background: rgba(251, 146, 60, .08); border: 1px solid rgba(251, 146, 60, .4); border-radius: var(--radius-sm);
-      padding: 11px 14px; margin-bottom: 10px; color: var(--warn); font-size: 13px;
+      background: rgba(251, 146, 60, .08); border: 1px solid rgba(251, 146, 60, .35); border-radius: var(--radius-sm);
+      padding: 9px 12px; margin-bottom: 8px; color: var(--warn); font-size: 13px;
     }
     .info-banner {
       background: rgba(59, 130, 246, .08); border: 1px solid rgba(59, 130, 246, .3); border-radius: var(--radius-sm);
-      padding: 10px 13px; margin-bottom: 10px; color: #a5c3ff; font-size: 12px;
+      padding: 9px 12px; margin-bottom: 8px; color: #a5c3ff; font-size: 12px;
     }
+    .info-banner .ic, .warn-banner .ic { width: 15px; height: 15px; margin-right: 6px; }
+    /* Avisos largos plegados en una línea: se abren al tocarlos */
+    details.warn-banner > summary { list-style: none; cursor: pointer; display: flex; align-items: center; font-weight: 700; }
+    details.warn-banner > summary::-webkit-details-marker { display: none; }
+    details.warn-banner > summary .chev { margin-left: auto; transition: transform var(--tr); }
+    details.warn-banner[open] > summary .chev { transform: rotate(90deg); }
+    details.warn-banner > div { margin-top: 6px; color: #fdba74; font-size: 12.5px; line-height: 1.5; }
 
     .round-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
     .r-tab {
@@ -243,50 +263,46 @@
       transition: background var(--tr), border-color var(--tr); box-shadow: none;
     }
     .r-tab:hover { border-color: var(--acc1); filter: none; }
-    .r-tab.active { background: var(--grad); border-color: transparent; color: #fff; font-weight: 700; box-shadow: var(--shadow-acc); }
+    .r-tab.active { background: var(--grad); border-color: transparent; color: #04131a; font-weight: 800; }
 
-    /* ---- Mesas (autosave) ---- */
-    .matches { display: flex; flex-direction: column; gap: 14px; }
-    @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    /* ---- Mesas (autosave): compactas, caben 5-6 por pantalla ---- */
+    .matches { display: flex; flex-direction: column; gap: 10px; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     .match {
-      border: 1px solid var(--border-soft); border-radius: 16px; padding: 15px;
+      border: 1px solid var(--border-soft); border-radius: 14px; padding: 10px 10px 10px;
       background: #0d1426; transition: border-color var(--tr);
-      animation: cardIn .25s ease both;
+      animation: cardIn .2s ease both;
     }
-    .match:hover { border-color: rgba(34, 211, 238, .4); box-shadow: 0 0 24px rgba(34, 211, 238, .1); }
-    .match:nth-child(2) { animation-delay: .05s; }
-    .match:nth-child(3) { animation-delay: .1s; }
-    .match:nth-child(4) { animation-delay: .15s; }
-    .match:nth-child(5) { animation-delay: .2s; }
-    .match:nth-child(6) { animation-delay: .25s; }
-    .match:nth-child(n+7) { animation-delay: .3s; }
-    .match-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
+    .match-head { display: flex; justify-content: space-between; align-items: center; margin: 0 2px 8px; gap: 8px; }
     .match-label {
-      display: inline-flex; align-items: center; padding: 7px 18px; border-radius: 999px;
-      background: rgba(34, 211, 238, .14); border: 1px solid rgba(34, 211, 238, .4);
-      color: #9ef0ff; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
-      font-variant-numeric: tabular-nums; box-shadow: 0 0 18px rgba(34, 211, 238, .18);
+      color: #9ef0ff; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px;
+      font-variant-numeric: tabular-nums;
     }
     .save-status { font-size: 12px; color: var(--muted); transition: color var(--tr); white-space: nowrap; }
     .save-status.saved { color: var(--ok); font-weight: 700; }
     .save-status.tie   { color: #ff8a8a; font-weight: 700; }
     .team-line {
-      display: flex; align-items: center; gap: 11px; padding: 10px 12px;
-      border-radius: var(--radius-sm); background: #101a30; border: 1px solid transparent;
+      display: flex; align-items: center; gap: 10px; padding: 5px 5px 5px 10px;
+      border-radius: 11px; background: #101a30; border: 1px solid transparent;
       transition: background var(--tr), border-color var(--tr);
     }
-    .team-line.winner { background: rgba(74, 222, 128, .12); border-color: rgba(74, 222, 128, .5); box-shadow: inset 0 0 18px rgba(74, 222, 128, .12); }
-    .team-line.winner .team-names::after { content: " 🏆"; }
+    .team-line + .team-line { margin-top: 6px; }
+    .team-line.winner { background: rgba(74, 222, 128, .1); border-color: rgba(74, 222, 128, .45); }
+    .team-line.winner input.score-input { color: #7dffad; border-color: rgba(74, 222, 128, .55); }
     .team-tag {
-      flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-      background: var(--grad); border: 0; border-radius: 9px; font-size: 12px; font-weight: 800; color: #fff;
+      flex: none; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(125, 211, 252, .14); border: 0; border-radius: 7px; font-size: 11px; font-weight: 800; color: #9ef0ff;
     }
-    .team-names { flex: 1; font-weight: 700; font-size: 14.5px; }
+    .team-line.winner .team-tag { background: rgba(74, 222, 128, .25); color: #7dffad; }
+    .team-names { flex: 1; font-weight: 700; font-size: 14.5px; line-height: 1.3; }
     input.score-input {
-      width: 92px; min-height: 48px; text-align: center; font-size: 22px; font-weight: 800;
-      font-variant-numeric: tabular-nums; padding: 10px 6px;
+      width: 76px; min-height: 44px; text-align: center; font-size: 21px; font-weight: 800;
+      font-variant-numeric: tabular-nums; padding: 6px 4px;
     }
-    .vs-sep { text-align: center; color: #5d6f9e; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin: 3px 0; }
+    input.score-input::placeholder { color: #3b4a70; font-weight: 600; }
+    /* Sin flechitas de subir/bajar en los campos de números (en computadora) */
+    input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     .empty-state { text-align: center; padding: 40px 20px; }
     .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .4; }
 
@@ -385,9 +401,53 @@
       .podium-3 { order: 2; min-width: 0; }
       main { padding: 14px 12px 48px; }
       .card { padding: 16px; }
-      input.score-input { width: 80px; }
+      input.score-input { width: 72px; }
     }
-  
+
+    /* ---- Barra fija abajo: progreso de la ronda y botón principal ---- */
+    .action-bar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; display: none;
+      align-items: center; gap: 10px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(6, 10, 22, .9); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+      border-top: 1px solid var(--border-soft);
+    }
+    body.has-bar .action-bar { display: flex; }
+    body.has-bar main { padding-bottom: 104px; }
+    body.has-bar #toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
+    /* Con el teclado abierto la barra estorba: se esconde mientras se escribe */
+    body.typing .action-bar { display: none; }
+    .action-bar button { min-height: 50px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .action-bar .ab-main { flex: 1; }
+    .action-bar .ab-icon { flex: none; width: 50px; padding: 0; }
+    .action-bar .ab-icon .ic { width: 22px; height: 22px; }
+    .action-bar button.ab-main:disabled { opacity: 1; background: #121a2e; color: var(--muted); border: 1px solid var(--border-soft); box-shadow: none; }
+    @media (min-width: 900px) { .action-bar { padding-left: max(14px, calc((100vw - 1100px) / 2 + 18px)); padding-right: max(14px, calc((100vw - 1100px) / 2 + 18px)); } }
+
+    /* ---- Jugadores: lista plegable, cada fila abre sus opciones ---- */
+    .players-details > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      padding: 12px 4px; color: #cfe6ff; font-weight: 700; font-size: 14px; border-top: 1px solid var(--border-soft);
+    }
+    .players-details > summary::-webkit-details-marker { display: none; }
+    .players-details > summary .chev { margin-left: auto; transition: transform var(--tr); color: var(--muted); }
+    .players-details[open] > summary .chev { transform: rotate(90deg); }
+    button.p-row {
+      width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; margin: 0;
+      padding: 9px 4px; min-height: 52px; border-radius: 0; background: transparent; border: 0;
+      border-top: 1px solid rgba(125, 211, 252, .07); box-shadow: none; color: var(--text); font-weight: 400; font-size: 14px;
+    }
+    button.p-row:hover { filter: none; background: rgba(125, 211, 252, .04); }
+    button.p-row:active { transform: none; background: rgba(34, 211, 238, .08); }
+    button.p-row .p-name { flex: 1; min-width: 0; font-size: 14px; }
+    button.p-row .chev { color: #4b5a80; }
+
+    /* ---- Hoja de opciones (al tocar un jugador) ---- */
+    button.sheet-btn { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 50px; border-radius: 14px; font-size: 15px; }
+    button.sheet-btn .sb-text { display: flex; flex-direction: column; gap: 1px; }
+    button.sheet-btn small { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+    button.sheet-btn.danger-soft { background: rgba(244, 63, 94, .1); border: 1px solid rgba(244, 63, 94, .35); color: #ff9db0; box-shadow: none; }
+    button.sheet-btn:disabled { opacity: .5; }
+
     /* Crédito visible junto al título en todas las pantallas */
     .byline { margin: 0; font-size: 13px; font-weight: 600; color: #9fb1db; letter-spacing: .3px; line-height: 1.25; white-space: nowrap; }
     .byline b { font-weight: 800; background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -398,10 +458,37 @@
 <script src="js/autolock.js?v=18"></script>
 </head>
 <body>
+<!-- Íconos de línea (uno solo para toda la app) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-5.8 6.5-5.8s6.5 2.2 6.5 5.8"/><circle cx="17" cy="8.5" r="3"/><path d="M17 14.4c2.7.3 4.5 2.3 4.5 5.1"/></symbol>
+  <symbol id="i-user-x" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c0-4 3.4-6.5 7.5-6.5 1.5 0 2.9.3 4 .9"/><path d="M17 15l5 5M22 15l-5 5"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 11.6a8.4 8.4 0 0 1-12.4 7.4L3.5 20.5l1.5-4.4A8.4 8.4 0 1 1 20.5 11.6z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5l10.5 6.5L8 18.5z"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><path d="M3.5 4v5h5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5M7 9.5l5-5 5 5M5 20h14"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><path d="M3.5 4v5h5"/><path d="M12 8v4.5l3 1.8"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8v.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19.5 8.5l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-backspace" viewBox="0 0 24 24"><path d="M21 5H9l-6.5 7L9 19h12z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
 
 <!-- ===== PIN ===== -->
 <div id="pinScreen">
-  <svg viewBox="0 0 48 48" width="76" height="76" aria-hidden="true" style="filter:drop-shadow(0 6px 18px rgba(99,102,241,.5));">
+  <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true" style="filter:drop-shadow(0 6px 18px rgba(99,102,241,.4));">
     <defs><linearGradient id="lgPin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
     <rect x="3" y="3" width="42" height="42" rx="11" fill="url(#lgPin)"/>
     <rect x="15" y="8" width="18" height="32" rx="4" fill="#f1f5fd"/>
@@ -411,16 +498,21 @@
   </svg>
   <h2>Torneo de Dominó</h2>
   <div class="byline byline-lg">by <b>Usama Mizher</b></div>
-  <div class="pin-note" id="pinNote" style="display:none">🔒 Se bloqueó tras 3 minutos sin uso</div>
+  <div class="pin-note" id="pinNote" style="display:none"><svg class="ic"><use href="#i-lock"/></svg>Se bloqueó tras 3 minutos sin uso</div>
   <p>Ingresa la clave para continuar</p>
   <div class="pin-box">
-    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d0" />
-    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d1" />
-    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d2" />
-    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d3" />
+    <input class="pin-digit" type="password" inputmode="none" maxlength="1" id="d0" autocomplete="off" />
+    <input class="pin-digit" type="password" inputmode="none" maxlength="1" id="d1" autocomplete="off" />
+    <input class="pin-digit" type="password" inputmode="none" maxlength="1" id="d2" autocomplete="off" />
+    <input class="pin-digit" type="password" inputmode="none" maxlength="1" id="d3" autocomplete="off" />
   </div>
   <div class="pin-error" id="pinError"></div>
-  <button id="btnUnlock">Entrar</button>
+  <div class="pin-pad" id="pinPad">
+    <button type="button" class="pad-key" data-k="1">1</button><button type="button" class="pad-key" data-k="2">2</button><button type="button" class="pad-key" data-k="3">3</button>
+    <button type="button" class="pad-key" data-k="4">4</button><button type="button" class="pad-key" data-k="5">5</button><button type="button" class="pad-key" data-k="6">6</button>
+    <button type="button" class="pad-key" data-k="7">7</button><button type="button" class="pad-key" data-k="8">8</button><button type="button" class="pad-key" data-k="9">9</button>
+    <span></span><button type="button" class="pad-key" data-k="0">0</button><button type="button" class="pad-key pad-del" data-k="del" aria-label="Borrar"><svg class="ic"><use href="#i-backspace"/></svg></button>
+  </div>
 </div>
 
 <!-- ===== DIÁLOGO ===== -->
@@ -453,25 +545,25 @@
       <div class="brand-text"><h1 id="appTitle">Torneo de Dominó</h1><div class="byline">by <b>Usama Mizher</b></div></div>
     </div>
     <div class="menu-wrap" id="menuWrap">
-      <button class="secondary" id="btnMenu" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false" title="Más opciones">⋯</button>
+      <button class="secondary" id="btnMenu" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false" title="Más opciones"><svg class="ic fill"><use href="#i-dots"/></svg></button>
       <div class="menu-panel" id="menuPanel" role="menu">
-        <button class="secondary" id="btnExport" role="menuitem">↓ Descargar CSV</button>
-        <button class="secondary" id="btnBackup" role="menuitem">⇪ Respaldar</button>
-        <button class="secondary" id="btnRestore" role="menuitem">⇩ Restaurar</button>
+        <button class="secondary" id="btnRules" role="menuitem"><svg class="ic"><use href="#i-book"/></svg>Reglas</button>
+        <button class="secondary" id="btnExport" role="menuitem"><svg class="ic"><use href="#i-download"/></svg>Descargar CSV</button>
+        <button class="secondary" id="btnBackup" role="menuitem"><svg class="ic"><use href="#i-upload"/></svg>Respaldar</button>
+        <button class="secondary" id="btnRestore" role="menuitem"><svg class="ic"><use href="#i-history"/></svg>Restaurar</button>
         <div class="menu-sep" id="menuSep"></div>
-        <button class="danger" id="btnReset" role="menuitem">Reset (borrar torneo)</button>
+        <button class="danger" id="btnReset" role="menuitem"><svg class="ic"><use href="#i-trash"/></svg>Reset (borrar torneo)</button>
       </div>
       <input type="file" id="restoreFile" accept=".json,application/json" style="display:none;" />
     </div>
   </div>
-  <div class="header-chips" id="headerChips">
-    <span class="badge" id="statusBadge"></span>
-    <span class="pill" id="roundPill"></span>
-    <span class="pill" id="unitsPill"></span>
+  <div class="header-meta" id="headerChips">
+    <span class="status" id="statusBadge"></span>
+    <span class="meta-text"><span id="modeLabel"></span><span class="sep">·</span><span id="roundPill"></span><span class="sep">·</span><span id="unitsPill"></span></span>
     <span class="pill timer-chip" id="timerChip" style="display:none;">
-      <span id="timerText">--:--</span>
-      <button class="t-btn" id="btnTimerPause" title="Pausar / reanudar el reloj">⏸</button>
-      <button class="t-btn" id="btnTimerRestart" title="Reiniciar el reloj de la ronda">↻</button>
+      <svg class="ic"><use href="#i-clock"/></svg><span id="timerText">--:--</span>
+      <button class="t-btn" id="btnTimerPause" title="Pausar / reanudar el reloj" aria-label="Pausar o reanudar el reloj"><svg class="ic"><use href="#i-pause"/></svg></button>
+      <button class="t-btn" id="btnTimerRestart" title="Reiniciar el reloj de la ronda" aria-label="Reiniciar el reloj"><svg class="ic"><use href="#i-restart"/></svg></button>
     </span>
   </div>
   <div class="nav-tabs">
@@ -488,10 +580,10 @@
     <h2>Nuevo torneo</h2>
     <div class="mode-select">
       <div class="mode-opt selected" id="modeIndividual" tabindex="0" role="button" aria-pressed="true">
-        <span class="mo-icon">👤</span><span class="mo-name">Individual</span>
+        <svg class="ic"><use href="#i-user"/></svg><span class="mo-name">Individual</span>
       </div>
       <div class="mode-opt" id="modeParejas" tabindex="0" role="button" aria-pressed="false">
-        <span class="mo-icon">👥</span><span class="mo-name">Parejas</span>
+        <svg class="ic"><use href="#i-users"/></svg><span class="mo-name">Parejas</span>
       </div>
     </div>
     <p class="mode-desc" id="modeDesc">Mesas de 4 (2 vs 2). El compañero cambia cada ronda; evita repetir compañeros y rivales.</p>
@@ -504,7 +596,7 @@
     <div id="setupParejas" style="display:none;">
       <p class="muted" style="margin:0 0 6px;">Define cada pareja con sus dos jugadores (mínimo 2 parejas).</p>
       <div id="pairsBuilder"></div>
-      <button class="secondary" id="btnAddPair" style="margin-bottom:8px;">+ Agregar pareja</button>
+      <button class="secondary with-ic" id="btnAddPair" style="margin-bottom:8px;"><svg class="ic"><use href="#i-plus"/></svg>Agregar pareja</button>
     </div>
 
     <div class="config-row">
@@ -533,7 +625,7 @@
 
   <!-- ===== ERROR DE DATOS ===== -->
   <section class="card" id="errorCard" style="display:none; max-width:600px; margin:0 auto;">
-    <h2>⚠ Datos de torneo dañados</h2>
+    <h2>Datos de torneo dañados</h2>
     <p class="muted" id="errorDetail"></p>
     <div class="footer">
       <button class="danger" id="btnErrorReset">Borrar datos y empezar de nuevo</button>
@@ -561,30 +653,27 @@
       <div id="roundBanners"></div>
       <div class="matches" id="matches"></div>
       <div class="footer">
-        <button id="btnNextRound">Siguiente ronda</button>
-        <button class="secondary" id="btnByeRound" style="display:none;">Generar ronda bye</button>
-        <button class="secondary" id="btnUndoRound" style="display:none;">↩ Deshacer ronda</button>
-        <button class="secondary" id="btnShareWA">💬 Compartir en WhatsApp</button>
+        <button class="secondary with-ic" id="btnUndoRound" style="display:none;"><svg class="ic"><use href="#i-undo"/></svg>Deshacer ronda</button>
       </div>
     </section>
 
     <!-- Participantes: alta tardía arriba, lista y reglas -->
     <section class="card">
       <h2 id="participantsTitle">Participantes</h2>
-      <div id="addParticipantBox" style="margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+      <div id="addParticipantBox" style="margin-bottom:6px;">
         <div class="muted" style="margin-bottom:6px;" id="addHint">Agregar a mitad de torneo (entra en la siguiente ronda):</div>
         <div class="pair-row add-row">
           <input type="text" id="addName1" placeholder="Nombre" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
           <span class="pair-sep" id="addSep" style="display:none;">&amp;</span>
           <input type="text" id="addName2" placeholder="Compañero" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" style="display:none;" />
-          <button class="secondary" id="btnAddParticipant">+ Agregar</button>
+          <button class="secondary with-ic" id="btnAddParticipant"><svg class="ic"><use href="#i-plus"/></svg>Agregar</button>
         </div>
       </div>
-      <div id="participantsList"></div>
-      <div class="notice">
-        <span class="pill">Reglas</span>
-        <span class="muted small">Partidas a <b id="targetLabel">200</b> puntos (si se pasan, se anotan completos) · <span id="timerLabel"></span> · <b>Sin empates</b>. Clasificación: <b id="tiebreakLabel2"></b> (Buchholz = suma de las victorias de tus rivales). Los puntos se guardan automáticamente al escribirlos.</span>
-      </div>
+      <!-- Lista plegada: se abre cuando hace falta; tocar un nombre da sus opciones -->
+      <details class="players-details" id="playersDetails">
+        <summary><span id="playersSummary">Ver lista</span><svg class="ic chev"><use href="#i-chev"/></svg></summary>
+        <div id="participantsList"></div>
+      </details>
     </section>
 
     <!-- FULL WIDTH: standings -->
@@ -601,7 +690,7 @@
               <th id="thName">Nombre</th>
               <th>PJ</th><th>G</th><th>P</th>
               <th class="col-pf">PF</th><th class="col-pc">PC</th>
-              <th>DIF</th><th title="Buchholz: suma de las victorias de tus rivales, una vez por cada partida contra ellos">BUC</th><th>Pts</th>
+              <th>DIF</th><th title="Buchholz: suma de las victorias de tus rivales, una vez por cada partida contra ellos">BUC</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -611,6 +700,13 @@
 
   </div>
 </main>
+
+<!-- Barra fija abajo: compartir + botón principal con el progreso de la ronda -->
+<div class="action-bar" id="actionBar">
+  <button class="secondary ab-icon" id="btnShareWA" aria-label="Compartir en WhatsApp" title="Compartir en WhatsApp"><svg class="ic"><use href="#i-chat"/></svg></button>
+  <button class="ab-main" id="btnNextRound">Siguiente ronda</button>
+  <button class="ab-main" id="btnByeRound" style="display:none;">Generar ronda bye</button>
+</div>
 
 <div id="toast"></div>
 </div><!-- /app -->
@@ -728,7 +824,21 @@ digits.forEach((d, i) => {
     if (e.key === "Enter") tryUnlock();
   });
 });
-document.getElementById("btnUnlock").addEventListener("click", tryUnlock);
+// Teclado en pantalla (las casillas no abren el teclado del iPhone)
+document.getElementById("pinPad").addEventListener("click", e => {
+  const key = e.target.closest(".pad-key");
+  if (!key) return;
+  if (key.dataset.k === "del") {
+    const last = digits.map(d => d.value).filter(Boolean).length - 1;
+    if (last >= 0) { digits[last].value = ""; digits[last].focus(); }
+    document.getElementById("pinError").textContent = "";
+    return;
+  }
+  const next = digits.find(d => !d.value);
+  if (!next) return;
+  next.value = key.dataset.k;
+  next.dispatchEvent(new Event("input", { bubbles: true }));
+});
 
 /* ===== util ===== */
 let toastTimer;
@@ -742,6 +852,10 @@ function toast(msg, ms = 2800) {
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+}
+// Ícono de línea del juego de íconos de la página (#i-nombre)
+function ic(name, cls = "") {
+  return `<svg class="ic${cls ? " " + cls : ""}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 }
 
 /* ===== Diálogo propio (reemplaza confirm/prompt nativos) ===== */
@@ -782,6 +896,7 @@ function showDialog({ title, message = "", fields = [], confirmText = "Aceptar",
     dlg.fields.style.display = fields.length ? "" : "none";
     dlg.confirm.textContent = confirmText;
     dlg.confirm.className = danger ? "danger" : "";
+    dlg.confirm.style.display = "";
     dlg.cancel.textContent = cancelText;
     dlg.overlay.classList.add("open");
     const first = dlg.fields.querySelector("input");
@@ -805,6 +920,30 @@ dlg.overlay.addEventListener("click", e => { if (e.target === dlg.overlay) close
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && dlg.overlay.classList.contains("open")) closeDialog(null);
 });
+// Hoja de opciones: una lista de botones; devuelve el id elegido (o null)
+function actionSheet(title, message, options) {
+  return new Promise(resolve => {
+    dlg.resolve = resolve;
+    dlg.title.textContent = title;
+    dlg.message.textContent = message || "";
+    dlg.message.style.display = message ? "" : "none";
+    dlg.fields.innerHTML = "";
+    dlg.fields.style.display = "";
+    for (const o of options) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "sheet-btn " + (o.danger ? "danger-soft" : "secondary");
+      b.dataset.action = o.id;
+      b.innerHTML = ic(o.icon) + `<span class="sb-text"><span>${esc(o.label)}</span>${o.hint ? `<small>${esc(o.hint)}</small>` : ""}</span>`;
+      b.disabled = !!o.disabled;
+      b.addEventListener("click", () => closeDialog(o.id));
+      dlg.fields.appendChild(b);
+    }
+    dlg.confirm.style.display = "none";
+    dlg.cancel.textContent = "Cancelar";
+    dlg.overlay.classList.add("open");
+  });
+}
 function confirmDialog(title, message, opts = {}) {
   return showDialog({ title, message, confirmText: opts.confirmText || "Confirmar", danger: !!opts.danger });
 }
@@ -893,7 +1032,7 @@ async function applyWithConfirm(mutator, confirmTitle) {
     if (document.getElementById("toast").textContent.startsWith("Generando")) hideBusyToast();
     const txt = blocking.map(w => warningText(trial, w)).join("\n\n");
     const ok = await showDialog({
-      title: confirmTitle || "⚠ Repeticiones inevitables",
+      title: confirmTitle || "Repeticiones inevitables",
       message: txt + "\n\n¿Generar la ronda de todos modos?",
       confirmText: "Generar igual", cancelText: "Cancelar"
     });
@@ -960,7 +1099,7 @@ function renderPairsBuilder() {
       <input type="text" placeholder="Jugador A" value="${esc(item.a)}" data-i="${i}" data-f="a" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
       <span class="pair-sep">&amp;</span>
       <input type="text" placeholder="Jugador B" value="${esc(item.b)}" data-i="${i}" data-f="b" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
-      <button class="rm" data-i="${i}" title="Quitar pareja" aria-label="Quitar pareja ${i + 1}">✕</button>
+      <button class="rm" data-i="${i}" title="Quitar pareja" aria-label="Quitar pareja ${i + 1}">${ic("x")}</button>
     `;
     row.querySelectorAll("input").forEach(inp =>
       inp.addEventListener("input", e => {
@@ -1024,7 +1163,7 @@ function updateByeForecast() {
   } else {
     const sug = f.suggestedRounds.length ? ` Con ${f.suggestedRounds.join(" o ")} rondas no hacen falta voluntarios.` : "";
     bye = `Ronda bye para ${unit(f.restedCount)}: necesitará ${f.ghostCount} voluntario(s) (${["A", "B", "C"].slice(0, f.ghostCount).join(", ")}).` +
-      (f.volunteersShort ? ` ⚠ Solo habrá ${f.volunteersFree} libre(s): la bye se jugará por turnos (primero una mesa y sus jugadores sirven de voluntarios para la otra).` : "") + sug;
+      (f.volunteersShort ? ` Atención: solo habrá ${f.volunteersFree} libre(s): la bye se jugará por turnos (primero una mesa y sus jugadores sirven de voluntarios para la otra).` : "") + sug;
   }
   el.textContent = `Con ${unit(n)} y ${maxRounds} rondas descansa(n) ${f.perRound} por ronda. ${games} ${bye}`;
 }
@@ -1080,7 +1219,7 @@ document.getElementById("btnStart").addEventListener("click", async () => {
   save();
   snapshot("Torneo iniciado · Ronda 1");
   renderAll();
-  toast("Torneo iniciado · Ronda 1 generada ✅");
+  toast("Torneo iniciado · Ronda 1 generada");
 });
 
 /* ===== temporizador de ronda ===== */
@@ -1104,14 +1243,14 @@ function tickTimer() {
   chip.style.display = "inline-flex";
   const paused = E.timerPaused(r);
   const over = rem <= 0;
-  document.getElementById("timerText").textContent = "⏱ " + fmtMs(rem) + (paused ? " · pausado" : "");
-  document.getElementById("btnTimerPause").textContent = paused ? "▶" : "⏸";
+  document.getElementById("timerText").textContent = fmtMs(rem) + (paused ? " · pausado" : "");
+  document.getElementById("btnTimerPause").innerHTML = ic(paused ? "play" : "pause");
   chip.classList.toggle("t-warn", !over && rem < 5 * 60000);
   chip.classList.toggle("t-over", over);
   const key = state.byeRound ? "bye" : state.rounds.length;
   if (over && timeOverKey !== key) {
     timeOverKey = key;
-    toast("⏱ Tiempo agotado: gana quien va arriba en puntos. Anota los marcadores actuales.", 8000);
+    toast("Tiempo agotado: gana quien va arriba en puntos. Anota los marcadores actuales.", 8000);
   }
 }
 document.getElementById("btnTimerPause").addEventListener("click", () => {
@@ -1136,11 +1275,11 @@ setInterval(tickTimer, 1000);
 function phaseInfo() {
   const ph = E.tournamentPhase(state);
   return {
-    config:      { cls: "playing", text: "▶ En juego" },
-    playing:     { cls: "playing", text: "▶ En juego" },
-    bye_pending: { cls: "done",    text: "✓ Rondas completas" },
-    bye_playing: { cls: "playing", text: "▶ Ronda Bye" },
-    finished:    { cls: "done",    text: "🏆 Finalizado" }
+    config:      { cls: "playing", text: "En juego" },
+    playing:     { cls: "playing", text: "En juego" },
+    bye_pending: { cls: "done",    text: "Rondas completas" },
+    bye_playing: { cls: "playing", text: "Ronda bye" },
+    finished:    { cls: "done",    text: "Finalizado" }
   }[ph];
 }
 
@@ -1154,100 +1293,98 @@ function viewTables() {
 
 function renderHeader() {
   const cfgMode = state ? E.MODES[state.mode] : null;
-  document.getElementById("appTitle").textContent =
-    state ? `Torneo de Dominó – ${state.mode === "individual" ? "Individual" : "Parejas"}` : "Torneo de Dominó";
-  // Sin torneo, el badge de fase y los pills solo son ruido en la pantalla de configuración
+  // Sin torneo, la línea de datos solo sería ruido en la pantalla de configuración
   const badge = document.getElementById("statusBadge");
   const roundPill = document.getElementById("roundPill");
   const unitsPill = document.getElementById("unitsPill");
-  badge.style.display = state ? "" : "none";
-  roundPill.style.display = state ? "" : "none";
-  unitsPill.style.display = state ? "" : "none";
   document.getElementById("headerChips").style.display = state ? "" : "none";
   // Sin torneo, en el menú solo tiene sentido Restaurar
   for (const id of ["btnExport", "btnBackup", "menuSep", "btnReset"])
     document.getElementById(id).style.display = state ? "" : "none";
   if (state) {
     const pi = phaseInfo();
-    badge.className = "badge " + pi.cls;
+    badge.className = "status " + pi.cls;
     badge.textContent = pi.text;
-    roundPill.textContent = `Ronda ${currentRoundNo()}/${state.maxRounds}${state.byeRound ? " + bye" : ""}`;
+    document.getElementById("modeLabel").textContent = state.mode === "individual" ? "Individual" : "Parejas";
+    roundPill.textContent = `Ronda ${currentRoundNo()} de ${state.maxRounds}${state.byeRound ? " + bye" : ""}`;
     const n = E.activeIds(state).length;
     unitsPill.textContent = `${n} ${n === 1 ? cfgMode.unitLabel : cfgMode.unitLabelPlural}`;
-    document.getElementById("targetLabel").textContent = state.config.targetPoints;
-    document.getElementById("timerLabel").textContent = state.config.timerMinutes
-      ? `⏱ ${state.config.timerMinutes} min por ronda` : "sin límite de tiempo";
   }
   tickTimer();
   document.getElementById("progressFill").style.width =
     state && state.maxRounds ? `${Math.min(100, (currentRoundNo() / state.maxRounds) * 100)}%` : "0%";
 }
 
+async function renameParticipantDialog(p) {
+  try {
+    if (state.mode === "parejas") {
+      const r = await showDialog({
+        title: "Cambiar nombres de la pareja",
+        fields: [
+          { name: "a", label: "Jugador A", value: p.members[0] || "" },
+          { name: "b", label: "Jugador B", value: p.members[1] || "" }
+        ],
+        confirmText: "Guardar"
+      });
+      if (!r) return;
+      E.renameParticipant(state, p.id, "", [r.a, r.b]);
+    } else {
+      const r = await showDialog({
+        title: "Cambiar nombre",
+        fields: [{ name: "n", label: "Nombre", value: p.name }],
+        confirmText: "Guardar"
+      });
+      if (!r) return;
+      E.renameParticipant(state, p.id, r.n, [r.n]);
+    }
+    save(); renderAll(); toast("Nombre actualizado");
+  } catch (e) { toast(e.message); }
+}
+async function toggleParticipant(p) {
+  if (p.active) {
+    const ok = await confirmDialog("Retirar del torneo",
+      `¿Retirar a "${p.name}" del torneo? Sus resultados se conservan en la tabla.`, { danger: true, confirmText: "Retirar" });
+    if (!ok) return;
+  }
+  try {
+    E.setParticipantActive(state, p.id, !p.active);
+    save();
+    snapshot(`${p.active ? "Retirado" : "Reactivado"}: ${p.name}`);
+    renderAll();
+  } catch (e) { toast(e.message); }
+}
+
 function renderParticipants() {
   const el = document.getElementById("participantsList");
   el.innerHTML = "";
-  document.getElementById("participantsTitle").textContent =
-    state.mode === "individual" ? "Jugadores" : "Parejas";
+  const individual = state.mode === "individual";
+  document.getElementById("participantsTitle").textContent = individual ? "Jugadores" : "Parejas";
   const between = E.betweenRounds(state);
   const statMap = new Map(E.computeStandings(state).map(s => [s.id, s]));
-  for (const p of state.participants) {
-    if (p.ghost) continue; // los invitados de la bye no se gestionan aquí
-    const row = document.createElement("div");
+  const people = state.participants.filter(p => !p.ghost); // los invitados de la bye no se gestionan aquí
+  document.getElementById("playersSummary").textContent =
+    `Ver lista de ${individual ? "jugadores" : "parejas"} (${people.length})`;
+  for (const p of people) {
+    // Toda la fila es un botón: abre sus opciones (cambiar nombre, retirar)
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = "p-row";
-    const name = document.createElement("span");
-    name.className = "p-name";
+    row.dataset.id = p.id;
     const s = statMap.get(p.id);
     const rests = state.benchHistory[p.id] || 0;
     const meta = s ? `${s.G}G–${s.P}P · DIF ${s.DIF > 0 ? "+" : ""}${s.DIF}${rests ? ` · ${rests} descanso${rests > 1 ? "s" : ""}` : ""}` : "";
-    name.innerHTML = `<b>${esc(p.name)}</b>${p.active ? "" : ' <span class="muted">(retirado)</span>'}` +
-      (meta ? `<span class="p-meta">${esc(meta)}</span>` : "");
-    const btnEdit = document.createElement("button");
-    btnEdit.className = "secondary"; btnEdit.textContent = "✎";
-    btnEdit.title = "Renombrar";
-    btnEdit.addEventListener("click", async () => {
-      try {
-        if (state.mode === "parejas") {
-          const r = await showDialog({
-            title: "Renombrar pareja",
-            fields: [
-              { name: "a", label: "Jugador A", value: p.members[0] || "" },
-              { name: "b", label: "Jugador B", value: p.members[1] || "" }
-            ],
-            confirmText: "Guardar"
-          });
-          if (!r) return;
-          E.renameParticipant(state, p.id, "", [r.a, r.b]);
-        } else {
-          const r = await showDialog({
-            title: "Renombrar jugador",
-            fields: [{ name: "n", label: "Nombre", value: p.name }],
-            confirmText: "Guardar"
-          });
-          if (!r) return;
-          E.renameParticipant(state, p.id, r.n, [r.n]);
-        }
-        save(); renderAll(); toast("Nombre actualizado ✅");
-      } catch (e) { toast(e.message); }
+    row.innerHTML = `<span class="p-name"><b>${esc(p.name)}</b>${p.active ? "" : ' <span class="muted">(retirado)</span>'}` +
+      (meta ? `<span class="p-meta">${esc(meta)}</span>` : "") + `</span>` + ic("chev", "chev");
+    row.addEventListener("click", async () => {
+      const choice = await actionSheet(p.name, meta, [
+        { id: "rename", label: "Cambiar nombre", icon: "edit" },
+        p.active
+          ? { id: "toggle", label: "Retirar del torneo", icon: "user-x", danger: true, disabled: !between, hint: between ? "" : "Disponible al terminar la ronda" }
+          : { id: "toggle", label: "Reactivar", icon: "user", disabled: !between, hint: between ? "" : "Disponible al terminar la ronda" }
+      ]);
+      if (choice === "rename") renameParticipantDialog(p);
+      else if (choice === "toggle") toggleParticipant(p);
     });
-    const btnRet = document.createElement("button");
-    btnRet.className = "secondary";
-    btnRet.textContent = p.active ? "Retirar" : "Reactivar";
-    btnRet.disabled = !between;
-    btnRet.title = between ? "" : "Disponible al completar la ronda actual";
-    btnRet.addEventListener("click", async () => {
-      if (p.active) {
-        const ok = await confirmDialog("Retirar participante",
-          `¿Retirar a "${p.name}" del torneo? Sus resultados se conservan en la tabla.`, { danger: true, confirmText: "Retirar" });
-        if (!ok) return;
-      }
-      try {
-        E.setParticipantActive(state, p.id, !p.active);
-        save();
-        snapshot(`${p.active ? "Retirado" : "Reactivado"}: ${p.name}`);
-        renderAll();
-      } catch (e) { toast(e.message); }
-    });
-    row.appendChild(name); row.appendChild(btnEdit); row.appendChild(btnRet);
     el.appendChild(row);
   }
   // Alta a mitad de torneo: deshabilitada con la ronda en juego (con pista)
@@ -1282,7 +1419,7 @@ document.getElementById("btnAddParticipant").addEventListener("click", () => {
     snapshot(`Agregado: ${n1}${state.mode === "parejas" ? " & " + n2 : ""}`);
     renderAll();
     const w = res.warnings.map(x => warningText(state, x)).join(" ");
-    toast(w ? `Agregado ✅ ${w}` : "Agregado ✅", w ? 5000 : 2500);
+    toast(w ? `Agregado · ${w}` : "Agregado", w ? 5000 : 2500);
   } catch (e) { toast(e.message); }
 });
 
@@ -1319,15 +1456,24 @@ function renderBanners() {
   if (bench.length) {
     const div = document.createElement("div");
     div.className = "bench-notice";
-    div.innerHTML = `<strong>Banco ronda ${viewRound}:</strong> ${bench.map(id => esc(E.nameOf(state, id))).join(", ")} ${bench.length > 1 ? "descansan" : "descansa"} esta ronda (rotación equitativa).`;
+    div.innerHTML = `<strong>${bench.length > 1 ? "Descansan" : "Descansa"}:</strong> ${bench.map(id => esc(E.nameOf(state, id))).join(", ")}`;
     el.appendChild(div);
   }
+  const short = { rematch: "Cruces repetidos", partner_repeat: "Compañeros repetidos", rival_repeat: "Rivales repetidos" };
   for (const w of warnings) {
-    const isWarn = w.type === "rematch" || w.type === "partner_repeat" || w.type === "rival_repeat";
-    const div = document.createElement("div");
-    div.className = isWarn ? "warn-banner" : "info-banner";
-    div.textContent = (isWarn ? "⚠ " : "ℹ ") + warningText(state, w);
-    el.appendChild(div);
+    if (short[w.type]) {
+      // Repeticiones inevitables: una línea; el detalle se abre al tocarla
+      const d = document.createElement("details");
+      d.className = "warn-banner";
+      const n = (w.pairs || []).length;
+      d.innerHTML = `<summary>${ic("alert")}${short[w.type]} (inevitable)${n ? `: ${n}` : ""}${ic("chev", "chev")}</summary><div>${esc(warningText(state, w))}</div>`;
+      el.appendChild(d);
+    } else {
+      const div = document.createElement("div");
+      div.className = "info-banner";
+      div.innerHTML = ic("info") + esc(warningText(state, w));
+      el.appendChild(div);
+    }
   }
 }
 
@@ -1357,7 +1503,7 @@ function buildMatchCard(m, roundNo) {
 
   const head = document.createElement("div");
   head.className = "match-head";
-  head.innerHTML = `<span class="match-label">Mesa ${m.table}${roundNo === "bye" ? " — Ronda Bye" : ""}</span>`;
+  head.innerHTML = `<span class="match-label">Mesa ${m.table}${roundNo === "bye" ? " · Bye" : ""}</span>`;
   const status = document.createElement("span");
   status.className = "save-status";
   head.appendChild(status);
@@ -1372,15 +1518,14 @@ function buildMatchCard(m, roundNo) {
     names.className = "team-names"; names.textContent = teamLabel(team);
     const input = document.createElement("input");
     input.type = "number"; input.min = "0"; input.inputMode = "numeric";
-    input.className = "score-input"; input.placeholder = "Pts";
+    input.className = "score-input"; input.placeholder = "–";
+    input.setAttribute("aria-label", `Puntos de ${teamLabel(team)}`);
     input.dataset.side = side;
     input.value = (side === "A" ? m.ptsA : m.ptsB) ?? "";
     line.append(tag, names, input);
     return { line, input };
   }
   const A = teamLine(m.teamA, "A");
-  const vs = document.createElement("div");
-  vs.className = "vs-sep"; vs.textContent = "vs";
   const B = teamLine(m.teamB, "B");
 
   function refreshVisual(savedOk) {
@@ -1389,7 +1534,7 @@ function buildMatchCard(m, roundNo) {
     status.className = "save-status";
     if (a === "" && b === "") { status.textContent = "Sin puntos"; return; }
     if (a === "" || b === "") { status.textContent = "Faltan puntos"; return; }
-    if (Number(a) === Number(b)) { status.classList.add("tie"); status.textContent = "⚠ Empate — no se guarda"; return; }
+    if (Number(a) === Number(b)) { status.classList.add("tie"); status.textContent = "Empate: no se guarda"; return; }
     (Number(a) > Number(b) ? A.line : B.line).classList.add("winner");
     if (savedOk) {
       status.classList.add("saved");
@@ -1418,7 +1563,7 @@ function buildMatchCard(m, roundNo) {
     const limit = 2 * state.config.targetPoints;
     const big = [a, b].filter(v => v !== "" && Number(v) > limit);
     if (big.length) {
-      if (!final) { status.className = "save-status tie"; status.textContent = `⚠ ¿${big[0]} puntos? Revisa`; return; }
+      if (!final) { status.className = "save-status tie"; status.textContent = `¿${big[0]} puntos? Revisa`; return; }
       if (asking) return;
       asking = true;
       const ok = await confirmDialog("¿Marcador correcto?",
@@ -1441,7 +1586,7 @@ function buildMatchCard(m, roundNo) {
       }
     } catch (e) {
       status.className = "save-status tie";
-      status.textContent = "⚠ " + e.message;
+      status.textContent = e.message;
     }
   }
   function onInput() {
@@ -1472,7 +1617,7 @@ function buildMatchCard(m, roundNo) {
   });
 
   refreshVisual(E.tableScored(m));
-  card.append(head, A.line, vs, B.line);
+  card.append(head, A.line, B.line);
   return card;
 }
 
@@ -1497,7 +1642,6 @@ function renderStandings() {
       <td class="col-pf">${r.PF}</td><td class="col-pc">${r.PC}</td>
       <td class="${difCls}">${r.DIF > 0 ? "+" : ""}${r.DIF}</td>
       <td>${r.BUC}</td>
-      <td><b>${r.PTS}</b></td>
     `;
     tb.appendChild(tr);
   });
@@ -1523,14 +1667,36 @@ function renderPodium() {
   });
 }
 
+// Barra fija de abajo. El botón principal dice qué falta o qué sigue:
+//   "Faltan 2 de 6 mesas" (apagado) → "Siguiente ronda" → "Generar ronda bye";
+//   con el torneo terminado, el botón grande es Compartir resultados.
 function renderButtons() {
+  const phase = E.tournamentPhase(state);
   const canNext = E.canGenerateNextRound(state);
+  const canBye = E.canGenerateByeRound(state);
   const btnNext = document.getElementById("btnNextRound");
+  const btnBye = document.getElementById("btnByeRound");
+  const btnShare = document.getElementById("btnShareWA");
+  const tables = state.byeRound ? state.byeRound.tables
+    : (state.rounds.length ? state.rounds[state.rounds.length - 1].tables : []);
+  const done = tables.filter(E.tableScored).length;
+  const finished = phase === "finished";
+
+  btnBye.style.display = canBye.ok ? "" : "none";
+  btnNext.style.display = canBye.ok || finished ? "none" : "";
   btnNext.disabled = !canNext.ok;
   btnNext.title = canNext.ok ? "" : canNext.reason;
-  const canBye = E.canGenerateByeRound(state);
-  const btnBye = document.getElementById("btnByeRound");
-  btnBye.style.display = canBye.ok ? "" : "none";
+  if (canNext.ok) btnNext.innerHTML = `Siguiente ronda ${ic("arrow")}`;
+  else if (done < tables.length) {
+    const left = tables.length - done;
+    btnNext.textContent = `Falta${left > 1 ? "n" : ""} ${left} de ${tables.length} mesa${tables.length > 1 ? "s" : ""}${state.byeRound ? " (bye)" : ""}`;
+  } else btnNext.textContent = "Siguiente ronda";
+
+  btnShare.classList.toggle("ab-main", finished);
+  btnShare.classList.toggle("ab-icon", !finished);
+  btnShare.classList.toggle("secondary", !finished);
+  btnShare.innerHTML = finished ? `${ic("chat")}Compartir resultados` : ic("chat");
+
   document.getElementById("btnUndoRound").style.display =
     (state.byeRound || state.rounds.length > 0) ? "" : "none";
 }
@@ -1545,7 +1711,7 @@ document.getElementById("btnUndoRound").addEventListener("click", async () => {
   try { E.undoLastRound(state); } catch (e) { return toast(e.message); }
   viewRound = currentRoundNo();
   save(); renderAll();
-  toast(`Se deshizo ${target} ✅`);
+  toast(`Se deshizo ${target}`);
 });
 
 // Con muchos jugadores el emparejamiento puede tardar unos segundos (más en
@@ -1585,7 +1751,7 @@ document.getElementById("btnNextRound").addEventListener("click", async e => {
     viewRound = currentRoundNo();
     snapshot(`Ronda ${currentRoundNo()} generada`);
     renderAll();
-    toast(`Ronda ${currentRoundNo()} generada ✅`);
+    toast(`Ronda ${currentRoundNo()} generada`);
   }
 });
 
@@ -1594,7 +1760,7 @@ document.getElementById("btnByeRound").addEventListener("click", async e => {
   if (!can.ok) return toast(can.reason);
   const ok = await withBusy(e.currentTarget, "Generando ronda bye…",
     () => applyWithConfirm(trial => E.generateByeRound(trial)));
-  if (ok) { viewRound = "bye"; snapshot("Ronda bye generada"); renderAll(); toast("Ronda bye generada ✅"); }
+  if (ok) { viewRound = "bye"; snapshot("Ronda bye generada"); renderAll(); toast("Ronda bye generada"); }
 });
 
 /* ===== compartir en WhatsApp ===== */
@@ -1609,6 +1775,18 @@ document.getElementById("btnShareWA").addEventListener("click", () => {
   if (!win) location.href = url;
 });
 
+/* ===== barra de abajo y teclado =====
+   Mientras se escribe (teclado abierto) la barra se esconde; vuelve al salir del campo. */
+document.addEventListener("focusin", e => {
+  if (e.target.matches("input:not(.pin-digit), textarea")) document.body.classList.add("typing");
+});
+document.addEventListener("focusout", () => {
+  setTimeout(() => {
+    const a = document.activeElement;
+    if (!a || !a.matches || !a.matches("input:not(.pin-digit), textarea")) document.body.classList.remove("typing");
+  }, 60);
+});
+
 /* ===== menú ⋯ ===== */
 const menuBtn = document.getElementById("btnMenu");
 const menuPanel = document.getElementById("menuPanel");
@@ -1621,6 +1799,24 @@ menuBtn.addEventListener("click", e => { e.stopPropagation(); setMenu(!menuPanel
 menuPanel.addEventListener("click", e => { if (e.target.closest("button")) setMenu(false); });
 document.addEventListener("click", e => { if (!document.getElementById("menuWrap").contains(e.target)) setMenu(false); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
+
+/* ===== reglas (menú ⋯) ===== */
+function rulesText() {
+  const target = state ? state.config.targetPoints : 200;
+  const timer = state && state.config.timerMinutes
+    ? `Reloj de ${state.config.timerMinutes} minutos por ronda: al acabarse el tiempo gana quien va arriba.`
+    : "Sin reloj (si se activa, al acabarse el tiempo gana quien va arriba).";
+  return [
+    `• Partidas a ${target} puntos; si se pasan, se anotan los puntos completos. Sin empates.`,
+    `• ${timer}`,
+    `• Clasificación: ${E.TIEBREAK_LABEL}. Buchholz = suma de las victorias de tus rivales.`,
+    "• Si el número no es exacto, descansan por turnos: primero quien menos rondas se ha perdido.",
+    "• Ronda bye final para quienes quedaron con menos partidas (por descansar o llegar tarde), así todos terminan parejos.",
+    "• Los puntos se guardan solos al escribirlos."
+  ].join("\n");
+}
+document.getElementById("btnRules").addEventListener("click", () =>
+  showDialog({ title: "Reglas del torneo", message: rulesText(), confirmText: "Entendido", cancelText: "Cerrar" }));
 
 /* ===== export / respaldo / reset ===== */
 document.getElementById("btnExport").addEventListener("click", () => {
@@ -1640,7 +1836,7 @@ document.getElementById("btnBackup").addEventListener("click", () => {
   a.href = url; a.download = `torneo-respaldo-${stamp}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-  toast("Respaldo descargado ✅ Guárdalo en un lugar seguro.");
+  toast("Respaldo descargado. Guárdalo en un lugar seguro.");
 });
 
 document.getElementById("btnRestore").addEventListener("click", async () => {
@@ -1672,7 +1868,7 @@ document.getElementById("btnRestore").addEventListener("click", async () => {
   }
   state = v.state; loadError = null; viewRound = 0;
   save(); renderAll();
-  toast("Instantánea recuperada ✅");
+  toast("Instantánea recuperada");
 });
 document.getElementById("restoreFile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
@@ -1690,7 +1886,7 @@ document.getElementById("restoreFile").addEventListener("change", async (e) => {
   }
   state = v.state; loadError = null; viewRound = 0;
   save(); renderAll();
-  toast("Torneo restaurado desde respaldo ✅");
+  toast("Torneo restaurado desde respaldo");
 });
 
 function clearSetup() {
@@ -1732,11 +1928,13 @@ function renderAll() {
   const grid = document.getElementById("tournamentGrid");
   const errCard = document.getElementById("errorCard");
   if (loadError) {
+    document.body.classList.remove("has-bar");
     errCard.style.display = ""; setup.style.display = "none"; grid.style.display = "none";
     document.getElementById("errorDetail").textContent = loadError;
     return;
   }
   errCard.style.display = "none";
+  document.body.classList.toggle("has-bar", !!state);
   if (!state) {
     setup.style.display = ""; grid.style.display = "none";
     renderPairsBuilder();
@@ -1745,6 +1943,7 @@ function renderAll() {
     return;
   }
   setup.style.display = "none"; grid.style.display = "grid";
+  if (viewRound === 0 && state.byeRound) viewRound = "bye";
   if (viewRound === 0 || (typeof viewRound === "number" && viewRound > currentRoundNo())) viewRound = currentRoundNo();
   if (viewRound === "bye" && !state.byeRound) viewRound = currentRoundNo();
   renderParticipants();
@@ -1763,7 +1962,7 @@ function boot() {
     try { m = sessionStorage.getItem("domino_setup_mode"); } catch {}
     if (m === "individual" || m === "parejas") selectMode(m);
   }
-  for (const id of ["tiebreakLabel1", "tiebreakLabel2", "tiebreakLabel3"])
+  for (const id of ["tiebreakLabel1", "tiebreakLabel3"])
     document.getElementById(id).textContent = E.TIEBREAK_LABEL;
   renderAll();
 }
