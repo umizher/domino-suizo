@@ -340,7 +340,13 @@
       .card { padding: 16px; }
       .score-input { width: 80px; }
     }
-  </style>
+  
+    /* Crédito visible junto al título en todas las pantallas */
+    .byline { margin: 0; font-size: 13px; font-weight: 600; color: #9fb1db; letter-spacing: .3px; line-height: 1.25; white-space: nowrap; }
+    .byline b { font-weight: 800; background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .byline-lg { font-size: 16px; }
+    .brand-text { display: flex; flex-direction: column; min-width: 0; }
+</style>
 </head>
 <body>
 
@@ -355,6 +361,7 @@
     <circle cx="20" cy="35" r="2.1" fill="#1a2440"/><circle cx="28" cy="29" r="2.1" fill="#1a2440"/>
   </svg>
   <h2>Torneo Suizo – Árbitro</h2>
+  <div class="byline byline-lg">by <b>Usama Mizher</b></div>
   <p>Ingresa la clave de árbitro</p>
   <div class="pin-box">
     <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d0" />
@@ -393,7 +400,7 @@
         <circle cx="20" cy="13" r="2.1" fill="#1a2440"/><circle cx="24" cy="16.5" r="2.1" fill="#1a2440"/><circle cx="28" cy="20" r="2.1" fill="#1a2440"/>
         <circle cx="20" cy="35" r="2.1" fill="#1a2440"/><circle cx="28" cy="29" r="2.1" fill="#1a2440"/>
       </svg>
-      <h1 id="appTitle">Torneo Suizo</h1>
+      <div class="brand-text"><h1 id="appTitle">Torneo Suizo</h1><div class="byline">by <b>Usama Mizher</b></div></div>
     </div>
     <span class="badge" id="statusBadge"></span>
     <span class="pill" id="roundPill"></span>
@@ -1631,6 +1638,6 @@ function boot() {
   else digits[0].focus();
 })();
 </script>
-<div style="text-align:center;font-size:11px;color:#2a3a55;padding:1rem 0">Creado por Usama Mizher</div>
+<div style="text-align:center;font-size:12px;color:#6b7aa6;padding:1rem 0">Creado por Usama Mizher</div>
 </body>
 </html>

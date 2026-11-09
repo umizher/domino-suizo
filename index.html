@@ -94,17 +94,23 @@
     #pinInput:focus { border-color:var(--cyan); box-shadow:0 0 0 4px rgba(34,211,238,.18), 0 0 24px rgba(34,211,238,.3); }
     #pinError { color:#ff8aa3;font-size:13px;min-height:18px; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-  </style>
+  
+    /* Crédito visible junto al título en todas las pantallas */
+    .byline { margin: 0; font-size: 13px; font-weight: 600; color: #9fb1db; letter-spacing: .3px; line-height: 1.25; white-space: nowrap; }
+    .byline b { font-weight: 800; background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .byline-lg { font-size: 16px; }
+    .brand-text { display: flex; flex-direction: column; min-width: 0; }
+</style>
 </head>
 <body>
 
 <div id="pinOverlay">
   <div style="font-size:48px">🁫</div>
   <div style="font-size:22px;font-weight:800;color:#fff">Dominó</div>
+  <div class="byline byline-lg">by <b>Usama Mizher</b></div>
   <div style="color:#93a4cc;font-size:14px">Ingresa la clave para continuar</div>
   <input type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)">
   <div id="pinError"></div>
-  <div style="font-size:11px;color:#3a4a75;margin-top:24px">Creado por Usama Mizher</div>
 </div>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
@@ -127,6 +133,7 @@ function checkPin(inp){
     <circle cx="20" cy="35" r="2.1" fill="#1a2440"/><circle cx="28" cy="29" r="2.1" fill="#1a2440"/>
   </svg>
   <h1>Dominó</h1>
+  <div class="byline byline-lg">by <b>Usama Mizher</b></div>
   <p class="subtitle">Sistema de torneos suizo · Individual y Parejas</p>
 </div>
 
