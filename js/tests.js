@@ -842,7 +842,7 @@
     E.generateNextRound(st, rng);
     let txt = E.toShareText(st);
     assert(txt.includes("Mesas – Ronda 1") && !txt.includes("Posiciones"), "R1 sin jugar: debe mostrar mesas y no posiciones");
-    assert(txt.includes("Descansa: "), "debe decir quién descansa");
+    assert(/Descansan?: /.test(txt), "debe decir quién descansa");
     scoreAllTables(st.rounds[0].tables, rng);
     txt = E.toShareText(st);
     assert(txt.includes("Resultados – Ronda 1") && txt.includes("Posiciones"), "R1 jugada: resultados y posiciones");
@@ -997,6 +997,38 @@
       }
     }
     assert(byesWithGhosts > 15, "pocas byes con invitados verificadas");
+  }
+
+  section("No se agrega a nadie cuando ya no quedan rondas (torneo terminado o en la bye)");
+  {
+    for (const mode of ["individual", "parejas"]) {
+      for (const n of mode === "individual" ? [8, 10, 23] : [4, 5, 11]) {
+        const rng = E._mulberry32(4400 + n);
+        const st = E.createTournament({ mode, maxRounds: 5, participants: mkParticipants(mode, n) }, rng);
+        const late = k => mode === "individual" ? { name: `Tarde${k}`, members: [`Tarde${k}`] } : { name: `Tarde${k}`, members: [`T${k}a`, `T${k}b`] };
+        for (let r = 1; r <= 5; r++) {
+          const { round } = E.generateNextRound(st, rng);
+          if (r < 5) {
+            scoreAllTables(round.tables, rng);
+            assert(E.canAddParticipant(st).ok, `${mode} ${n}: entre la ronda ${r} y ${r + 1} se debe poder agregar`);
+          } else {
+            assert(!E.canAddParticipant(st).ok && E.canAddParticipant(st).final, `${mode} ${n}: en la última ronda ya no se agrega`);
+            scoreAllTables(round.tables, rng);
+          }
+        }
+        const phaseBefore = E.tournamentPhase(st);
+        let blocked = false;
+        try { E.addParticipant(st, late(99)); } catch { blocked = true; }
+        assert(blocked, `${mode} ${n}: permitió agregar con todas las rondas jugadas`);
+        assert(E.tournamentPhase(st) === phaseBefore, `${mode} ${n}: intentar agregar cambió la fase (${phaseBefore})`);
+        if (E.canGenerateByeRound(st).ok) {
+          E.generateByeRound(st, rng);
+          let blockedBye = false;
+          try { E.addParticipant(st, late(98)); } catch { blockedBye = true; }
+          assert(blockedBye, `${mode} ${n}: permitió agregar durante la bye`);
+        }
+      }
+    }
   }
 
   /* ---------- resumen ---------- */

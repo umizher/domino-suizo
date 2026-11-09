@@ -57,7 +57,7 @@
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; } }
 
     /* ---- Marca ---- */
-    .brand { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 200px; }
+    .brand { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; }
     .brand svg { flex: none; filter: drop-shadow(0 3px 8px rgba(99, 102, 241, .4)); }
     .brand h1 {
       margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.3px;
@@ -91,7 +91,21 @@
       border-bottom: 1px solid var(--border-soft); padding: 12px 18px 0;
       box-shadow: 0 8px 30px rgba(1, 4, 14, .4);
     }
-    .header-top { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    .header-top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .header-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    /* ---- Menú ⋯ (CSV, Respaldar, Restaurar, Reset): lo que se usa poco
+       queda guardado y deja la pantalla libre para las mesas ---- */
+    .menu-wrap { position: relative; flex: none; }
+    #btnMenu { min-width: 46px; min-height: 44px; padding: 0 14px; font-size: 22px; line-height: 1; letter-spacing: 1px; }
+    #btnMenu[aria-expanded="true"] { border-color: var(--acc1); color: #fff; }
+    .menu-panel {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 300; min-width: 230px;
+      display: none; flex-direction: column; gap: 6px; padding: 8px;
+      background: #0d1426; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
+    }
+    .menu-panel.open { display: flex; }
+    .menu-panel button { width: 100%; text-align: left; border-radius: 12px; min-height: 44px; font-size: 14px; }
+    .menu-sep { height: 1px; background: var(--border-soft); margin: 4px 2px; }
     .badge {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 5px 13px; border-radius: 999px; font-size: 12px; font-weight: 700;
@@ -179,12 +193,22 @@
 
     .config-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
     .config-row label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
-    .config-row input { width: 150px; }
+    /* 16 px: con letra más chica el iPhone hace zoom al tocar el campo */
+    .config-row input { width: 150px; font-size: 16px; }
 
     .pair-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    #pairsBuilder .pair-row {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+      gap: 4px 8px; margin-bottom: 12px;
+    }
+    #pairsBuilder .pair-num { grid-column: 1 / -1; min-width: 0; }
+    #pairsBuilder .pair-row input { min-width: 0; width: 100%; }
+    #pairsBuilder button.rm { min-height: 44px; min-width: 44px; padding: 0; font-size: 14px; }
     .pair-num { color: var(--muted); font-size: 12px; min-width: 64px; }
     .pair-row input { flex: 1; min-width: 100px; }
     .pair-sep { color: var(--muted); }
+    .add-row input { flex: 1 1 110px; min-width: 0; }
+    .add-row button { flex: none; }
     button.rm { background: #161f38; border: 1px solid var(--border-soft); padding: 8px 12px; font-size: 12px; color: #ff9d9d; border-radius: var(--radius-sm); cursor: pointer; box-shadow: none; }
 
     button {
@@ -266,9 +290,9 @@
       background: var(--grad); border: 0; border-radius: 9px; font-size: 12px; font-weight: 800; color: #fff;
     }
     .team-names { flex: 1; font-weight: 700; font-size: 14.5px; }
-    .score-input {
+    input.score-input {
       width: 92px; min-height: 48px; text-align: center; font-size: 22px; font-weight: 800;
-      font-variant-numeric: tabular-nums;
+      font-variant-numeric: tabular-nums; padding: 10px 6px;
     }
     .vs-sep { text-align: center; color: #5d6f9e; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin: 3px 0; }
     .empty-state { text-align: center; padding: 40px 20px; }
@@ -287,6 +311,7 @@
     tr.rank-2 { background: linear-gradient(90deg, rgba(203, 213, 225, .1), transparent 70%); }
     tr.rank-3 { background: linear-gradient(90deg, rgba(205, 127, 50, .13), transparent 70%); }
     td.medal { font-size: 17px; text-align: center; }
+    th.col-rank { width: 38px; }
     td.dif-pos { color: var(--ok); font-weight: 700; }
     td.dif-neg { color: #f87171; font-weight: 700; }
     td.dif-zer { color: var(--muted); }
@@ -294,7 +319,10 @@
 
     /* Nombres largos sin espacios (apodos) se parten en vez de ensanchar la
        página y sacar los botones de la pantalla del teléfono. */
-    .p-name, .team-names, .pd-name, td:nth-child(2), .match-label, .bench-notice, .info-banner, .warn-banner { overflow-wrap: anywhere; }
+    .p-name, .team-names, .pd-name, .match-label, .bench-notice, .info-banner, .warn-banner { overflow-wrap: anywhere; }
+    /* En la tabla el nombre solo se parte entre palabras ("José / Luis"), nunca
+       "Alejandr/o". Un nombre larguísimo sin espacios hace deslizar la tabla. */
+    td:nth-child(2) { overflow-wrap: break-word; }
     /* Los números de la tabla nunca se parten (870 no debe verse como 8/7/0):
        si no caben, la tabla se desliza de lado dentro de su recuadro. */
     td:not(:nth-child(2)), th { white-space: nowrap; }
@@ -353,9 +381,19 @@
     #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
     @media (max-width: 600px) {
+      /* En el teléfono el encabezado no se queda fijo: deja la pantalla para las mesas */
+      header { position: relative; }
+      th, td { padding: 10px 6px; }
+      th.col-rank { width: 30px; }
+      td.medal { font-size: 15px; }
+      .col-pf, .col-pc { display: none; }
+      /* Podio: el campeón arriba y al centro; 2.º y 3.º lado a lado */
+      .podium-1 { order: 0; flex-basis: 100%; max-width: none; min-height: 0; }
+      .podium-2 { order: 1; min-width: 0; }
+      .podium-3 { order: 2; min-width: 0; }
       main { padding: 14px 12px 48px; }
       .card { padding: 16px; }
-      .score-input { width: 80px; }
+      input.score-input { width: 80px; }
     }
   
     /* Crédito visible junto al título en todas las pantallas */
@@ -363,6 +401,7 @@
     .byline b { font-weight: 800; background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .byline-lg { font-size: 16px; }
     .brand-text { display: flex; flex-direction: column; min-width: 0; }
+    .credit { text-align: center; font-size: 12px; color: #8fa3c8; padding: 1rem 0; }
 </style>
 </head>
 <body>
@@ -419,6 +458,19 @@
       </svg>
       <div class="brand-text"><h1 id="appTitle">Torneo de Dominó</h1><div class="byline">by <b>Usama Mizher</b></div></div>
     </div>
+    <div class="menu-wrap" id="menuWrap">
+      <button class="secondary" id="btnMenu" aria-label="Más opciones" aria-haspopup="true" aria-expanded="false" title="Más opciones">⋯</button>
+      <div class="menu-panel" id="menuPanel" role="menu">
+        <button class="secondary" id="btnExport" role="menuitem">↓ Descargar CSV</button>
+        <button class="secondary" id="btnBackup" role="menuitem">⇪ Respaldar</button>
+        <button class="secondary" id="btnRestore" role="menuitem">⇩ Restaurar</button>
+        <div class="menu-sep" id="menuSep"></div>
+        <button class="danger" id="btnReset" role="menuitem">Reset (borrar torneo)</button>
+      </div>
+      <input type="file" id="restoreFile" accept=".json,application/json" style="display:none;" />
+    </div>
+  </div>
+  <div class="header-chips" id="headerChips">
     <span class="badge" id="statusBadge"></span>
     <span class="pill" id="roundPill"></span>
     <span class="pill" id="unitsPill"></span>
@@ -427,13 +479,6 @@
       <button class="t-btn" id="btnTimerPause" title="Pausar / reanudar el reloj">⏸</button>
       <button class="t-btn" id="btnTimerRestart" title="Reiniciar el reloj de la ronda">↻</button>
     </span>
-    <nav class="nav-btns">
-      <button class="secondary" id="btnExport">↓ CSV</button>
-      <button class="secondary" id="btnBackup">⇪ Respaldar</button>
-      <button class="secondary" id="btnRestore">⇩ Restaurar</button>
-      <input type="file" id="restoreFile" accept=".json,application/json" style="display:none;" />
-      <button class="danger" id="btnReset">Reset</button>
-    </nav>
   </div>
   <div class="nav-tabs">
     <a class="nav-tab" href="index.html">← Inicio</a>
@@ -460,7 +505,7 @@
 
     <div id="setupIndividual">
       <p class="muted" style="margin:0 0 6px;">Un jugador por línea (mínimo 4).</p>
-      <textarea id="playersInput" placeholder="Juan&#10;Pedro&#10;Luis&#10;Ana&#10;Carlos&#10;María&#10;Sofia&#10;Diego"></textarea>
+      <textarea id="playersInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Juan&#10;Pedro&#10;Luis&#10;Ana&#10;Carlos&#10;María&#10;Sofia&#10;Diego"></textarea>
     </div>
 
     <div id="setupParejas" style="display:none;">
@@ -512,32 +557,8 @@
       <p class="muted" style="margin:8px 0 0;">La clasificación completa está en la tabla de posiciones.</p>
     </section>
 
-    <!-- LEFT: participantes -->
-    <section class="card">
-      <h2 id="participantsTitle">Participantes</h2>
-      <div id="participantsList"></div>
-      <div id="addParticipantBox" style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">
-        <div class="muted" style="margin-bottom:6px;" id="addHint">Agregar a mitad de torneo (entra en la siguiente ronda):</div>
-        <div class="pair-row">
-          <input type="text" id="addName1" placeholder="Nombre" />
-          <span class="pair-sep" id="addSep" style="display:none;">&amp;</span>
-          <input type="text" id="addName2" placeholder="Compañero" style="display:none;" />
-          <button class="secondary" id="btnAddParticipant">+ Agregar</button>
-        </div>
-      </div>
-      <div class="footer">
-        <button id="btnNextRound">Siguiente ronda</button>
-        <button class="secondary" id="btnByeRound" style="display:none;">Generar ronda bye</button>
-        <button class="secondary" id="btnUndoRound" style="display:none;">↩ Deshacer ronda</button>
-        <button class="secondary" id="btnShareWA">💬 Compartir en WhatsApp</button>
-      </div>
-      <div class="notice">
-        <span class="pill">Reglas</span>
-        <span class="muted small">Partidas a <b id="targetLabel">200</b> puntos (si se pasan, se anotan completos) · <span id="timerLabel"></span> · <b>Sin empates</b>. Clasificación: <b id="tiebreakLabel2"></b> (Buchholz = suma de las victorias de tus rivales). Los puntos se guardan automáticamente al escribirlos.</span>
-      </div>
-    </section>
-
-    <!-- RIGHT: rondas -->
+    <!-- Ronda: mesas y, debajo, los botones de ronda (en el teléfono es lo
+         primero que se ve: no hay que bajar por la lista de jugadores) -->
     <section class="card">
       <div class="flex-between" style="margin-bottom:12px;">
         <h2 id="matchesTitle">Partidas</h2>
@@ -546,6 +567,31 @@
       <div class="round-tabs" id="roundTabs"></div>
       <div id="roundBanners"></div>
       <div class="matches" id="matches"></div>
+      <div class="footer">
+        <button id="btnNextRound">Siguiente ronda</button>
+        <button class="secondary" id="btnByeRound" style="display:none;">Generar ronda bye</button>
+        <button class="secondary" id="btnUndoRound" style="display:none;">↩ Deshacer ronda</button>
+        <button class="secondary" id="btnShareWA">💬 Compartir en WhatsApp</button>
+      </div>
+    </section>
+
+    <!-- Participantes: alta tardía arriba, lista y reglas -->
+    <section class="card">
+      <h2 id="participantsTitle">Participantes</h2>
+      <div id="addParticipantBox" style="margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+        <div class="muted" style="margin-bottom:6px;" id="addHint">Agregar a mitad de torneo (entra en la siguiente ronda):</div>
+        <div class="pair-row add-row">
+          <input type="text" id="addName1" placeholder="Nombre" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
+          <span class="pair-sep" id="addSep" style="display:none;">&amp;</span>
+          <input type="text" id="addName2" placeholder="Compañero" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" style="display:none;" />
+          <button class="secondary" id="btnAddParticipant">+ Agregar</button>
+        </div>
+      </div>
+      <div id="participantsList"></div>
+      <div class="notice">
+        <span class="pill">Reglas</span>
+        <span class="muted small">Partidas a <b id="targetLabel">200</b> puntos (si se pasan, se anotan completos) · <span id="timerLabel"></span> · <b>Sin empates</b>. Clasificación: <b id="tiebreakLabel2"></b> (Buchholz = suma de las victorias de tus rivales). Los puntos se guardan automáticamente al escribirlos.</span>
+      </div>
     </section>
 
     <!-- FULL WIDTH: standings -->
@@ -558,10 +604,10 @@
         <table>
           <thead>
             <tr>
-              <th style="width:38px">#</th>
+              <th class="col-rank">#</th>
               <th id="thName">Nombre</th>
               <th>PJ</th><th>G</th><th>P</th>
-              <th>PF</th><th>PC</th>
+              <th class="col-pf">PF</th><th class="col-pc">PC</th>
               <th>DIF</th><th title="Buchholz: suma de las victorias de tus rivales, una vez por cada partida contra ellos">BUC</th><th>Pts</th>
             </tr>
           </thead>
@@ -576,12 +622,12 @@
 <div id="toast"></div>
 </div><!-- /app -->
 
-<script src="js/swiss-engine.js?v=16"></script>
+<script src="js/swiss-engine.js?v=17"></script>
 <script>
 // Pantalla y motor deben ser de la misma versión. Si el teléfono trajo un
 // motor viejo guardado, se recarga una vez pidiendo los archivos nuevos.
 (function () {
-  var EXPECTED = 16, key = "domino_engine_reload";
+  var EXPECTED = 17, key = "domino_engine_reload";
   var got = window.SwissEngine && SwissEngine.ENGINE_VERSION;
   if (got !== EXPECTED) {
     var tried = false; try { tried = sessionStorage.getItem(key) === String(EXPECTED); } catch (e) {}
@@ -709,6 +755,11 @@ function showDialog({ title, message = "", fields = [], confirmText = "Aceptar",
       const input = document.createElement("input");
       input.type = f.type || "text";
       if (f.type === "number") { input.min = f.min ?? ""; input.max = f.max ?? ""; input.inputMode = "numeric"; }
+      else {
+        // Nombres: sin autocorrector (el iPhone cambiaba "Mizher" por "Mixer")
+        input.autocomplete = "off"; input.spellcheck = false;
+        input.setAttribute("autocorrect", "off"); input.setAttribute("autocapitalize", "words");
+      }
       input.value = f.value ?? "";
       input.placeholder = f.placeholder ?? "";
       input.dataset.name = f.name;
@@ -894,10 +945,10 @@ function renderPairsBuilder() {
     row.className = "pair-row";
     row.innerHTML = `
       <span class="pair-num">Pareja ${i + 1}</span>
-      <input type="text" placeholder="Jugador A" value="${esc(item.a)}" data-i="${i}" data-f="a" />
+      <input type="text" placeholder="Jugador A" value="${esc(item.a)}" data-i="${i}" data-f="a" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
       <span class="pair-sep">&amp;</span>
-      <input type="text" placeholder="Jugador B" value="${esc(item.b)}" data-i="${i}" data-f="b" />
-      <button class="rm" data-i="${i}">✕</button>
+      <input type="text" placeholder="Jugador B" value="${esc(item.b)}" data-i="${i}" data-f="b" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
+      <button class="rm" data-i="${i}" title="Quitar pareja" aria-label="Quitar pareja ${i + 1}">✕</button>
     `;
     row.querySelectorAll("input").forEach(inp =>
       inp.addEventListener("input", e => {
@@ -1100,6 +1151,10 @@ function renderHeader() {
   badge.style.display = state ? "" : "none";
   roundPill.style.display = state ? "" : "none";
   unitsPill.style.display = state ? "" : "none";
+  document.getElementById("headerChips").style.display = state ? "" : "none";
+  // Sin torneo, en el menú solo tiene sentido Restaurar
+  for (const id of ["btnExport", "btnBackup", "menuSep", "btnReset"])
+    document.getElementById(id).style.display = state ? "" : "none";
   if (state) {
     const pi = phaseInfo();
     badge.className = "badge " + pi.cls;
@@ -1187,9 +1242,12 @@ function renderParticipants() {
   const isParejas = state.mode === "parejas";
   document.getElementById("addSep").style.display = isParejas ? "" : "none";
   document.getElementById("addName2").style.display = isParejas ? "" : "none";
-  const canAdd = state.rounds.length === 0 || between;
-  document.getElementById("btnAddParticipant").disabled = !canAdd;
-  document.getElementById("addHint").textContent = canAdd
+  // Sin rondas por delante (última ronda, bye o terminado) ya no se puede
+  // agregar a nadie: el recuadro se oculta.
+  const canAdd = E.canAddParticipant(state);
+  document.getElementById("addParticipantBox").style.display = canAdd.final ? "none" : "";
+  document.getElementById("btnAddParticipant").disabled = !canAdd.ok;
+  document.getElementById("addHint").textContent = canAdd.ok
     ? "Agregar a mitad de torneo (entra en la siguiente ronda):"
     : "Agregar a mitad de torneo — disponible al completar la ronda actual:";
 }
@@ -1249,7 +1307,7 @@ function renderBanners() {
   if (bench.length) {
     const div = document.createElement("div");
     div.className = "bench-notice";
-    div.innerHTML = `<strong>Banco ronda ${viewRound}:</strong> ${bench.map(id => esc(E.nameOf(state, id))).join(", ")} descansa esta ronda (rotación equitativa).`;
+    div.innerHTML = `<strong>Banco ronda ${viewRound}:</strong> ${bench.map(id => esc(E.nameOf(state, id))).join(", ")} ${bench.length > 1 ? "descansan" : "descansa"} esta ronda (rotación equitativa).`;
     el.appendChild(div);
   }
   for (const w of warnings) {
@@ -1424,7 +1482,7 @@ function renderStandings() {
       <td class="medal">${podium ? medals[i] : (i + 1)}</td>
       <td><b>${esc(r.name)}</b>${r.retired ? ' <span class="muted">(ret.)</span>' : ""}</td>
       <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td>
-      <td>${r.PF}</td><td>${r.PC}</td>
+      <td class="col-pf">${r.PF}</td><td class="col-pc">${r.PC}</td>
       <td class="${difCls}">${r.DIF > 0 ? "+" : ""}${r.DIF}</td>
       <td>${r.BUC}</td>
       <td><b>${r.PTS}</b></td>
@@ -1539,6 +1597,19 @@ document.getElementById("btnShareWA").addEventListener("click", () => {
   if (!win) location.href = url;
 });
 
+/* ===== menú ⋯ ===== */
+const menuBtn = document.getElementById("btnMenu");
+const menuPanel = document.getElementById("menuPanel");
+function setMenu(open) {
+  menuPanel.classList.toggle("open", open);
+  menuBtn.setAttribute("aria-expanded", String(open));
+}
+menuBtn.addEventListener("click", e => { e.stopPropagation(); setMenu(!menuPanel.classList.contains("open")); });
+// Al elegir una opción el menú se cierra (la opción hace lo suyo primero)
+menuPanel.addEventListener("click", e => { if (e.target.closest("button")) setMenu(false); });
+document.addEventListener("click", e => { if (!document.getElementById("menuWrap").contains(e.target)) setMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
+
 /* ===== export / respaldo / reset ===== */
 document.getElementById("btnExport").addEventListener("click", () => {
   if (!state) return toast("No hay torneo.");
@@ -1622,9 +1693,11 @@ function clearSetup() {
 }
 
 document.getElementById("btnReset").addEventListener("click", async () => {
+  if (!state) return;
   const ok = await confirmDialog("Borrar torneo",
-    "¿Borrar todo el torneo? Esta acción no se puede deshacer.\nConsejo: descarga un respaldo antes.", { danger: true, confirmText: "Borrar todo" });
+    "¿Borrar todo el torneo?\nQueda una copia en Restaurar por si la necesitas.", { danger: true, confirmText: "Borrar todo" });
   if (!ok) return;
+  snapshot(`Antes de Reset (${state.mode === "individual" ? "Individual" : "Parejas"}, ronda ${state.rounds.length})`);
   clearStored();
   state = null; viewRound = 0;
   clearSetup();
@@ -1687,8 +1760,9 @@ function boot() {
 (async () => {
   if (new URLSearchParams(location.search).has("reset")) {
     history.replaceState(null, "", location.pathname + "?continuar");
-    const ok = await confirmDialog("Borrar datos", "¿Borrar todos los datos del torneo?", { danger: true, confirmText: "Borrar" });
+    const ok = await confirmDialog("Borrar datos", "¿Borrar todos los datos del torneo?\nQueda una copia en Restaurar por si la necesitas.", { danger: true, confirmText: "Borrar" });
     if (ok) {
+      load(); snapshot("Antes de borrar datos");
       clearStored();
       sessionStorage.removeItem(PIN_SESSION_KEY);
       toast("Datos borrados. Ya puedes iniciar un torneo nuevo.");
@@ -1700,6 +1774,6 @@ function boot() {
   else digits[0].focus();
 })();
 </script>
-<div style="text-align:center;font-size:12px;color:#6b7aa6;padding:1rem 0">Creado por Usama Mizher</div>
+<div class="credit">Creado por Usama Mizher</div>
 </body>
 </html>

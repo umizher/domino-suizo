@@ -19,7 +19,7 @@
   const STORAGE_KEY = "domino_torneo_v3";
   // Versión del motor: las páginas cargan js/swiss-engine.js?v=N y comprueban
   // que coincida, para no mezclar una pantalla nueva con cálculos viejos en caché.
-  const ENGINE_VERSION = 16;
+  const ENGINE_VERSION = 17;
   const TIEBREAK_LABEL = "Ganadas → Buchholz → DIF → Puntos";
 
   // Reglas profesionales (FID): partidas a 200 puntos — si se pasan, se anotan
@@ -892,6 +892,17 @@
     return !last || roundIsComplete(last);
   }
 
+  // Se puede agregar a alguien solo si todavía queda una ronda normal por
+  // jugar: con todas las rondas generadas (o la bye en marcha) ya no tendría
+  // dónde entrar, y antes reabría un torneo terminado para una bye de 0 partidas.
+  function canAddParticipant(state) {
+    if (state.byeRound || state.rounds.length >= state.maxRounds)
+      return { ok: false, final: true, reason: "Ya no quedan rondas por jugar: no se pueden agregar participantes." };
+    if (state.rounds.length > 0 && !betweenRounds(state))
+      return { ok: false, final: false, reason: "Solo puedes agregar participantes entre rondas (con la ronda actual completa)." };
+    return { ok: true, final: false, reason: "" };
+  }
+
   function assertNameFree(state, name, exceptId) {
     const lower = name.trim().toLowerCase();
     if (state.participants.some(p => p.id !== exceptId && p.name.trim().toLowerCase() === lower))
@@ -909,8 +920,8 @@
     const finalName = (name && String(name).trim()) || pairName(mem);
     if (!finalName) throw new Error("Nombre vacío.");
     assertNameFree(state, finalName, null);
-    if (state.rounds.length > 0 && !betweenRounds(state))
-      throw new Error("Solo puedes agregar participantes entre rondas (con la ronda actual completa).");
+    const can = canAddParticipant(state);
+    if (!can.ok) throw new Error(can.reason);
     const id = "u" + state.nextId++;
     state.participants.push({ id, name: finalName, members: mem, active: true, addedAtRound: state.rounds.length });
     state.benchHistory[id] = 0;
@@ -1007,21 +1018,21 @@
     lines.push(`*Torneo de Dominó – ${state.mode === "individual" ? "Individual" : "Parejas"}*`);
     lines.push(`Ronda ${rn} de ${state.maxRounds}${state.byeRound ? " + bye" : ""} · partidas a ${state.config.targetPoints}`);
 
-    const results = (b, verb) => {
+    const results = b => {
       lines.push("", `✅ *Resultados – ${b.label}*`);
       for (const t of b.tables) lines.push(tableLine(t));
-      if (b.bench.length) lines.push(`💤 ${verb}: ${b.bench.map(who).join(", ")}`);
+      if (b.bench.length) lines.push(`💤 ${b.bench.length > 1 ? "Descansaron" : "Descansó"}: ${b.bench.map(who).join(", ")}`);
     };
     const last = blocks[blocks.length - 1];
     if (last) {
       const lastDone = last.tables.every(tableScored);
-      if (lastDone) results(last, "Descansó");
+      if (lastDone) results(last);
       else {
         const prev = blocks[blocks.length - 2];
-        if (prev) results(prev, "Descansó");
+        if (prev) results(prev);
         lines.push("", `🎯 *Mesas – ${last.label}*`);
         for (const t of last.tables) lines.push(tableLine(t));
-        if (last.bench.length) lines.push(`💤 Descansa: ${last.bench.map(who).join(", ")}`);
+        if (last.bench.length) lines.push(`💤 ${last.bench.length > 1 ? "Descansan" : "Descansa"}: ${last.bench.map(who).join(", ")}`);
       }
     }
 
@@ -1047,7 +1058,7 @@
   return {
     SCHEMA_VERSION, STORAGE_KEY, ENGINE_VERSION, TIEBREAK_LABEL, MODES, DEFAULT_CONFIG,
     createTournament, validateState,
-    addParticipant, renameParticipant, setParticipantActive,
+    addParticipant, canAddParticipant, renameParticipant, setParticipantActive,
     generateNextRound, generateByeRound, undoLastRound, byeForecast,
     canGenerateNextRound, canGenerateByeRound,
     setResult, computeStandings, tournamentPhase, toCSV, toShareText,

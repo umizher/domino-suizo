@@ -93,7 +93,9 @@
     .team-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; }
     .team-name { font-size: clamp(15px, 1.8vw, 26px); font-weight: bold; }
     /* Nombres largos sin espacios se parten en vez de ensanchar la página */
-    .team-name, td:nth-child(2), .pd-name { overflow-wrap: anywhere; }
+    .team-name, .pd-name { overflow-wrap: anywhere; }
+    /* En la tabla el nombre solo se parte entre palabras, nunca "Alejandr/o" */
+    td:nth-child(2) { overflow-wrap: break-word; }
     td:not(:nth-child(2)), th { white-space: nowrap; }
     .team-row > *, .match, .teams { min-width: 0; }
     .grid > * { min-width: 0; }
@@ -132,6 +134,16 @@
     .podium-2 { background: linear-gradient(180deg, rgba(203, 213, 225, .2), rgba(203, 213, 225, .05)); border: 1px solid rgba(203, 213, 225, .35); min-height: clamp(135px, 16vw, 205px); order: 1; }
     .podium-3 { background: linear-gradient(180deg, rgba(205, 127, 50, .22), rgba(205, 127, 50, .05)); border: 1px solid rgba(205, 127, 50, .45); min-height: clamp(115px, 14vw, 175px); order: 3; }
 
+    /* Teléfono: PF y PC ocultos (DIF ya los resume) para que quepan el nombre
+       completo, BUC y Pts; el podio pone al campeón arriba y al centro. */
+    @media (max-width: 640px) {
+      th, td { padding: 9px 6px; }
+      .col-pf, .col-pc { display: none; }
+      .podium-1 { order: 0; flex-basis: 100%; max-width: none; min-height: 0; }
+      .podium-2 { order: 1; min-width: 0; min-height: 0; }
+      .podium-3 { order: 2; min-width: 0; min-height: 0; }
+    }
+    .credit { text-align: center; font-size: 12px; color: #8fa3c8; padding: 1rem 0; }
     #pinOverlay{position:fixed;inset:0;background:radial-gradient(900px 500px at 50% 30%, rgba(34,211,238,.08), transparent 70%), #04060e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
     #pinInput{text-align:center;font-size:30px;letter-spacing:12px;width:170px;padding:12px;background:rgba(18,26,48,.7);color:#fff;border:2px solid rgba(125,211,252,.25);border-radius:16px;outline:none;transition:border-color .2s, box-shadow .2s}
     #pinInput:focus{border-color:#22d3ee;box-shadow:0 0 0 4px rgba(34,211,238,.18), 0 0 24px rgba(34,211,238,.3)}
@@ -145,7 +157,7 @@
 </style>
 </head>
 <body>
-<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Dominó</div><div class="byline byline-lg">by <b>Usama Mizher</b></div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div><div style="font-size:11px;color:#2a3a55;margin-top:24px">Creado por Usama Mizher</div></div>
+<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Torneo de Dominó</div><div class="byline byline-lg">by <b>Usama Mizher</b></div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div></div>
 <script>(function(){if(sessionStorage.getItem("domino_pin_ok")==="1")document.getElementById("pinOverlay").style.display="none";})()
 function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionStorage.setItem("domino_pin_ok","1");document.getElementById("pinOverlay").style.display="none";}else{document.getElementById("pinError").textContent="Clave incorrecta";inp.value="";setTimeout(function(){document.getElementById("pinError").textContent="";},2000);}}}</script>
 
@@ -203,7 +215,7 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionSt
     <div style="overflow:auto; border-radius:12px; border:1px solid var(--border);">
       <table>
         <thead>
-          <tr><th>#</th><th id="thName">Nombre</th><th>PJ</th><th>G</th><th>P</th><th>PF</th><th>PC</th><th>DIF</th><th title="Buchholz: suma de las victorias de tus rivales, una vez por cada partida contra ellos">BUC</th><th>Pts</th></tr>
+          <tr><th>#</th><th id="thName">Nombre</th><th>PJ</th><th>G</th><th>P</th><th class="col-pf">PF</th><th class="col-pc">PC</th><th>DIF</th><th title="Buchholz: suma de las victorias de tus rivales, una vez por cada partida contra ellos">BUC</th><th>Pts</th></tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
@@ -212,12 +224,12 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionSt
 
 </main>
 
-<script src="js/swiss-engine.js?v=16"></script>
+<script src="js/swiss-engine.js?v=17"></script>
 <script>
 // Pantalla y motor deben ser de la misma versión. Si el teléfono trajo un
 // motor viejo guardado, se recarga una vez pidiendo los archivos nuevos.
 (function () {
-  var EXPECTED = 16, key = "domino_engine_reload";
+  var EXPECTED = 17, key = "domino_engine_reload";
   var got = window.SwissEngine && SwissEngine.ENGINE_VERSION;
   if (got !== EXPECTED) {
     var tried = false; try { tried = sessionStorage.getItem(key) === String(EXPECTED); } catch (e) {}
@@ -375,7 +387,7 @@ function render(force) {
     if (round.bench.length) {
       const bench = document.createElement("div");
       bench.className = "bench-note";
-      bench.innerHTML = `<span class="pill">Banco</span> ${round.bench.map(id => esc(E.nameOf(state, id))).join(", ")} — descansa esta ronda`;
+      bench.innerHTML = `<span class="pill">Banco</span> ${round.bench.map(id => esc(E.nameOf(state, id))).join(", ")} — ${round.bench.length > 1 ? "descansan" : "descansa"} esta ronda`;
       matchesEl.appendChild(bench);
     }
     for (const t of round.tables) matchesEl.appendChild(matchCard(state, t, false));
@@ -400,7 +412,7 @@ function render(force) {
     if (anyPlayed && i < 3 && !r.retired) tr.className = `rank-${i + 1}`;
     if (r.retired) tr.className = "retired";
     tr.innerHTML = `<td>${i + 1}</td><td><b>${esc(r.name)}</b>${r.retired ? ' <span class="muted">(ret.)</span>' : ""}</td>
-      <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td>${r.PF}</td><td>${r.PC}</td><td>${r.DIF}</td><td>${r.BUC}</td><td><b>${r.PTS}</b></td>`;
+      <td>${r.PJ}</td><td>${r.G}</td><td>${r.P}</td><td class="col-pf">${r.PF}</td><td class="col-pc">${r.PC}</td><td>${r.DIF}</td><td>${r.BUC}</td><td><b>${r.PTS}</b></td>`;
     tb.appendChild(tr);
   });
 }
@@ -410,6 +422,6 @@ setInterval(() => render(false), 15000);
 // El árbitro puede estar en otra pestaña del mismo navegador: refresco inmediato
 window.addEventListener("storage", e => { if (e.key === E.STORAGE_KEY) render(true); });
 </script>
-<div style="text-align:center;font-size:12px;color:#6b7aa6;padding:1rem 0">Creado por Usama Mizher</div>
+<div class="credit">Creado por Usama Mizher</div>
 </body>
 </html>
