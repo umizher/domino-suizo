@@ -1,6 +1,6 @@
 /* Service worker: network-first (sin caché del navegador) con fallback a caché.
  * Online siempre sirve lo último; sin internet la app sigue funcionando. */
-const CACHE = "domino-torneo-v22";
+const CACHE = "domino-torneo-v23";
 const ASSETS = [
   "./",
   "index.html",
@@ -32,9 +32,9 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   const nav = req.mode === "navigate";
   // Copia guardada: las páginas se buscan sin "?continuar" y similares;
-  // si no hay ninguna, el Inicio.
+  // si no hay ninguna, el árbitro (la entrada de la app).
   const fromCache = () => caches.match(req, { ignoreSearch: nav })
-    .then(hit => hit || (nav ? caches.match("index.html") : undefined));
+    .then(hit => hit || (nav ? caches.match("torneo.html") : undefined));
   e.respondWith(
     // cache: "no-cache" → siempre pregunta al servidor si hay versión nueva
     // (antes podía usar una copia guardada por el navegador hasta 10 minutos).

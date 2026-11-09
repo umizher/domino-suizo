@@ -9,15 +9,6 @@
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>Torneo de Dominó</title>
-  <script>
-  // La app siempre empieza en el Inicio (Continuar / Nuevo torneo). Al árbitro
-  // se entra desde ahí o desde los enlaces internos, que llevan ?continuar o
-  // ?modo=... Así el ícono del iPhone (que abre esta página) muestra el Inicio.
-  (function () {
-    var q = new URLSearchParams(location.search);
-    if (!q.has("continuar") && !q.has("modo") && !q.has("reset")) location.replace("index.html");
-  })();
-  </script>
   <style>
     :root {
       --bg: #04060e; --card-a: rgba(20, 28, 52, .6); --card-b: rgba(11, 16, 32, .6); --card2: #0a1020;
@@ -418,10 +409,10 @@
     <circle cx="20" cy="13" r="2.1" fill="#1a2440"/><circle cx="24" cy="16.5" r="2.1" fill="#1a2440"/><circle cx="28" cy="20" r="2.1" fill="#1a2440"/>
     <circle cx="20" cy="35" r="2.1" fill="#1a2440"/><circle cx="28" cy="29" r="2.1" fill="#1a2440"/>
   </svg>
-  <h2>Torneo de Dominó – Árbitro</h2>
+  <h2>Torneo de Dominó</h2>
   <div class="byline byline-lg">by <b>Usama Mizher</b></div>
   <div class="pin-note" id="pinNote" style="display:none">🔒 Se bloqueó tras 3 minutos sin uso</div>
-  <p>Ingresa la clave de árbitro</p>
+  <p>Ingresa la clave para continuar</p>
   <div class="pin-box">
     <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d0" />
     <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d1" />
@@ -484,7 +475,6 @@
     </span>
   </div>
   <div class="nav-tabs">
-    <a class="nav-tab" href="index.html">← Inicio</a>
     <a class="nav-tab" href="publico.html">Vista Pública</a>
     <span class="nav-tab active">Árbitro</span>
   </div>
