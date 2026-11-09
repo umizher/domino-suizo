@@ -9,6 +9,15 @@
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>Torneo de Dominó</title>
+  <script>
+  // La app siempre empieza en el Inicio (Continuar / Nuevo torneo). Al árbitro
+  // se entra desde ahí o desde los enlaces internos, que llevan ?continuar o
+  // ?modo=... Así el ícono del iPhone (que abre esta página) muestra el Inicio.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    if (!q.has("continuar") && !q.has("modo") && !q.has("reset")) location.replace("index.html");
+  })();
+  </script>
   <style>
     :root {
       --bg: #04060e; --card-a: rgba(20, 28, 52, .6); --card-b: rgba(11, 16, 32, .6); --card2: #0a1020;
@@ -598,6 +607,41 @@ function unlock() {
   document.getElementById("pinScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
   boot();
+  handleEntry();
+}
+
+/* ===== entrada desde el Inicio =====
+   ?continuar           → abre el torneo guardado.
+   ?modo=individual|parejas → torneo nuevo de ese modo. Con &nuevo=1 (ya hay
+   uno guardado) se pide confirmación y antes de borrar se guarda una
+   instantánea, recuperable con Restaurar. */
+let entryHandled = false;
+async function handleEntry() {
+  if (entryHandled) return;
+  entryHandled = true;
+  const q = new URLSearchParams(location.search);
+  const modo = q.get("modo");
+  const nuevo = q.has("nuevo");
+  // La dirección queda en ?continuar: recargar nunca repite la pregunta
+  history.replaceState(null, "", location.pathname + "?continuar");
+  if (modo !== "individual" && modo !== "parejas") return;
+  const modeName = m => (m === "individual" ? "Individual" : "Parejas");
+  if (state && nuevo) {
+    const how = E.tournamentPhase(state) === "finished" ? "terminado" : "en curso";
+    const ok = await confirmDialog("Empezar un torneo nuevo",
+      `Hay un torneo ${modeName(state.mode)} ${how} (ronda ${state.rounds.length} de ${state.maxRounds}).\n` +
+      `¿Borrarlo y empezar uno nuevo de ${modeName(modo)}?\nQueda una copia en Restaurar por si la necesitas.`,
+      { danger: true, confirmText: "Borrar y empezar" });
+    if (!ok) { toast(`Seguimos con el torneo ${modeName(state.mode)} guardado.`); return; }
+    snapshot(`Antes de empezar uno nuevo (${modeName(state.mode)})`);
+    clearStored();
+    state = null; viewRound = 0;
+    clearSetup();
+    renderAll();
+  }
+  if (!state) selectMode(modo);
+  else if (state.mode !== modo)
+    toast(`Hay un torneo ${modeName(state.mode)} en curso. Para empezar uno de ${modeName(modo)}, termínalo o toca Reset.`, 7000);
 }
 function tryUnlock() {
   if (getPin() === PIN) {
@@ -821,6 +865,9 @@ let pairsBuilder = [{ a: "", b: "" }, { a: "", b: "" }];
 
 function selectMode(m) {
   setupMode = m;
+  // Recordar el modo elegido mientras se llenan los nombres (si se recarga
+  // la página, no vuelve a Individual por su cuenta)
+  try { sessionStorage.setItem("domino_setup_mode", m); } catch {}
   document.getElementById("modeIndividual").classList.toggle("selected", m === "individual");
   document.getElementById("modeParejas").classList.toggle("selected", m === "parejas");
   document.getElementById("setupIndividual").style.display = m === "individual" ? "" : "none";
@@ -1616,6 +1663,11 @@ function renderAll() {
 
 function boot() {
   load();
+  if (!state) {
+    let m = null;
+    try { m = sessionStorage.getItem("domino_setup_mode"); } catch {}
+    if (m === "individual" || m === "parejas") selectMode(m);
+  }
   for (const id of ["tiebreakLabel1", "tiebreakLabel2", "tiebreakLabel3"])
     document.getElementById(id).textContent = E.TIEBREAK_LABEL;
   renderAll();
@@ -1624,7 +1676,7 @@ function boot() {
 /* ===== arranque ===== */
 (async () => {
   if (new URLSearchParams(location.search).has("reset")) {
-    history.replaceState(null, "", location.pathname);
+    history.replaceState(null, "", location.pathname + "?continuar");
     const ok = await confirmDialog("Borrar datos", "¿Borrar todos los datos del torneo?", { danger: true, confirmText: "Borrar" });
     if (ok) {
       clearStored();

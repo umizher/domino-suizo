@@ -100,6 +100,50 @@
     .byline b { font-weight: 800; background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .byline-lg { font-size: 16px; }
     .brand-text { display: flex; flex-direction: column; min-width: 0; }
+
+    /* ---- Tarjeta del torneo: Continuar / Nuevo (Individual · Parejas) ---- */
+    .app-card.t-card {
+      position: relative; overflow: hidden;
+      background: linear-gradient(180deg, var(--card-a), var(--card-b));
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-soft); border-radius: 22px;
+      padding: 24px 20px; width: 100%; max-width: 420px; color: var(--text);
+      display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 20px 50px rgba(1, 4, 14, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+    }
+    .app-card.t-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--grad); box-shadow: 0 0 16px rgba(34, 211, 238, .7);
+    }
+    .t-head { display: flex; gap: 14px; align-items: flex-start; }
+    .t-head .app-icon { font-size: 40px; }
+    .t-head .app-desc { margin-top: 4px; }
+    .t-continue {
+      display: flex; flex-direction: column; gap: 3px; text-decoration: none;
+      padding: 14px 16px; border-radius: 16px; color: #04101a;
+      background: var(--grad); box-shadow: 0 8px 26px rgba(34, 211, 238, .28);
+      transition: transform .15s, box-shadow .2s;
+    }
+    .t-continue[hidden] { display: none; }
+    .t-continue:active { transform: scale(.98); }
+    .t-continue-title { font-size: 18px; font-weight: 900; letter-spacing: -.2px; }
+    .t-continue-meta { font-size: 13px; font-weight: 700; opacity: .8; }
+    .t-new-label {
+      font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase;
+      color: var(--muted); margin-top: 2px;
+    }
+    .t-new { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .t-mode {
+      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;
+      padding: 16px 10px; border-radius: 16px; text-decoration: none; color: var(--text);
+      background: rgba(18, 26, 48, .7); border: 1px solid var(--border);
+      transition: border-color .2s, transform .15s, box-shadow .2s; min-width: 0;
+    }
+    .t-mode:hover { border-color: rgba(34, 211, 238, .6); box-shadow: 0 0 22px rgba(34, 211, 238, .18); }
+    .t-mode:active { transform: scale(.97); }
+    .t-mode-icon { font-size: 30px; line-height: 1.1; }
+    .t-mode-name { font-size: 17px; font-weight: 800; }
+    .t-mode-hint { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
 </style>
 </head>
 <body>
@@ -139,16 +183,73 @@ function checkPin(inp){
 
 <div class="apps">
 
-  <a class="app-card" href="torneo.html">
-    <div class="app-icon">🏆</div>
-    <div class="app-name">Torneo de Dominó</div>
-    <div class="app-desc">Individual (mesas de 4, 2 vs 2) o Parejas. Emparejamiento suizo que evita repetir compañeros y rivales, descansos por turnos, ronda bye para que todos jueguen parejo, compartir en WhatsApp y vista pública para proyectar desde este mismo equipo.</div>
-    <span class="tag">Árbitro</span>
-  </a>
+  <section class="app-card t-card" aria-label="Torneo de Dominó">
+    <div class="t-head">
+      <div class="app-icon">🏆</div>
+      <div>
+        <div class="app-name">Torneo de Dominó</div>
+        <div class="app-desc">Sistema suizo: evita repetir compañeros y rivales, descansos por turnos y ronda bye para que todos jueguen parejo.</div>
+      </div>
+    </div>
+
+    <a class="t-continue" id="continueBtn" href="torneo.html?continuar" hidden>
+      <span class="t-continue-title" id="continueTitle">▶ Continuar torneo</span>
+      <span class="t-continue-meta" id="continueMeta"></span>
+    </a>
+
+    <div class="t-new-label" id="newLabel">Nuevo torneo</div>
+    <div class="t-new">
+      <a class="t-mode" id="newIndividual" href="torneo.html?modo=individual">
+        <span class="t-mode-icon">👤</span>
+        <span class="t-mode-name">Individual</span>
+        <span class="t-mode-hint">Mesas de 4 · el compañero cambia cada ronda</span>
+      </a>
+      <a class="t-mode" id="newParejas" href="torneo.html?modo=parejas">
+        <span class="t-mode-icon">👥</span>
+        <span class="t-mode-name">Parejas</span>
+        <span class="t-mode-hint">Parejas fijas · 2 parejas por mesa</span>
+      </a>
+    </div>
+  </section>
 
 </div>
 
 <footer>Creado por Usama Mizher · Dominó</footer>
+
+<script src="js/swiss-engine.js?v=16"></script>
+<script>
+// Si hay un torneo guardado: botón "Continuar" con su resumen, y los botones
+// de "Nuevo torneo" piden confirmación (en el árbitro) antes de reemplazarlo.
+(function () {
+  var raw = null;
+  try { raw = JSON.parse(localStorage.getItem("domino_torneo_v3") || "null"); } catch (e) { raw = {}; }
+  if (!raw) return;
+  var btn = document.getElementById("continueBtn");
+  var meta = document.getElementById("continueMeta");
+  btn.hidden = false;
+  document.getElementById("newIndividual").href += "&nuevo=1";
+  document.getElementById("newParejas").href += "&nuevo=1";
+  try {
+    var E = window.SwissEngine;
+    var v = E.validateState(JSON.parse(JSON.stringify(raw)));
+    if (!v.ok) { meta.textContent = "Hay datos guardados: ábrelos para revisarlos"; return; }
+    var st = v.state;
+    var mode = st.mode === "individual" ? "Individual" : "Parejas";
+    var n = st.participants.filter(function (p) { return !p.ghost && p.active !== false; }).length;
+    var units = st.mode === "individual" ? (n + " jugadores") : (n + " parejas");
+    var ronda = st.rounds.length ? ("Ronda " + st.rounds.length + " de " + st.maxRounds + (st.byeRound ? " + bye" : "")) : "Sin rondas";
+    var phase = E.tournamentPhase(st);
+    if (phase === "finished") {
+      document.getElementById("continueTitle").textContent = "🏆 Ver torneo terminado";
+    }
+    var estado = { playing: "En juego", bye_pending: "Falta la ronda bye", bye_playing: "Jugando la ronda bye", finished: "Finalizado" }[phase] || "";
+    meta.textContent = [mode, ronda, units, estado].filter(Boolean).join(" · ");
+  } catch (e) {
+    meta.textContent = "Torneo guardado";
+  }
+})();
+</script>
+
 
 </body>
 </html>

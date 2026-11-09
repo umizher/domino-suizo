@@ -2,7 +2,7 @@
   "name": "Torneo de Dominó",
   "short_name": "Dominó",
   "description": "Torneos de dominó con sistema suizo: individual y parejas. Funciona sin internet.",
-  "start_url": "torneo.html",
+  "start_url": "index.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "any",
