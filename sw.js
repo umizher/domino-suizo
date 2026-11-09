@@ -1,6 +1,6 @@
 /* Service worker: network-first (sin caché del navegador) con fallback a caché.
  * Online siempre sirve lo último; sin internet la app sigue funcionando. */
-const CACHE = "domino-torneo-v19";
+const CACHE = "domino-torneo-v20";
 const ASSETS = [
   "./",
   "index.html",
