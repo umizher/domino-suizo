@@ -19,7 +19,7 @@
   const STORAGE_KEY = "domino_torneo_v3";
   // Versión del motor: las páginas cargan js/swiss-engine.js?v=N y comprueban
   // que coincida, para no mezclar una pantalla nueva con cálculos viejos en caché.
-  const ENGINE_VERSION = 17;
+  const ENGINE_VERSION = 18;
   const TIEBREAK_LABEL = "Ganadas → Buchholz → DIF → Puntos";
 
   // Reglas profesionales (FID): partidas a 200 puntos — si se pasan, se anotan
@@ -991,6 +991,22 @@
 
   /* ===================== mensaje para WhatsApp ===================== */
 
+  // Desempates del podio: para cada lugar del podio que terminó empatado en
+  // ganadas con el siguiente, qué criterio los separó (el mismo orden de
+  // computeStandings: Buchholz → DIF → puntos a favor). by = "total" si
+  // empataron en todo (la tabla los deja en orden alfabético).
+  function podiumTiebreaks(state) {
+    const podium = computeStandings(state).filter(r => !r.retired).slice(0, 3);
+    const out = [];
+    for (let i = 0; i + 1 < podium.length; i++) {
+      const a = podium[i], b = podium[i + 1];
+      if (a.PTS !== b.PTS) continue;
+      const by = a.BUC !== b.BUC ? "BUC" : a.DIF !== b.DIF ? "DIF" : a.PF !== b.PF ? "PF" : "total";
+      out.push({ place: i + 1, a, b, by });
+    }
+    return out;
+  }
+
   // Texto listo para pegar en un grupo de WhatsApp (*negrita* de WhatsApp):
   // resultados de la última ronda terminada, mesas de la ronda en juego
   // (si la hay), podio al finalizar y tabla de posiciones.
@@ -1043,11 +1059,30 @@
         lines.push("", "🏆 *Podio final*");
         rows.filter(r => !r.retired).slice(0, 3).forEach((r, i) =>
           lines.push(`${medals[i]} ${r.name} – ${r.G} ganada${r.G === 1 ? "" : "s"}`));
+        // Por qué quedó cada uno arriba del otro cuando empataron en ganadas
+        const ties = podiumTiebreaks(state);
+        if (ties.length) {
+          const sg = n => (n > 0 ? "+" : "") + n;
+          const gan = n => `${n} ganada${n === 1 ? "" : "s"}`;
+          lines.push("", "⚖️ *Desempates del podio*");
+          for (const { place, a, b, by } of ties) {
+            const head = `${medals[place - 1]} ${a.name} sobre ${b.name}: `;
+            if (by === "BUC")
+              lines.push(head + `los dos con ${gan(a.G)}; ${a.name} enfrentó rivales más fuertes (Buchholz ${a.BUC} vs ${b.BUC}).`);
+            else if (by === "DIF")
+              lines.push(head + `mismo Buchholz (${a.BUC}); ${a.name} tuvo mejor diferencia (${sg(a.DIF)} vs ${sg(b.DIF)}).`);
+            else if (by === "PF")
+              lines.push(head + `mismo Buchholz (${a.BUC}) y misma diferencia (${sg(a.DIF)}); ${a.name} anotó más puntos (${a.PF} vs ${b.PF}).`);
+            else
+              lines.push(`${medals[place - 1]} ${a.name} y ${b.name} empataron en todo (ganadas, Buchholz, diferencia y puntos): decidan ese lugar entre ustedes, por ejemplo con una partida extra.`);
+          }
+          lines.push("ℹ️ Orden: Ganadas → Buchholz → Diferencia → Puntos.", "Buchholz = suma de las victorias de tus rivales.");
+        }
       }
       lines.push("", "📊 *Posiciones*");
       rows.forEach((r, i) => {
         const dif = (r.DIF > 0 ? "+" : "") + r.DIF;
-        lines.push(`${i + 1}. ${r.name}${r.retired ? " (retirado)" : ""} – ${r.G}G ${r.P}P · DIF ${dif}`);
+        lines.push(`${i + 1}. ${r.name}${r.retired ? " (retirado)" : ""} – ${r.G}G ${r.P}P · BUC ${r.BUC} · DIF ${dif}`);
       });
     }
     return lines.join("\n");
@@ -1059,7 +1094,7 @@
     SCHEMA_VERSION, STORAGE_KEY, ENGINE_VERSION, TIEBREAK_LABEL, MODES, DEFAULT_CONFIG,
     createTournament, validateState,
     addParticipant, canAddParticipant, renameParticipant, setParticipantActive,
-    generateNextRound, generateByeRound, undoLastRound, byeForecast,
+    generateNextRound, generateByeRound, undoLastRound, byeForecast, podiumTiebreaks,
     canGenerateNextRound, canGenerateByeRound,
     setResult, computeStandings, tournamentPhase, toCSV, toShareText,
     roundIsComplete, tableScored, parseScore, scoreStatus,

@@ -154,12 +154,16 @@
     .byline b { font-weight: 800; background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .byline-lg { font-size: 16px; }
     .brand-text { display: flex; flex-direction: column; min-width: 0; }
+    .pin-note { color:#fcd34d; font-size:13px; font-weight:600; text-align:center; }
 </style>
+<script src="js/autolock.js?v=18"></script>
 </head>
 <body>
-<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Torneo de Dominó</div><div class="byline byline-lg">by <b>Usama Mizher</b></div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div></div>
-<script>(function(){if(sessionStorage.getItem("domino_pin_ok")==="1")document.getElementById("pinOverlay").style.display="none";})()
-function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionStorage.setItem("domino_pin_ok","1");document.getElementById("pinOverlay").style.display="none";}else{document.getElementById("pinError").textContent="Clave incorrecta";inp.value="";setTimeout(function(){document.getElementById("pinError").textContent="";},2000);}}}</script>
+<div id="pinOverlay"><div style="font-size:48px">🁫</div><div style="font-size:22px;font-weight:800;color:#fff">Torneo de Dominó</div><div class="byline byline-lg">by <b>Usama Mizher</b></div><div class="pin-note" id="pinNote" style="display:none">🔒 Se bloqueó tras 3 minutos sin uso</div><div style="color:#9fb1db;font-size:14px">Ingresa la clave para continuar</div><input type="password" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" oninput="checkPin(this)"><div id="pinError"></div></div>
+<script>(function(){if(sessionStorage.getItem("domino_pin_ok")==="1")document.getElementById("pinOverlay").style.display="none";else if(DominoLock.lockedByTime())document.getElementById("pinNote").style.display="";})()
+// Bloqueo por tiempo: vuelve la pantalla de clave
+DominoLock.onLock(function(){var i=document.getElementById("pinInput");i.value="";i.blur();document.getElementById("pinNote").style.display="";document.getElementById("pinOverlay").style.display="";});
+function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionStorage.setItem("domino_pin_ok","1");DominoLock.unlocked();document.getElementById("pinNote").style.display="none";document.getElementById("pinOverlay").style.display="none";}else{document.getElementById("pinError").textContent="Clave incorrecta";inp.value="";setTimeout(function(){document.getElementById("pinError").textContent="";},2000);}}}</script>
 
 <header>
   <div class="brand">
@@ -224,12 +228,12 @@ function checkPin(inp){if(inp.value.length===4){if(inp.value==="1810"){sessionSt
 
 </main>
 
-<script src="js/swiss-engine.js?v=17"></script>
+<script src="js/swiss-engine.js?v=18"></script>
 <script>
 // Pantalla y motor deben ser de la misma versión. Si el teléfono trajo un
 // motor viejo guardado, se recarga una vez pidiendo los archivos nuevos.
 (function () {
-  var EXPECTED = 17, key = "domino_engine_reload";
+  var EXPECTED = 18, key = "domino_engine_reload";
   var got = window.SwissEngine && SwissEngine.ENGINE_VERSION;
   if (got !== EXPECTED) {
     var tried = false; try { tried = sessionStorage.getItem(key) === String(EXPECTED); } catch (e) {}

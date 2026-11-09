@@ -1031,6 +1031,53 @@
     }
   }
 
+  section("WhatsApp: BUC en cada posición y desempates del podio explicados");
+  {
+    const seen = { BUC: 0, DIF: 0, PF: 0, total: 0 };
+    let finals = 0, withBlock = 0;
+    for (let k = 0; k < 400; k++) {
+      const mode = k % 3 ? "individual" : "parejas";
+      const n = mode === "individual" ? 8 + (k % 23) : 4 + (k % 12);
+      const R = 4 + (k % 2);
+      const rng = E._mulberry32(5100 + k);
+      const st = E.createTournament({ mode, maxRounds: R, participants: mkParticipants(mode, n) }, rng);
+      while (E.canGenerateNextRound(st).ok) {
+        const { round } = E.generateNextRound(st, rng);
+        scoreAllTables(round.tables, rng);
+        if (st.rounds.length < R) {
+          const mid = E.toShareText(st);
+          assert(!mid.includes("Desempates"), `${mode} ${n}: el bloque de desempates solo va en el mensaje final`);
+        }
+      }
+      if (E.canGenerateByeRound(st).ok) { E.generateByeRound(st, rng); scoreAllTables(st.byeRound.tables, rng); }
+      if (E.tournamentPhase(st) !== "finished") continue;
+      finals++;
+      const txt = E.toShareText(st);
+      const rows = E.computeStandings(st);
+      rows.forEach((r, i) => assert(txt.includes(`${i + 1}. ${r.name} – ${r.G}G ${r.P}P · BUC ${r.BUC} · DIF `), `${mode} ${n}: falta BUC en la posición ${i + 1}`));
+      const pod = rows.filter(r => !r.retired).slice(0, 3);
+      const ties = E.podiumTiebreaks(st);
+      // Cada par del podio empatado en ganadas aparece, con el primer criterio que los separa
+      for (let i = 0; i + 1 < pod.length; i++) {
+        const a = pod[i], b = pod[i + 1], tie = ties.find(x => x.place === i + 1);
+        if (a.G !== b.G) { assert(!tie, `${mode} ${n}: lugar ${i + 1} decidido por ganadas no debe explicarse`); continue; }
+        const want = a.BUC !== b.BUC ? "BUC" : a.DIF !== b.DIF ? "DIF" : a.PF !== b.PF ? "PF" : "total";
+        assert(tie && tie.by === want && tie.a.id === a.id && tie.b.id === b.id, `${mode} ${n}: desempate del lugar ${i + 1} mal identificado`);
+        if (tie) seen[tie.by]++;
+        if (want === "BUC") assert(a.BUC > b.BUC && txt.includes(`${a.name} sobre ${b.name}: los dos con ${a.G} ganada`) && txt.includes(`(Buchholz ${a.BUC} vs ${b.BUC})`), `${mode} ${n}: texto del desempate por Buchholz`);
+        if (want === "DIF") assert(a.DIF > b.DIF && txt.includes(`${a.name} sobre ${b.name}: mismo Buchholz (${a.BUC})`), `${mode} ${n}: texto del desempate por diferencia`);
+        if (want === "PF") assert(a.PF > b.PF && txt.includes(`anotó más puntos (${a.PF} vs ${b.PF})`), `${mode} ${n}: texto del desempate por puntos`);
+      }
+      assert(txt.includes("Desempates del podio") === ties.length > 0, `${mode} ${n}: el bloque aparece solo si hubo empate en el podio`);
+      if (ties.length) {
+        withBlock++;
+        assert(txt.indexOf("Podio final") < txt.indexOf("Desempates del podio") && txt.indexOf("Desempates del podio") < txt.indexOf("Posiciones"), `${mode} ${n}: el bloque va entre el podio y las posiciones`);
+        assert(txt.includes("Buchholz = suma de las victorias de tus rivales."), `${mode} ${n}: falta explicar qué es el Buchholz`);
+      }
+    }
+    assert(finals > 300 && withBlock > 100 && seen.BUC > 50 && seen.DIF > 10, `cobertura de desempates insuficiente: ${finals} finales, ${withBlock} con bloque, ${JSON.stringify(seen)}`);
+  }
+
   /* ---------- resumen ---------- */
   out("");
   out(`RESULTADO: ${passed} OK, ${failed} fallos`);

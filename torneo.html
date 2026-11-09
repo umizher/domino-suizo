@@ -81,6 +81,7 @@
     }
     .pin-digit:focus { border-color: var(--acc1); outline: none; box-shadow: 0 0 0 4px rgba(34, 211, 238, .16), 0 0 26px rgba(34, 211, 238, .35); transform: translateY(-2px); }
     .pin-error { color: #ff7b7b; font-size: 14px; min-height: 20px; }
+    .pin-note { color: #fcd34d; font-size: 13px; font-weight: 600; text-align: center; }
 
     #app { display: none; }
 
@@ -403,6 +404,7 @@
     .brand-text { display: flex; flex-direction: column; min-width: 0; }
     .credit { text-align: center; font-size: 12px; color: #8fa3c8; padding: 1rem 0; }
 </style>
+<script src="js/autolock.js?v=18"></script>
 </head>
 <body>
 
@@ -418,6 +420,7 @@
   </svg>
   <h2>Torneo de Dominó – Árbitro</h2>
   <div class="byline byline-lg">by <b>Usama Mizher</b></div>
+  <div class="pin-note" id="pinNote" style="display:none">🔒 Se bloqueó tras 3 minutos sin uso</div>
   <p>Ingresa la clave de árbitro</p>
   <div class="pin-box">
     <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="d0" />
@@ -622,12 +625,12 @@
 <div id="toast"></div>
 </div><!-- /app -->
 
-<script src="js/swiss-engine.js?v=17"></script>
+<script src="js/swiss-engine.js?v=18"></script>
 <script>
 // Pantalla y motor deben ser de la misma versión. Si el teléfono trajo un
 // motor viejo guardado, se recarga una vez pidiendo los archivos nuevos.
 (function () {
-  var EXPECTED = 17, key = "domino_engine_reload";
+  var EXPECTED = 18, key = "domino_engine_reload";
   var got = window.SwissEngine && SwissEngine.ENGINE_VERSION;
   if (got !== EXPECTED) {
     var tried = false; try { tried = sessionStorage.getItem(key) === String(EXPECTED); } catch (e) {}
@@ -656,10 +659,27 @@ const digits = [0, 1, 2, 3].map(i => document.getElementById(`d${i}`));
 function getPin() { return digits.map(d => d.value).join(""); }
 function unlock() {
   document.getElementById("pinScreen").style.display = "none";
+  document.getElementById("pinNote").style.display = "none";
   document.getElementById("app").style.display = "block";
   boot();
   handleEntry();
 }
+// Bloqueo por tiempo (3 minutos sin uso): vuelve la pantalla de clave.
+// Primero se guarda lo que se estaba escribiendo (al salir del campo) y se
+// cierra cualquier diálogo abierto, que si no quedaría encima de la clave.
+function lockApp() {
+  const a = document.activeElement;
+  if (a && a.blur) a.blur();
+  if (dlg.overlay.classList.contains("open")) closeDialog(null);
+  if (typeof setMenu === "function") setMenu(false);
+  document.getElementById("app").style.display = "none";
+  document.getElementById("pinScreen").style.display = "";
+  document.getElementById("pinNote").style.display = "";
+  document.getElementById("pinError").textContent = "";
+  digits.forEach(d => d.value = "");
+  window.scrollTo(0, 0);
+}
+DominoLock.onLock(lockApp);
 
 /* ===== entrada desde el Inicio =====
    ?continuar           → abre el torneo guardado.
@@ -697,6 +717,8 @@ async function handleEntry() {
 function tryUnlock() {
   if (getPin() === PIN) {
     sessionStorage.setItem(PIN_SESSION_KEY, "1");
+    DominoLock.unlocked();
+    digits.forEach(d => d.value = "");
     unlock();
   } else {
     document.getElementById("pinError").textContent = "Clave incorrecta. Intenta de nuevo.";
@@ -1771,7 +1793,10 @@ function boot() {
     }
   }
   if (sessionStorage.getItem(PIN_SESSION_KEY) === "1") unlock();
-  else digits[0].focus();
+  else {
+    if (DominoLock.lockedByTime()) document.getElementById("pinNote").style.display = "";
+    digits[0].focus();
+  }
 })();
 </script>
 <div class="credit">Creado por Usama Mizher</div>

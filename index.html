@@ -144,24 +144,37 @@
     .t-mode-icon { font-size: 30px; line-height: 1.1; }
     .t-mode-name { font-size: 17px; font-weight: 800; }
     .t-mode-hint { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+    .pin-note { color:#fcd34d; font-size:13px; font-weight:600; text-align:center; }
 </style>
+<script src="js/autolock.js?v=18"></script>
 </head>
 <body>
 
 <div id="pinOverlay">
   <div style="font-size:48px">🁫</div>
-  <div style="font-size:22px;font-weight:800;color:#fff">Dominó</div>
+  <div style="font-size:22px;font-weight:800;color:#fff">Torneo de Dominó</div>
   <div class="byline byline-lg">by <b>Usama Mizher</b></div>
+  <div class="pin-note" id="pinNote" style="display:none">🔒 Se bloqueó tras 3 minutos sin uso</div>
   <div style="color:#93a4cc;font-size:14px">Ingresa la clave para continuar</div>
-  <input type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)">
+  <input type="password" id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off" oninput="checkPin(this)">
   <div id="pinError"></div>
 </div>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
-(function(){ if(sessionStorage.getItem("domino_pin_ok")==="1") document.getElementById("pinOverlay").style.display="none"; })();
+(function(){
+  if(sessionStorage.getItem("domino_pin_ok")==="1") document.getElementById("pinOverlay").style.display="none";
+  else if(DominoLock.lockedByTime()) document.getElementById("pinNote").style.display="";
+})();
+// Bloqueo por tiempo: vuelve la pantalla de clave
+DominoLock.onLock(function(){
+  var a=document.activeElement; if(a&&a.blur) a.blur();
+  var inp=document.getElementById("pinInput"); inp.value="";
+  document.getElementById("pinNote").style.display="";
+  document.getElementById("pinOverlay").style.display="";
+});
 function checkPin(inp){
   if(inp.value.length>=4){
-    if(inp.value==="1810"){ sessionStorage.setItem("domino_pin_ok","1"); document.getElementById("pinOverlay").style.display="none"; }
+    if(inp.value==="1810"){ sessionStorage.setItem("domino_pin_ok","1"); DominoLock.unlocked(); document.getElementById("pinNote").style.display="none"; document.getElementById("pinOverlay").style.display="none"; }
     else { document.getElementById("pinError").textContent="Clave incorrecta"; inp.value=""; setTimeout(function(){ document.getElementById("pinError").textContent=""; },2000); }
   }
 }
@@ -216,7 +229,7 @@ function checkPin(inp){
 
 <footer>Creado por Usama Mizher</footer>
 
-<script src="js/swiss-engine.js?v=17"></script>
+<script src="js/swiss-engine.js?v=18"></script>
 <script>
 // Si hay un torneo guardado: botón "Continuar" con su resumen, y los botones
 // de "Nuevo torneo" piden confirmación (en el árbitro) antes de reemplazarlo.
